@@ -2,173 +2,116 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/png" href="./favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quiniela Los Pipis — Mundial 2026</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
-  <link rel="stylesheet" href="style.css?v=champion-banner-countdowns">
+  <title>La Porra del Mundial 2026</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
 </head>
 <body>
-
-  <header>
-    <span class="lks-badge" title="Edición Los Pipis">Pipi Mundial 2026</span>
-    <h1>⚽ Pipi Quiniela — Mundial 2026 ⚽</h1>
-    <p class="subtitle">La quiniela oficial de los Pipis. Pronostica, compite y demuestra quién sabe realmente de fútbol.</p>
-
-    <div class="countdowns" id="countdowns">
-      <div class="countdown-box">
-        <div class="countdown-label">⏳ Cierre de apuestas</div>
-        <div class="countdown-time" id="cdBet">--</div>
-      </div>
-      <div class="countdown-box">
-        <div class="countdown-label">⚽ Empieza el Mundial</div>
-        <div class="countdown-time" id="cdKick">--</div>
-      </div>
-    </div>
-  </header>
-
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="predict">&#128202; Apostar</button>
-    <button class="tab-btn" data-tab="leaderboard">&#127942; Ranking</button>
-    <a href="https://www.fifa.com/es/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures?country=ES&wtw-filter=ALL">
-      <button class="tab-btn">📅 Calendario</button>
-    </a>
-  </nav>
-
-  <div id="tab-predict" class="tab-content active">
-    <div class="container">
-
-      <div class="toolbar-btns">
-        <button class="toolbar-btn" id="btnReset">&#128260; Limpiar todo (luego no vale arrepentirse)</button>
-        <button type="button" id="btnHowToPlay" class="toolbar-btn">🎮 Cómo se juega</button>
-        <button class="toolbar-btn" id="btnScoringHelp">❓ Cómo se puntúa</button>
-        <button type="button" id="btnPrizes" class="toolbar-btn">💰 Premios</button>
-      </div>
-
-      <h2 class="section-title">&#127758; Fase de grupos</h2>
-      <p class="note-text">
-        Arrastra las selecciones (o usa las flechas ▲▼) para colocar cada grupo en el orden que crees que va a quedar.
-        <strong>1º y 2º pasan directos</strong>; <strong>3º entra en la lucha por ser uno de los mejores terceros</strong>.
-      </p>
-      <div class="groups-grid" id="groupsGrid"></div>
-
-      <h2 class="section-title">&#127919; Quiniela 1X2 (punto extra)</h2>
-      <p class="note-text">
-        3 partidos sorteados de la fase de grupos (¡y uno de <strong>España</strong> de regalo!).
-        Marca <strong>1</strong> si gana el equipo local, <strong>X</strong> si crees que empatan
-        o <strong>2</strong> si gana el equipo visitante.
-      </p>
-      <div id="quiniela1x2Panel"></div>
-
-      <h2 class="section-title">🥉 Mejores terceros</h2>
-      <p class="note-text">
-        Cuando hayas ordenado los grupos, aquí aparecerán los 12 terceros. Arrástralos para decidir cuáles son los
-        <strong>8 que clasifican</strong> a dieciseisavos. Los 4 últimos se quedarán fuera.
-      </p>
-      <div id="bestThirdsPanel"></div>
-
-      <h2 class="section-title">🥊 Eliminatorias</h2>
-      <p class="note-text">
-        Completa el cuadro eliminatorio hasta coronar al campeón del mundo. Aquí es donde se ganan los puntos importantes.
-      </p>
-      <div class="bracket-wrapper">
-        <div class="bracket" id="bracketContainer"></div>
-      </div>
-
-      <h2 class="section-title">&#127942; Premios del Mundial</h2>
-      <p class="note-text">
-        Elige quién se llevará los galardones del torneo. Puedes buscar por nombre o país; el Guante de Oro solo admite porteros.
-      </p>
-      <div class="awards-section">
-
-        <div class="award-row">
-          <label>🥇 Máximo Goleador (10pt):</label>
-          <select id="awardTopScorer" class="award-select" data-award-kind="player"></select>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>🏆 La Porra del Mundial 2026</h1>
+      <p class="subtitle">Predice los resultados exactos de todos los partidos y la fase de eliminatoria</p>
+      <div class="countdowns">
+        <div class="countdown-box">
+          <span class="countdown-label">Cierre de apuestas</span>
+          <span id="cdBet" class="countdown-value">--</span>
         </div>
-
-        <div class="award-row">
-          <label>🎯 Máximo Asistente (5pt):</label>
-          <select id="awardTopAssister" class="award-select" data-award-kind="player"></select>
+        <div class="countdown-box">
+          <span class="countdown-label">Inicio del Mundial</span>
+          <span id="cdKick" class="countdown-value">--</span>
         </div>
-
-        <div class="award-row">
-          <label>🧤 Guante de Oro (5pt):</label>
-          <select id="awardGoldenGlove" class="award-select" data-award-kind="player"></select>
-        </div>
-
-        <div class="award-row">
-          <label>⚽ Equipo Más Goleador (5pt):</label>
-          <select id="awardTopScoringTeam" class="award-select" data-award-kind="team"></select>
-        </div>
-
-        <div class="award-row">
-          <label>🥅 Equipo Más Goleado (8pt):</label>
-          <select id="awardMostConcededTeam" class="award-select" data-award-kind="team"></select>
-        </div>
-
-      <div class="submit-section">
-        <button class="submit-btn" id="btnSubmit">&#9917; ¡A por la gloria!</button>
       </div>
+    </header>
 
-    </div>
+    <main class="app-main">
+      <section class="section groups-section">
+        <h2>📋 Fase de Grupos</h2>
+        <p class="section-hint">Introduce el resultado exacto de cada partido. La clasificación se calcula automáticamente.</p>
+        <div id="groupsGrid" class="groups-grid"></div>
+      </section>
+
+      <section class="section best-thirds-section">
+        <h2>🥉 Mejores Terceros</h2>
+        <p class="section-hint">Los 8 mejores terceros se clasifican a dieciseisavos.</p>
+        <div id="bestThirdsPanel" class="best-thirds-panel"></div>
+        <div id="thirdPlacePanel" class="third-place-panel"></div>
+      </section>
+
+      <section class="section quiniela-section">
+        <h2>⚽ Resultados Exactos</h2>
+        <p class="section-hint">Introduce el marcador exacto de cada partido de grupos.</p>
+        <div id="quiniela1x2Panel" class="quiniela1x2-panel"></div>
+      </section>
+
+      <section class="section knockout-section">
+        <h2>🏆 Fase de Eliminatorias</h2>
+        <p class="section-hint">Selecciona el ganador de cada partido de eliminatoria.</p>
+        <div id="knockoutPanel" class="knockout-panel"></div>
+      </section>
+
+      <section class="section submit-section">
+        <button id="submitBtn" class="submit-btn">📤 Enviar Predicción</button>
+        <p class="submit-hint">Una vez enviada, no podrás modificar tu predicción.</p>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Datos de <a href="https://github.com/openfootball/worldcup.json" target="_blank">openfootball/worldcup.json</a></p>
+    </footer>
   </div>
 
-  <div id="tab-leaderboard" class="tab-content">
-    <div class="container">
-      <h2 class="section-title">&#127942; Ranking</h2>
-      <p class="note-text">
-        Consulta la clasificación y descubre quién está demostrando saber más de fútbol.
-      </p>
-
-      <div id="leaderboardContent">
-        <p class="note-text" style="margin-top:20px;">Cargando...</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="prediction-modal-overlay" id="predictionModal" style="display:none;">
-    <div class="prediction-modal">
-      <button class="prediction-modal-close" id="closePredictionModal">×</button>
-      <div id="predictionViewer"></div>
-    </div>
-  </div>
-
-  <div class="loading-overlay" id="loadingOverlay" style="display:none;">
-    <span class="ball-spinner">&#9917;</span>
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
     <p id="loadingText">Cargando...</p>
   </div>
 
-  <div id="toastContainer"></div>
+  <div id="toastContainer" class="toast-container"></div>
+  <div id="confettiContainer" class="confetti-container"></div>
 
-  <div class="confetti-container" id="confettiContainer"></div>
-
-  <script src="third_place_table.js?v=group-order-drag-and-new-awards"></script>
-  <script src="results.js?v=simulacion-realista-grupos"></script>
-  <script src="app.js?v=euskadi-countdowns"></script>
-
-  <div class="name-modal-overlay" id="nameModal" style="display:none;">
-    <div class="name-modal">
-      <h3>¡Ya casi está!</h3>
-      <p>Introduce tu nombre y apellidos</p>
-
-      <input
-        type="text"
-        id="playerNameInput"
-        class="name-modal-input"
-        placeholder="Ej. Juan Pérez García"
-        maxlength="40"
-      >
-
-      <div class="name-modal-actions">
-        <button type="button" class="toolbar-btn" id="cancelNameSubmit">Paso, ya lo haré luego</button>
-        <button type="button" class="submit-btn" id="confirmNameSubmit">Enviar pronóstico</button>
+  <!-- Modal: Group Results -->
+  <div id="groupResultsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="groupResultsModalTitle">Resultados del Grupo</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div id="groupResultsModalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="groupResultsModalConfirm" class="modal-btn confirm-btn">Confirmar</button>
       </div>
     </div>
   </div>
 
-  <footer class="lks-footer">
-    Hecho con cariño (y mucho café) para <strong>los Pipis</strong>. Que gane el mejor... o el que tenga más suerte.
-  </footer>
+  <!-- Modal: Best Thirds -->
+  <div id="bestThirdsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Mejores Terceros</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div id="bestThirdsModalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="bestThirdsModalConfirm" class="modal-btn confirm-btn">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- Modal: Knockout Match -->
+  <div id="knockoutMatchModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="knockoutMatchModalTitle">Partido de Eliminatoria</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div id="knockoutMatchModalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="knockoutMatchModalConfirm" class="modal-btn confirm-btn">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="third_place_table.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
