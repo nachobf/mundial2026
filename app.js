@@ -761,6 +761,7 @@ function renderQuiniela1x2() {
           <span class="match-date">${dateLabel ? escapeHtml(dateLabel) : ''}</span>
         </div>
         <div class="quiniela-match-teams">
+          <span class="team-flag ${getTeamFlagClass(m.team1)}"></span>
           <span class="team-name-input">${escapeHtml(m.team1)}</span>
           <div class="score-inputs">
             <input type="number" min="0" max="20" class="score-input team1-goals" 
@@ -772,6 +773,7 @@ function renderQuiniela1x2() {
                    placeholder="0" data-key="${m.key}" data-team="2">
           </div>
           <span class="team-name-input">${escapeHtml(m.team2)}</span>
+          <span class="team-flag ${getTeamFlagClass(m.team2)}"></span>
         </div>
         <div class="quiniela-1x2-display" id="1x2-${m.key}">
           ${get1x2FromResult(result)}
