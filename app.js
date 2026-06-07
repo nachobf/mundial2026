@@ -1,9 +1,8 @@
 /* ============================================================
  2026 FIFA World Cup Prediction Game - app.js
- Data fetched from openfootball/worldcup.json
  ============================================================ */
 
-const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
+const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026';
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
@@ -17,7 +16,7 @@ function isSubmissionClosed() {
 
 const puntuaciones = {
   grupos: {
-    posicion: { primero: 5, segundo: 5, tercero: 5, cuarto: 0 },
+    posicion: { primero: 5, segundo: 5, tercero: 5, cuarto: 5 },
     mejorTercero: 1,
     resultadoExacto: 5,
     quiniela1x2: 1
@@ -183,7 +182,7 @@ let state = {
   groupMatchResults: {}, knockoutResults: {}, matchTeams: {}
 };
 
-const LOCAL_STORAGE_VERSION = '9';
+const LOCAL_STORAGE_VERSION = '10';
 const LOCAL_STORAGE_VERSION_KEY = 'wc2026_version';
 const LOCAL_STORAGE_PICKS_KEY = 'wc2026_picks';
 let localSaveTimer = null;
@@ -268,7 +267,7 @@ function restoreLocalPrediction() {
 
 async function loadData() {
   try {
-    const resp = await fetch(DATA_SRC+'/worldcup.json');
+    const resp = await fetch(DATA_SRC + '/worldcup.json');
     const data = await resp.json();
     TEAMS_BY_GROUP = {};
     const seen = {}, done = {};
@@ -1008,10 +1007,11 @@ function openKnockoutMatchModal(matchNum, round) {
   modal.style.display = 'flex';
 }
 
+// ---- SCORING ----
 function calculatePlayerScore(player, real) {
   let score = 0;
   const details = [];
-  // Fase de grupos - posiciones
+  // Fase de grupos - posiciones (1º, 2º, 3º y 4º = 5 pts cada uno)
   GROUP_NAMES.forEach(group => {
     const predicted = player.groups?.[group] || [];
     const realOrder = real.groups?.[group] || [];
@@ -1168,13 +1168,23 @@ function getMatchLoserFromData(matchNum, kr, mt) {
   return null;
 }
 
+// ---- LEADERBOARD (sin depender de resultados reales) ----
 function calculateLeaderboard() {
   const players = parseLeaderboardCSV();
   const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
   if (!players.length) return [];
+
+  // Si no hay resultados reales (REAL_RESULTS vacio), mostrar 0 puntos pero listar participantes
+  const hasRealResults = real.groups && Object.keys(real.groups).length > 0 && 
+                         real.groupMatchResults && Object.keys(real.groupMatchResults).length > 0;
+
   return players.map(player => {
-    const result = calculatePlayerScore(player, real);
-    return { name: player.name, score: result.score, details: result.details };
+    if (hasRealResults) {
+      const result = calculatePlayerScore(player, real);
+      return { name: player.name, score: result.score, details: result.details, hasDetails: true };
+    } else {
+      return { name: player.name, score: 0, details: [], hasDetails: false };
+    }
   }).sort((a, b) => b.score - a.score);
 }
 
@@ -1204,19 +1214,36 @@ function renderLeaderboard() {
     container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavia.</p>';
     return;
   }
+
+  const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
+  const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
+
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
+
   leaderboard.forEach((entry, index) => {
     const row = document.createElement('div');
     row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
     row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
       '<span class="leaderboard-name">' + escapeHtml(entry.name) + '</span>' +
       '<span class="leaderboard-score">' + entry.score + ' pts</span>';
+
+    // Siempre permitir ver la prediccion del participante, aunque no haya resultados reales
     row.addEventListener('click', () => showPlayerPrediction(entry));
     table.appendChild(row);
   });
+
   container.innerHTML = '';
   container.appendChild(table);
+
+  // Mensaje informativo si no hay resultados reales todavia
+  if (!hasRealResults) {
+    const msg = document.createElement('p');
+    msg.className = 'note-text';
+    msg.style.marginTop = '16px';
+    msg.textContent = 'El torneo aun no ha comenzado. Las puntuaciones se calcularan cuando haya resultados reales. Haz clic en cualquier participante para ver su prediccion.';
+    container.appendChild(msg);
+  }
 }
 
 function showPlayerPrediction(entry) {
@@ -1224,9 +1251,23 @@ function showPlayerPrediction(entry) {
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
   title.textContent = 'Prediccion de ' + escapeHtml(entry.name);
-  viewer.innerHTML = '<p class="note-text">Puntuacion: ' + entry.score + ' puntos</p>';
-  // Mostrar detalles de puntuacion
-  if (entry.details && entry.details.length) {
+  viewer.innerHTML = '';
+
+  const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
+  const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
+
+  // Info de puntuacion
+  const scoreDiv = document.createElement('div');
+  scoreDiv.className = 'prediction-score-info';
+  if (hasRealResults) {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + entry.score + ' puntos</strong></p>';
+  } else {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aun no ha comenzado)</p>';
+  }
+  viewer.appendChild(scoreDiv);
+
+  // Si hay detalles de puntuacion, mostrarlos
+  if (entry.hasDetails && entry.details && entry.details.length) {
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'scoring-details';
     const grouped = {};
@@ -1262,10 +1303,61 @@ function showPlayerPrediction(entry) {
     });
     viewer.appendChild(detailsDiv);
   }
+
+  // Mostrar prediccion del participante (grupos y eliminatorias)
+  const predDiv = document.createElement('div');
+  predDiv.className = 'prediction-preview';
+  predDiv.innerHTML = '<h4>Prediccion completa</h4>';
+
+  // Grupos
+  if (entry.groups) {
+    const groupsDiv = document.createElement('div');
+    groupsDiv.className = 'prediction-groups';
+    Object.keys(entry.groups).forEach(g => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'prediction-group';
+      const teams = entry.groups[g] || [];
+      groupDiv.innerHTML = '<strong>Grupo ' + g + ':</strong> ' + teams.map(t => escapeHtml(t)).join(', ');
+      groupsDiv.appendChild(groupDiv);
+    });
+    predDiv.appendChild(groupsDiv);
+  }
+
+  // Eliminatorias
+  if (entry.knockout && entry.knockout.matches) {
+    const koDiv = document.createElement('div');
+    koDiv.className = 'prediction-knockout';
+    koDiv.innerHTML = '<h4>Eliminatorias</h4>';
+    const rounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
+    const roundNames = {
+      round32: 'Dieciseisavos', round16: 'Octavos', quarterfinals: 'Cuartos',
+      semifinals: 'Semis', thirdPlace: '3er puesto', final: 'Final'
+    };
+    rounds.forEach(round => {
+      const matches = entry.knockout.matches[round] || [];
+      if (matches.length) {
+        const roundDiv = document.createElement('div');
+        roundDiv.className = 'prediction-round';
+        roundDiv.innerHTML = '<strong>' + (roundNames[round] || round) + ':</strong>';
+        matches.forEach(m => {
+          if (m.winner) {
+            const matchDiv = document.createElement('div');
+            matchDiv.className = 'prediction-match';
+            matchDiv.textContent = (m.team1 || '?') + ' vs ' + (m.team2 || '?') + ' -> ' + m.winner;
+            roundDiv.appendChild(matchDiv);
+          }
+        });
+        koDiv.appendChild(roundDiv);
+      }
+    });
+    predDiv.appendChild(koDiv);
+  }
+
+  viewer.appendChild(predDiv);
   modal.style.display = 'flex';
 }
 
-// ---- Tabs ----
+// ---- TABS ----
 function initTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1279,7 +1371,7 @@ function initTabs() {
   });
 }
 
-// ---- Submit / Reset ----
+// ---- SUBMIT / RESET ----
 function buildPayload() {
   const knockoutMatches = {};
   const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
@@ -1311,9 +1403,6 @@ function submitPrediction() {
     });
   });
   if (missingKO.length) { showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); return; }
-  const payload = buildPayload();
-  const json = JSON.stringify(payload);
-  if (json.length > 1950) { showToast('La prediccion es demasiado larga. Contacta al administrador.', true); return; }
   document.getElementById('nameModal').style.display = 'flex';
 }
 
@@ -1351,7 +1440,7 @@ function resetAll() {
   showToast('Prediccion reiniciada.');
 }
 
-// ---- Helpers ----
+// ---- HELPERS ----
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 function escapeHtml(text) {
@@ -1368,7 +1457,7 @@ async function loadLeaderboardCSV() {
   } catch (e) { console.warn('Could not load leaderboard CSV:', e); return ''; }
 }
 
-// ---- Init ----
+// ---- INIT ----
 async function init() {
   showLoading('Cargando datos del Mundial 2026...');
   const loaded = await loadData();
@@ -1390,7 +1479,7 @@ async function init() {
   if (isSubmissionClosed()) showToast('El plazo de envio de predicciones ha cerrado.', true);
 }
 
-// ---- Event Listeners ----
+// ---- EVENT LISTENERS ----
 document.addEventListener('DOMContentLoaded', () => {
   init();
   document.getElementById('btnSubmit').addEventListener('click', submitPrediction);

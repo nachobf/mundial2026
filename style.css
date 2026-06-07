@@ -521,7 +521,48 @@ body {
 .leaderboard-name { flex: 1; font-weight: 600; }
 .leaderboard-score { font-weight: 700; color: #4a90d9; font-size: 16px; }
 
-/* Scoring Details in Prediction Modal */
+/* Prediction Modal */
+.prediction-score-info {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.prediction-score {
+  font-size: 18px;
+  margin: 0;
+}
+.prediction-preview { margin-top: 16px; }
+.prediction-preview h4 {
+  font-size: 16px;
+  color: #1a1a2e;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eee;
+}
+.prediction-groups { }
+.prediction-group {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #555;
+}
+.prediction-knockout { }
+.prediction-round {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.prediction-round strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #333;
+}
+.prediction-match {
+  padding: 2px 8px;
+  color: #666;
+}
+
+/* Scoring Details */
 .scoring-details { margin-top: 16px; }
 .scoring-detail-section { margin-bottom: 16px; }
 .scoring-detail-section h4 {
