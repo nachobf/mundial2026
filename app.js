@@ -4,9 +4,9 @@
  ============================================================ */
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
-const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ1_Oxh2vbnyXfWkWYUCuGdWMqdIyv8REJwpZIi1Bcdb-XIgvBJQYIp1iE6hDX5c-S5QwFXXM4Xi_vP/pub?output=csv';
-const FORM_ID = '1rJAuhg0Mh8RsC6mroIIDwHMXH-6v2duyrMa4IK7iK2M';
-const ENTRY_ID = 'entry.1820294448';
+const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
+const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
+const ENTRY_ID = 'entry.1802893754';
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
