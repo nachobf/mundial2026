@@ -24,36 +24,124 @@
       </div>
     </header>
 
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="apostar">🎯 Apostar</button>
+      <button class="tab-btn" data-tab="ranking">🏅 Ranking</button>
+      <button class="tab-btn" data-tab="como-jugar">🎮 Cómo se juega</button>
+      <button class="tab-btn" data-tab="como-puntua">❓ Cómo se puntúa</button>
+    </nav>
+
     <main class="app-main">
-      <section class="section groups-section">
-        <h2>📋 Fase de Grupos</h2>
-        <p class="section-hint">Introduce el resultado exacto de cada partido. La clasificación se calcula automáticamente.</p>
-        <div id="groupsGrid" class="groups-grid"></div>
-      </section>
+      <div id="tab-apostar" class="tab-content active">
+        <section class="section groups-section">
+          <h2>📋 Fase de Grupos</h2>
+          <p class="section-hint">Haz clic en un grupo para introducir el resultado exacto de cada partido. La clasificación se calcula automáticamente.</p>
+          <div id="groupsGrid" class="groups-grid"></div>
+        </section>
 
-      <section class="section best-thirds-section">
-        <h2>🥉 Mejores Terceros</h2>
-        <p class="section-hint">Los 8 mejores terceros se clasifican a dieciseisavos.</p>
-        <div id="bestThirdsPanel" class="best-thirds-panel"></div>
-        <div id="thirdPlacePanel" class="third-place-panel"></div>
-      </section>
+        <section class="section best-thirds-section">
+          <h2>🥉 Mejores Terceros</h2>
+          <p class="section-hint">Los 8 mejores terceros se clasifican a dieciseisavos. Arrastra para ordenar.</p>
+          <div id="bestThirdsPanel" class="best-thirds-panel"></div>
+          <div id="thirdPlacePanel" class="third-place-panel"></div>
+        </section>
 
-      <section class="section quiniela-section">
-        <h2>⚽ Resultados Exactos</h2>
-        <p class="section-hint">Introduce el marcador exacto de cada partido de grupos.</p>
-        <div id="quiniela1x2Panel" class="quiniela1x2-panel"></div>
-      </section>
+        <section class="section quiniela-section">
+          <h2>⚽ Resultados Exactos</h2>
+          <p class="section-hint">Introduce el marcador exacto de cada partido de grupos. El 1X2 se deriva automáticamente.</p>
+          <div id="quiniela1x2Panel" class="quiniela1x2-panel"></div>
+        </section>
 
-      <section class="section knockout-section">
-        <h2>🏆 Fase de Eliminatorias</h2>
-        <p class="section-hint">Selecciona el ganador de cada partido de eliminatoria.</p>
-        <div id="knockoutPanel" class="knockout-panel"></div>
-      </section>
+        <section class="section knockout-section">
+          <h2>🏆 Fase de Eliminatorias</h2>
+          <p class="section-hint">Selecciona el ganador de cada partido de eliminatoria.</p>
+          <div id="bracketContainer" class="bracket-container"></div>
+        </section>
 
-      <section class="section submit-section">
-        <button id="submitBtn" class="submit-btn">📤 Enviar Predicción</button>
-        <p class="submit-hint">Una vez enviada, no podrás modificar tu predicción.</p>
-      </section>
+        <section class="section submit-section">
+          <div class="submit-buttons">
+            <button id="btnSubmit" class="submit-btn">📤 ¡A por la gloria!</button>
+            <button id="btnReset" class="reset-btn">🗑️ Borrar todo</button>
+          </div>
+          <p class="submit-hint">Una vez enviada, no podrás modificar tu predicción.</p>
+        </section>
+      </div>
+
+      <div id="tab-ranking" class="tab-content">
+        <section class="section">
+          <h2>🏅 Clasificación</h2>
+          <p class="section-hint">Haz clic en cualquier participante para ver su predicción en detalle.</p>
+          <div id="leaderboardContent" class="leaderboard-content">
+            <p class="note-text">Cargando ranking...</p>
+          </div>
+        </section>
+      </div>
+
+      <div id="tab-como-jugar" class="tab-content">
+        <section class="section help-section">
+          <h2>🎮 Cómo se juega</h2>
+          <div class="help-content">
+            <p>Rellena tu pronóstico en las secciones de la pestaña <strong>Apostar</strong>. Todo se guarda solo en tu dispositivo según vas tocando, así que puedes salir y volver sin perder nada. Cuando lo tengas, pulsa <strong>"¡A por la gloria!"</strong>, mete tu nombre y envíalo. Solo cuenta el último envío, y hay tiempo hasta el cierre de apuestas (mira el contador de arriba).</p>
+
+            <h3>📋 Fase de grupos</h3>
+            <p>Haz clic en cada grupo para abrir un modal con los <strong>6 partidos</strong> del grupo. Introduce el <strong>resultado exacto</strong> (goles de cada equipo) en los campos correspondientes.</p>
+            <p>La clasificación del grupo se calcula <strong>automáticamente</strong> según los resultados que introduzcas:</p>
+            <ul>
+              <li>3 puntos por victoria, 1 por empate, 0 por derrota</li>
+              <li>Desempate: diferencia de goles → goles a favor → ranking FIFA</li>
+            </ul>
+            <p>Una vez confirmado el grupo, <strong>1º y 2º pasan directos</strong> a dieciseisavos; el <strong>3º entra en la lucha por ser uno de los mejores terceros</strong>; el <strong>4º queda eliminado</strong>.</p>
+
+            <h3>⚽ Resultados exactos</h3>
+            <p>En la sección "Resultados Exactos" puedes ver y editar todos los partidos de grupos en una sola vista. Cada partido muestra la fecha, los equipos con sus banderas, dos campos numéricos para el marcador, y el 1X2 derivado automáticamente.</p>
+
+            <h3>🥉 Mejores terceros</h3>
+            <p>Cuando hayas confirmado los 12 grupos, aparecerán aquí los 12 terceros. <strong>Arrástralos</strong> para decidir cuáles son los <strong>8 que clasifican</strong> a dieciseisavos. Los 4 de abajo se quedarán fuera.</p>
+
+            <h3>🏆 Eliminatorias</h3>
+            <p>Haz clic en el equipo que crees que gana cada cruce, ronda a ronda, hasta coronar al campeón. Si cambias un resultado anterior (grupos o mejores terceros), los cruces que dependían de él se recalculan solos.</p>
+
+            <h3>💰 Premios</h3>
+            <p>Cada participante pone <strong>10 €</strong> para entrar en la quiniela. El bote total se reparte:</p>
+            <ul>
+              <li>🥇 1º clasificado: <strong>50%</strong> de la recaudación</li>
+              <li>🥈 2º clasificado: <strong>30%</strong> de la recaudación</li>
+              <li>🥉 3º clasificado: <strong>20%</strong> de la recaudación</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <div id="tab-como-puntua" class="tab-content">
+        <section class="section help-section">
+          <h2>❓ Cómo se puntúa</h2>
+          <div class="help-content">
+            <h3>🌍 Fase de grupos</h3>
+            <div class="scoring-table">
+              <div class="scoring-row"><span class="scoring-desc">Resultado exacto clavado (marcador)</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Acertar el 1X2 (victoria local, empate o victoria visitante)</span><span class="scoring-points">1 pt</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Acertar el 1º del grupo</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Acertar el 2º del grupo</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Acertar el 3º del grupo</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Cada mejor tercero (top 8) acertado</span><span class="scoring-points">1 pt</span></div>
+            </div>
+            <p class="scoring-note">Acertar el 4º del grupo no puntúa. La posición en grupo se calcula automáticamente desde los resultados exactos.</p>
+
+            <h3>🥊 Eliminatorias</h3>
+            <div class="scoring-table">
+              <div class="scoring-row"><span class="scoring-desc">Equipo en dieciseisavos de final</span><span class="scoring-points">3 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Equipo en octavos de final</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Equipo en cuartos de final</span><span class="scoring-points">10 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Equipo en semifinales</span><span class="scoring-points">20 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Finalista</span><span class="scoring-points">30 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Campeón</span><span class="scoring-points">50 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Tercer puesto</span><span class="scoring-points">20 pts</span></div>
+              <div class="scoring-row"><span class="scoring-desc">Cuarto puesto</span><span class="scoring-points">20 pts</span></div>
+            </div>
+            <p class="scoring-note">La puntuación de eliminatorias suma todas las decisiones acertadas. Si aciertas que un equipo llega a semifinales, sumas los puntos de dieciseisavos + octavos + cuartos + semifinales.</p>
+          </div>
+        </section>
+      </div>
     </main>
 
     <footer class="app-footer">
@@ -69,7 +157,6 @@
   <div id="toastContainer" class="toast-container"></div>
   <div id="confettiContainer" class="confetti-container"></div>
 
-  <!-- Modal: Group Results -->
   <div id="groupResultsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -78,12 +165,11 @@
       </div>
       <div id="groupResultsModalBody" class="modal-body"></div>
       <div class="modal-footer">
-        <button id="groupResultsModalConfirm" class="modal-btn confirm-btn">Confirmar</button>
+        <button id="groupResultsModalConfirm" class="modal-btn confirm-btn">Confirmar grupo</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Best Thirds -->
   <div id="bestThirdsModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -97,7 +183,6 @@
     </div>
   </div>
 
-  <!-- Modal: Knockout Match -->
   <div id="knockoutMatchModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -111,7 +196,34 @@
     </div>
   </div>
 
+  <div id="predictionModal" class="modal">
+    <div class="modal-content modal-content-large">
+      <div class="modal-header">
+        <h3 id="predictionModalTitle">Predicción</h3>
+        <button class="modal-close" id="closePredictionModal">&times;</button>
+      </div>
+      <div id="predictionViewer" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="nameModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>¿Cómo te llamas?</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="playerNameInput" class="name-input" placeholder="Tu nombre" maxlength="50">
+      </div>
+      <div class="modal-footer">
+        <button id="cancelNameSubmit" class="modal-btn">Cancelar</button>
+        <button id="confirmNameSubmit" class="modal-btn confirm-btn">Enviar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="third_place_table.js"></script>
+  <script src="results-empty.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

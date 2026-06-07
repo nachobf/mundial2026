@@ -1,6 +1,6 @@
 /* ============================================================
  2026 FIFA World Cup Prediction Game - results-empty.js
- Plantilla vacía de resultados (antes de que empiece el torneo)
+ Plantilla vacia de resultados (antes de que empiece el torneo)
  ============================================================ */
 
 const REAL_RESULTS = {
@@ -11,12 +11,7 @@ const REAL_RESULTS = {
   groupMatchResults: {},
   knockout: {
     matches: {
-      round32: [],
-      round16: [],
-      quarterfinals: [],
-      semifinals: [],
-      thirdPlace: [],
-      final: []
+      round32: [], round16: [], quarterfinals: [], semifinals: [], thirdPlace: [], final: []
     }
   }
 };

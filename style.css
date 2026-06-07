@@ -1,3 +1,7 @@
+/* ============================================================
+ 2026 FIFA World Cup Prediction Game - style.css
+ ============================================================ */
+
 /* Fix: flag-icons need explicit dimensions */
 .team-flag {
   display: inline-block !important;
@@ -9,8 +13,6 @@
   background-size: cover;
   background-position: center;
 }
-
-/* Ensure flag-icons library renders correctly */
 .fi {
   display: inline-block;
   width: 1.33333333em;
@@ -18,11 +20,6 @@
   background-size: cover;
 }
 
-/* ============================================================
- 2026 FIFA World Cup Prediction Game - style.css
- ============================================================ */
-
-/* Reset & Base */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -30,7 +27,6 @@ body {
   color: #1a1a2e;
   line-height: 1.5;
 }
-
 .app-container { max-width: 1200px; margin: 0 auto; padding: 16px; }
 
 /* Header */
@@ -40,11 +36,10 @@ body {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: white;
   border-radius: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .app-header h1 { font-size: 28px; margin-bottom: 8px; }
 .app-header .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 16px; }
-
 .countdowns {
   display: flex;
   justify-content: center;
@@ -60,6 +55,36 @@ body {
 .countdown-label { display: block; font-size: 11px; opacity: 0.7; text-transform: uppercase; }
 .countdown-value { display: block; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .countdown-finished { color: #ff6b6b; }
+
+/* Tabs */
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #e9ecef;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn:hover { background: #dee2e6; }
+.tab-btn.active {
+  background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(74,144,217,0.3);
+}
+
+/* Tab Content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
 /* Sections */
 .section { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
@@ -86,7 +111,6 @@ body {
 .group-card h3 { font-size: 16px; margin-bottom: 12px; color: #1a1a2e; }
 .group-complete { border-color: #4caf50; background: #f1f8e9; }
 .group-empty { border-color: #e9ecef; }
-
 .group-team {
   display: flex;
   align-items: center;
@@ -107,12 +131,10 @@ body {
 .pos-1 .position-badge { background: #ffd700; color: #333; }
 .pos-2 .position-badge { background: #c0c0c0; color: #333; }
 .pos-3 .position-badge { background: #cd7f32; color: white; }
-.group-team .team-flag { font-size: 18px; }
 .group-team .team-name { flex: 1; }
 .group-team .team-stats { font-size: 12px; color: #666; margin-left: auto; }
 .group-team.eliminated { opacity: 0.5; text-decoration: line-through; }
 .group-team.qualified-third { background: #e8f5e9; }
-
 .group-card-hint {
   text-align: center;
   font-size: 12px;
@@ -175,7 +197,6 @@ body {
 .third-place-eliminated { opacity: 0.5; }
 
 /* Quiniela 1X2 */
-.quiniela1x2-panel { }
 .quiniela-group-header {
   background: #1a1a2e;
   color: white;
@@ -237,7 +258,6 @@ body {
 }
 
 /* Knockout */
-.knockout-panel { }
 .knockout-round { margin-bottom: 24px; }
 .knockout-round h3 { font-size: 18px; margin-bottom: 12px; color: #1a1a2e; }
 .knockout-grid {
@@ -280,6 +300,7 @@ body {
 
 /* Submit */
 .submit-section { text-align: center; padding: 32px 20px; }
+.submit-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .submit-btn {
   background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
   color: white;
@@ -293,7 +314,18 @@ body {
   box-shadow: 0 4px 12px rgba(76,175,80,0.3);
 }
 .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(76,175,80,0.4); }
-.submit-btn:active { transform: translateY(0); }
+.reset-btn {
+  background: #f8f9fa;
+  color: #666;
+  border: 2px solid #e9ecef;
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.reset-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
 .submit-hint { font-size: 13px; color: #888; margin-top: 12px; }
 
 /* Modal */
@@ -316,6 +348,7 @@ body {
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
+.modal-content-large { max-width: 800px; }
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -342,6 +375,7 @@ body {
   border-top: 1px solid #eee;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 .modal-btn {
   padding: 10px 24px;
@@ -352,10 +386,7 @@ body {
   cursor: pointer;
   transition: all 0.2s;
 }
-.confirm-btn {
-  background: #4a90d9;
-  color: white;
-}
+.confirm-btn { background: #4a90d9; color: white; }
 .confirm-btn:hover { background: #357abd; }
 
 /* Group Results Modal */
@@ -446,6 +477,105 @@ body {
 .knockout-team-select:hover { border-color: #4a90d9; background: #e3f2fd; }
 .knockout-team-select.selected { border-color: #4caf50; background: #e8f5e9; }
 
+/* Name Input */
+.name-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.name-input:focus { border-color: #4a90d9; }
+
+/* Leaderboard */
+.leaderboard-content { }
+.leaderboard-table { }
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 15px;
+}
+.leaderboard-row:hover { background: #e3f2fd; transform: translateX(4px); }
+.leaderboard-row.top-1 { background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%); border: 2px solid #e6c200; }
+.leaderboard-row.top-2 { background: linear-gradient(135deg, #c0c0c0 0%, #d4d4d4 100%); border: 2px solid #a0a0a0; }
+.leaderboard-row.top-3 { background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%); border: 2px solid #b87333; }
+.leaderboard-rank {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: #e9ecef;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.leaderboard-row.top-1 .leaderboard-rank { background: #fff; color: #e6c200; }
+.leaderboard-row.top-2 .leaderboard-rank { background: #fff; color: #a0a0a0; }
+.leaderboard-row.top-3 .leaderboard-rank { background: #fff; color: #b87333; }
+.leaderboard-name { flex: 1; font-weight: 600; }
+.leaderboard-score { font-weight: 700; color: #4a90d9; font-size: 16px; }
+
+/* Scoring Details in Prediction Modal */
+.scoring-details { margin-top: 16px; }
+.scoring-detail-section { margin-bottom: 16px; }
+.scoring-detail-section h4 {
+  font-size: 14px;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eee;
+}
+.scoring-detail-list { }
+.scoring-detail-item {
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+/* Help / Scoring Pages */
+.help-content { }
+.help-content h3 {
+  font-size: 18px;
+  margin: 20px 0 10px;
+  color: #1a1a2e;
+}
+.help-content p { margin-bottom: 12px; font-size: 14px; line-height: 1.6; color: #444; }
+.help-content ul { margin: 8px 0 16px 20px; }
+.help-content ul li { margin-bottom: 6px; font-size: 14px; color: #444; }
+
+.scoring-table { margin: 12px 0; }
+.scoring-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.scoring-row:nth-child(even) { background: #f0f2f5; }
+.scoring-desc { font-size: 14px; color: #333; }
+.scoring-points {
+  font-weight: 700;
+  font-size: 15px;
+  color: #4a90d9;
+  background: #e3f2fd;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.scoring-note {
+  font-size: 13px;
+  color: #888;
+  margin-top: 12px;
+  font-style: italic;
+}
+
 /* Loading */
 .loading-overlay {
   display: none;
@@ -510,6 +640,9 @@ body {
   to { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
+/* Notes */
+.note-text { font-size: 14px; color: #888; text-align: center; padding: 20px; }
+
 /* Footer */
 .app-footer {
   text-align: center;
@@ -528,4 +661,7 @@ body {
   .countdowns { gap: 12px; }
   .countdown-box { min-width: 120px; padding: 10px 14px; }
   .app-header h1 { font-size: 22px; }
+  .tab-btn { padding: 8px 14px; font-size: 13px; }
+  .submit-buttons { flex-direction: column; }
+  .submit-btn, .reset-btn { width: 100%; }
 }
