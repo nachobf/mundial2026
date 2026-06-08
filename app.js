@@ -2,7 +2,7 @@
  2026 FIFA World Cup Prediction Game - app.js
  ============================================================ */
 
-const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026';
+const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
