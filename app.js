@@ -4,7 +4,7 @@
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLRoQI11ov51xqV9XNhem_evc1JU3S6JBEzQEzi6kVB2ai9TE0UN3NtR-SpZqGaclHspNh1hPcK-l8/pub?gid=487951197&single=true&output=csv';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw94LCh2Alq8AOeX0rBOHydKS1VkNwyJszjPseBuiJuAnezG_eZ9NciLLyxAxjZsgGu/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4_TzfsNLdmwLOHgEr_XBYA3fpRI0SPli1SsnLtwSbmCxbCmXRn561GsE3_JSX_i0/exec';
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
