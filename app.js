@@ -354,7 +354,7 @@ function submitPrediction() {
   document.getElementById('nameModal').style.display = 'flex';
 }
 
-async function confirmSubmitWithName() {
+function confirmSubmitWithName() {
   const nameInput = document.getElementById('playerNameInput');
   const name = nameInput.value.trim();
   
@@ -366,7 +366,7 @@ async function confirmSubmitWithName() {
   const payload = buildPayload();
   payload.name = name;
   
-  // Comprimir JSON eliminando espacios innecesarios
+  // Comprimir JSON
   const jsonString = JSON.stringify(payload)
     .replace(/:\s+/g, ':')
     .replace(/,\s+/g, ',')
@@ -375,93 +375,73 @@ async function confirmSubmitWithName() {
     .replace(/\[\s+/g, '[')
     .replace(/\s+\]/g, ']');
   
-  try {
-    showLoading('Enviando predicción...');
-    
-    // Crear un formulario oculto y enviarlo por POST
-    // Esto evita el límite de longitud de URL y los problemas de CORS
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = GOOGLE_FORM_ACTION_URL;
-    form.target = 'hidden-form-iframe';
-    form.style.display = 'none';
-    
-    // Campo del JSON
-    const jsonInput = document.createElement('input');
-    jsonInput.type = 'hidden';
-    jsonInput.name = ENTRY_ID;
-    jsonInput.value = jsonString;
-    form.appendChild(jsonInput);
-    
-    // Campo del nombre (opcional, si tienes otro entry para nombre)
-    const nameInputHidden = document.createElement('input');
-    nameInputHidden.type = 'hidden';
-    nameInputHidden.name = 'entry.1018977563'; 
-    nameInputHidden.value = name;
-    form.appendChild(nameInputHidden);
-    
-    // Crear iframe oculto para recibir la respuesta
-    let iframe = document.getElementById('hidden-form-iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'hidden-form-iframe';
-      iframe.name = 'hidden-form-iframe';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-    }
-    
-    // Manejar la respuesta
-    const onLoad = () => {
-      // Google Forms redirige a una página de confirmación
-      // No podemos leer el contenido por cross-origin, pero sabemos que llegó
-      console.log('Formulario enviado correctamente');
-      
-      clearLocalPrediction();
-      showToast('¡Predicción enviada! Gracias por participar, ' + name + '.');
-      fireConfetti();
-      
-      document.getElementById('nameModal').style.display = 'none';
-      nameInput.value = '';
-      
-      // Limpiar
-      setTimeout(() => {
-        form.remove();
-        iframe.removeEventListener('load', onLoad);
-      }, 1000);
-      
-      // Recargar leaderboard
-      setTimeout(async () => {
-        await loadLeaderboardCSV(true);
-        renderLeaderboard();
-      }, 5000);
-    };
-    
-    iframe.addEventListener('load', onLoad);
-    
-    // Enviar
-    document.body.appendChild(form);
-    form.submit();
-    
-    // Timeout de seguridad por si el load no dispara
-    setTimeout(() => {
-      if (document.getElementById('nameModal').style.display === 'flex') {
-        // El modal sigue abierto, probablemente el envío falló silenciosamente
-        iframe.removeEventListener('load', onLoad);
-        // Asumimos éxito de todos modos (Google Forms a veces no dispara load)
-        clearLocalPrediction();
-        showToast('Predicción enviada. Gracias, ' + name + '.');
-        fireConfetti();
-        document.getElementById('nameModal').style.display = 'none';
-        nameInput.value = '';
-      }
-    }, 3000);
-    
-  } catch (error) {
-    console.error('Error al enviar:', error);
-    showToast('Error al enviar. Intenta de nuevo.', true);
-    hideLoading();
+  // LIMPIAR cualquier formulario anterior
+  const oldForms = document.querySelectorAll('form[data-wc2026-form]');
+  oldForms.forEach(f => f.remove());
+  
+  // Crear iframe oculto si no existe
+  let iframe = document.getElementById('wc2026-iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'wc2026-iframe';
+    iframe.name = 'wc2026-iframe';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
   }
+  
+  // Crear formulario POST
+  const form = document.createElement('form');
+  form.setAttribute('data-wc2026-form', 'true');
+  form.method = 'POST';
+  form.action = GOOGLE_FORM_ACTION_URL;
+  form.target = 'wc2026-iframe';
+  form.style.display = 'none';
+  
+  const jsonInput = document.createElement('input');
+  jsonInput.type = 'hidden';
+  jsonInput.name = ENTRY_ID;
+  jsonInput.value = jsonString;
+  form.appendChild(jsonInput);
+  
+  // Campo de nombre (si tienes entry separado, cámbialo)
+  const nameField = document.createElement('input');
+  nameField.type = 'hidden';
+  nameField.name = 'entry.1234567890'; // <-- REEMPLAZA con tu entry ID real para nombre
+  nameField.value = name;
+  form.appendChild(nameField);
+  
+  // Botón submit real (algunos navegadores lo requieren)
+  const submitBtn = document.createElement('input');
+  submitBtn.type = 'submit';
+  submitBtn.style.display = 'none';
+  form.appendChild(submitBtn);
+  
+  document.body.appendChild(form);
+  
+  // Enviar
+  showLoading('Enviando...');
+  form.submit();
+  
+  // Feedback visual inmediato (no podemos leer la respuesta por cross-origin)
+  setTimeout(() => {
+    hideLoading();
+    clearLocalPrediction();
+    showToast('¡Predicción enviada! Gracias, ' + name + '.');
+    fireConfetti();
+    document.getElementById('nameModal').style.display = 'none';
+    nameInput.value = '';
+    
+    // Limpiar DOM
+    form.remove();
+    
+    // Recargar leaderboard tras unos segundos
+    setTimeout(() => {
+      loadLeaderboardCSV(true).then(() => renderLeaderboard());
+    }, 5000);
+  }, 1500);
 }
+
+
 
 // ============================================================
 // LEADERBOARD (recarga forzada)
