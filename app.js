@@ -3,8 +3,10 @@
  ============================================================ */
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
-const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLRoQI11ov51xqV9XNhem_evc1JU3S6JBEzQEzi6kVB2ai9TE0UN3NtR-SpZqGaclHspNh1hPcK-l8/pub?gid=487951197&single=true&output=csv';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4_TzfsNLdmwLOHgEr_XBYA3fpRI0SPli1SsnLtwSbmCxbCmXRn561GsE3_JSX_i0/exec';
+// URL de Google Apps Script (backend único para enviar y leer)
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLSSLbFieeueA1YGfwz5zv2l19w0iLFB_Y4RhZxQQPsXmn5omquY7ZaMdS2wxeiJuf/exec ';
+const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
+const ENTRY_ID = 'entry.1802893754';
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
@@ -353,8 +355,7 @@ function submitPrediction() {
   document.getElementById('nameModal').style.display = 'flex';
 }
 
-
-function confirmSubmitWithName() {
+window.confirmSubmitWithName = function() {
   const nameInput = document.getElementById('playerNameInput');
   const name = nameInput.value.trim();
   
@@ -366,15 +367,22 @@ function confirmSubmitWithName() {
   const payload = buildPayload();
   payload.name = name;
   
-  const jsonString = JSON.stringify(payload);
+  const jsonString = JSON.stringify(payload)
+    .replace(/:\s+/g, ':')
+    .replace(/,\s+/g, ',')
+    .replace(/\{\s+/g, '{')
+    .replace(/\s+\}/g, '}')
+    .replace(/\[\s+/g, '[')
+    .replace(/\s+\]/g, ']');
+  
   const params = new URLSearchParams();
-  params.append('data', jsonString);
+  params.append(ENTRY_ID, jsonString);
   
   showLoading('Enviando predicción...');
   
-  fetch(APPS_SCRIPT_URL, {
+  fetch(GOOGLE_FORM_ACTION_URL, {
     method: 'POST',
-    mode: 'no-cors',  // Apps Script requiere no-cors desde frontend estático
+    mode: 'no-cors',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
     },
@@ -389,7 +397,7 @@ function confirmSubmitWithName() {
     nameInput.value = '';
     
     setTimeout(() => {
-      loadLeaderboardCSV(true).then(() => renderLeaderboard());
+      loadLeaderboard(true).then(() => renderLeaderboard());
     }, 5000);
   })
   .catch(err => {
@@ -397,7 +405,24 @@ function confirmSubmitWithName() {
     hideLoading();
     showToast('Error al enviar. Intenta de nuevo.', true);
   });
-}
+};
+
+// Eliminar TODOS los listeners antiguos del botón y poner el nuevo
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('confirmNameSubmit');
+  if (!btn) return;
+  
+  // Clonar el botón para eliminar todos los listeners antiguos
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  
+  // Añadir el listener fresco
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.confirmSubmitWithName();
+  });
+});
 
 
 
@@ -405,19 +430,19 @@ function confirmSubmitWithName() {
 // LEADERBOARD (recarga forzada)
 // ============================================================
 
-async function loadLeaderboardCSV(forceReload = false) {
+async function loadLeaderboard(forceReload = false) {
   try {
-    const cacheBuster = forceReload ? '&_=' + Date.now() : '';
-    const resp = await fetch(LEADERBOARD_CSV_URL + cacheBuster, {
-      cache: 'no-store',
-      headers: { 'Cache-Control': 'no-cache' }
+    const cacheBuster = forceReload ? '?_=' + Date.now() : '';
+    const resp = await fetch(APPS_SCRIPT_URL + cacheBuster, {
+      method: 'GET',
+      cache: 'no-store'
     });
-    const csv = await resp.text();
-    window.__leaderboardCSV = csv;
-    return csv;
+    const data = await resp.json();
+    window.__leaderboardData = data;
+    return data;
   } catch (e) { 
-    console.warn('Could not load leaderboard CSV:', e); 
-    return ''; 
+    console.warn('Could not load leaderboard:', e); 
+    return { players: [] }; 
   }
 }
 function restoreLocalPrediction() {
@@ -1348,7 +1373,7 @@ function getMatchLoserFromData(matchNum, kr, mt) {
 
 // ---- LEADERBOARD (sin depender de resultados reales) ----
 function calculateLeaderboard() {
-  const players = parseLeaderboardCSV();
+  const players = parseLeaderboardData();
   const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
   if (!players.length) return [];
 
@@ -1366,21 +1391,15 @@ function calculateLeaderboard() {
   }).sort((a, b) => b.score - a.score);
 }
 
-function parseLeaderboardCSV() {
-  const csv = window.__leaderboardCSV || '';
-  if (!csv) return [];
-  const lines = csv.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-  const nameIdx = headers.indexOf('Nombre') !== -1 ? headers.indexOf('Nombre') : 0;
-  const jsonIdx = headers.indexOf('JSON') !== -1 ? headers.indexOf('JSON') : -1;
-  return lines.slice(1).map(line => {
-    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+function parseLeaderboardData() {
+  const data = window.__leaderboardData || { players: [] };
+  if (!data.players || !data.players.length) return [];
+  return data.players.map(p => {
     let parsed = {};
-    if (jsonIdx >= 0 && cols[jsonIdx]) {
-      try { parsed = JSON.parse(cols[jsonIdx]); } catch (e) {}
+    if (p.json) {
+      try { parsed = JSON.parse(p.json); } catch (e) {}
     }
-    return { name: cols[nameIdx] || 'Anonimo', raw: cols, ...parsed };
+    return { name: p.name || 'Anonimo', raw: p, ...parsed };
   });
 }
 
@@ -1567,6 +1586,41 @@ function buildPayload() {
   };
 }
 
+function confirmSubmitWithName() {
+  const nameInput = document.getElementById('playerNameInput');
+  const name = nameInput.value.trim();
+  if (!name) { showToast('Introduce tu nombre antes de enviar.', true); return; }
+
+  const payload = buildPayload();
+  payload.name = name;
+  const jsonString = JSON.stringify(payload);
+
+  const params = new URLSearchParams();
+  params.append('data', jsonString);
+
+  showLoading('Enviando prediccion...');
+
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  })
+  .then(() => {
+    hideLoading();
+    clearLocalPrediction();
+    showToast('Prediccion enviada! Gracias, ' + name + '.');
+    fireConfetti();
+    document.getElementById('nameModal').style.display = 'none';
+    nameInput.value = '';
+    setTimeout(() => { loadLeaderboard(true).then(() => renderLeaderboard()); }, 3000);
+  })
+  .catch(err => {
+    console.error('Error al enviar:', err);
+    hideLoading();
+    showToast('Error al enviar. Intenta de nuevo.', true);
+  });
+}
 
 function resetAll() {
   if (!confirm('Seguro que quieres borrar toda tu prediccion? Esta accion no se puede deshacer.')) return;
@@ -1595,7 +1649,7 @@ async function init() {
   showLoading('Cargando datos del Mundial 2026...');
   const loaded = await loadData();
   if (!loaded) { hideLoading(); return; }
-  await loadLeaderboardCSV();
+  await loadLeaderboard();
   try {
     const savedVersion = localStorage.getItem(LOCAL_STORAGE_VERSION_KEY);
     if (savedVersion !== LOCAL_STORAGE_VERSION) {
@@ -1617,11 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
   init();
   document.getElementById('btnSubmit').addEventListener('click', submitPrediction);
   document.getElementById('btnReset').addEventListener('click', resetAll);
-  document.getElementById('confirmNameSubmit').addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    confirmSubmitWithName();
-  });
+  document.getElementById('confirmNameSubmit').addEventListener('click', confirmSubmitWithName);
   document.getElementById('cancelNameSubmit').addEventListener('click', () => {
     document.getElementById('nameModal').style.display = 'none';
     document.getElementById('playerNameInput').value = '';
