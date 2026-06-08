@@ -6,6 +6,7 @@ const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/r
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
+const GOOGLE_FORM_ACTION_URL = `https://docs.google.com/forms/d/e/${FORM_ID}/formResponse`;
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
@@ -1655,7 +1656,7 @@ async function init() {
   if (isSubmissionClosed()) showToast('El plazo de envio de predicciones ha cerrado.', true);
 }
 
-// ---- EVENT LISTENERS ----
+/* ---- EVENT LISTENERS ----
 document.addEventListener('DOMContentLoaded', () => {
   init();
   document.getElementById('btnSubmit').addEventListener('click', submitPrediction);
@@ -1675,3 +1676,4 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
   });
 });
+*/
