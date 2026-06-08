@@ -125,16 +125,43 @@ function getTeamFifaRank(team) {
   return FIFA_RANKING_TIEBREAK[team] || 999;
 }
 
-function compareBestThirdsByRanking(a, b) {
+// NUEVA FUNCIÓN: Calcula estadísticas reales del tercero de un grupo
+function getThirdPlaceStatsFromResults(group) {
+  const standings = calculateGroupStandingsFromResults(group);
+  if (standings.length < 3) return null;
+  const third = standings[2];
+  return {
+    team: third.team,
+    group: group,
+    pts: third.pts,
+    gf: third.gf,
+    ga: third.ga,
+    gd: third.gd
+  };
+}
+
+// NUEVA FUNCIÓN: Comparador correcto por criterios FIFA
+function compareBestThirdsByFifaCriteria(a, b) {
+  // Obtener stats reales de los resultados
+  const statsA = getThirdPlaceStatsFromResults(a.group);
+  const statsB = getThirdPlaceStatsFromResults(b.group);
+  
+  // Si no hay resultados, fallback al ranking FIFA (comportamiento original)
+  if (!statsA || !statsB) {
+    return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
+  }
+  
+  // 1. Más puntos
+  if (statsB.pts !== statsA.pts) return statsB.pts - statsA.pts;
+  // 2. Mayor diferencia de goles
+  if (statsB.gd !== statsA.gd) return statsB.gd - statsA.gd;
+  // 3. Más goles marcados
+  if (statsB.gf !== statsA.gf) return statsB.gf - statsA.gf;
+  // 4. Desempate final: ranking FIFA (criterio FIFA adicional)
   return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
 }
 
-function getAllThirdPlaceCandidates() {
-  return GROUP_NAMES
-    .map(group => ({ group, team: state.groups[group]?.[2] || null }))
-    .filter(item => item.team);
-}
-
+// FUNCIÓN ORIGINAL MODIFICADA: Ahora usa el comparador correcto
 function ensureThirdPlaceRanking() {
   const candidates = getAllThirdPlaceCandidates();
   const validSet = new Set(candidates.map(c => c.team));
@@ -142,7 +169,7 @@ function ensureThirdPlaceRanking() {
   const existingSet = new Set(existing);
   const missing = candidates
     .filter(item => !existingSet.has(item.team))
-    .sort(compareBestThirdsByRanking)
+    .sort(compareBestThirdsByFifaCriteria)  // <-- CAMBIO AQUÍ
     .map(item => item.team);
   state.thirdPlace = [...existing, ...missing];
   if (state.thirdPlace.length < candidates.length) state.thirdPlaceConfirmed = false;
