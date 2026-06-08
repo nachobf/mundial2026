@@ -1963,3 +1963,99 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.initTestButton = initTestButton;
+
+
+// ============================================================
+// PATCH MINIMAL: Cargar REAL_RESULTS desde backend + botón recarga
+// NO modifica renderLeaderboard ni showPlayerPrediction
+// ============================================================
+
+// --- 1. Cargar REAL_RESULTS desde backend al inicializar ---
+async function loadRealResultsFromBackend() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?action=realResults&_=' + Date.now(), {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    const data = await resp.json();
+    if (data.realResults) {
+      window.REAL_RESULTS = data.realResults;
+      console.log('✅ REAL_RESULTS cargado desde backend');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('No se pudieron cargar resultados reales:', e);
+    return false;
+  }
+}
+
+// --- 2. MODIFICAR loadLeaderboard para guardar realResults ---
+const _originalLoadLeaderboard = loadLeaderboard;
+
+loadLeaderboard = async function(forceReload = false) {
+  try {
+    const cacheBuster = forceReload ? '?_=' + Date.now() : '';
+    const resp = await fetch(APPS_SCRIPT_URL + cacheBuster, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    const data = await resp.json();
+    window.__leaderboardData = data;
+
+    // Guardar realResults si viene del backend
+    if (data.realResults) {
+      window.REAL_RESULTS = data.realResults;
+    }
+
+    return data;
+  } catch (e) {
+    console.warn('Could not load leaderboard:', e);
+    return { players: [] };
+  }
+};
+
+// --- 3. BOTÓN RECARGAR PUNTUACIONES ---
+function initReloadButton() {
+  const rankingTab = document.getElementById('tab-ranking');
+  if (!rankingTab) {
+    setTimeout(initReloadButton, 1000);
+    return;
+  }
+  if (document.getElementById('btnReloadScores')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'btnReloadScores';
+  btn.textContent = '🔄 Recargar Puntuaciones';
+  btn.style.cssText = 'background:#4CAF50;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;margin:12px 0;display:block;width:100%;';
+  btn.onmouseover = function() { btn.style.background = '#45a049'; };
+  btn.onmouseout = function() { btn.style.background = '#4CAF50'; };
+
+  btn.addEventListener('click', async function() {
+    showLoading('Recargando desde backend...');
+    await loadLeaderboard(true);
+    renderLeaderboard();
+    hideLoading();
+    showToast('Puntuaciones actualizadas');
+  });
+
+  const leaderboardContent = document.getElementById('leaderboardContent');
+  if (leaderboardContent && leaderboardContent.parentNode) {
+    leaderboardContent.parentNode.insertBefore(btn, leaderboardContent);
+  } else {
+    rankingTab.insertBefore(btn, rankingTab.firstChild);
+  }
+}
+
+// --- 4. Cargar resultados reales al inicio ---
+// Se ejecuta después de que init() termine
+document.addEventListener('DOMContentLoaded', function() {
+  // Esperar a que la app cargue completamente
+  setTimeout(async function() {
+    await loadRealResultsFromBackend();
+    initReloadButton();
+  }, 3000);
+});
+
+window.initReloadButton = initReloadButton;
+window.loadRealResultsFromBackend = loadRealResultsFromBackend;
