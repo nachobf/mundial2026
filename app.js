@@ -3,10 +3,8 @@
  ============================================================ */
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
-const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
-const FORM_ID = '1FAIpQLSdZmXM_DsiTwlBO0ZDdcWPr2B581dYDbIu0lIWVL5kQt4Qbzg';
-const ENTRY_ID = 'entry.1802893754';
-const GOOGLE_FORM_ACTION_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdZmXM_DsiTwlBO0ZDdcWPr2B581dYDbIu0lIWVL5kQt4Qbzg/';
+const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSLRoQI11ov51xqV9XNhem_evc1JU3S6JBEzQEzi6kVB2ai9TE0UN3NtR-SpZqGaclHspNh1hPcK-l8/pub?gid=487951197&single=true&output=csv';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw94LCh2Alq8AOeX0rBOHydKS1VkNwyJszjPseBuiJuAnezG_eZ9NciLLyxAxjZsgGu/exec';
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
@@ -355,7 +353,8 @@ function submitPrediction() {
   document.getElementById('nameModal').style.display = 'flex';
 }
 
-window.confirmSubmitWithName = function() {
+
+function confirmSubmitWithName() {
   const nameInput = document.getElementById('playerNameInput');
   const name = nameInput.value.trim();
   
@@ -367,22 +366,15 @@ window.confirmSubmitWithName = function() {
   const payload = buildPayload();
   payload.name = name;
   
-  const jsonString = JSON.stringify(payload)
-    .replace(/:\s+/g, ':')
-    .replace(/,\s+/g, ',')
-    .replace(/\{\s+/g, '{')
-    .replace(/\s+\}/g, '}')
-    .replace(/\[\s+/g, '[')
-    .replace(/\s+\]/g, ']');
-  
+  const jsonString = JSON.stringify(payload);
   const params = new URLSearchParams();
-  params.append(ENTRY_ID, jsonString);
+  params.append('data', jsonString);
   
   showLoading('Enviando predicción...');
   
-  fetch(GOOGLE_FORM_ACTION_URL, {
+  fetch(APPS_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',
+    mode: 'no-cors',  // Apps Script requiere no-cors desde frontend estático
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
     },
@@ -405,24 +397,7 @@ window.confirmSubmitWithName = function() {
     hideLoading();
     showToast('Error al enviar. Intenta de nuevo.', true);
   });
-};
-
-// Eliminar TODOS los listeners antiguos del botón y poner el nuevo
-document.addEventListener('DOMContentLoaded', function() {
-  const btn = document.getElementById('confirmNameSubmit');
-  if (!btn) return;
-  
-  // Clonar el botón para eliminar todos los listeners antiguos
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
-  
-  // Añadir el listener fresco
-  newBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    window.confirmSubmitWithName();
-  });
-});
+}
 
 
 
