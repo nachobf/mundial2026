@@ -6,6 +6,7 @@ const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/r
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
+const GOOGLE_FORM_ACTION_URL = 'https://docs.google.com/forms/d/e/' + FORM_ID + '/formResponse';
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
@@ -1597,18 +1598,30 @@ function confirmSubmitWithName() {
   if (!name) { showToast('Introduce tu nombre antes de enviar.', true); return; }
   const payload = buildPayload();
   payload.name = name;
-  const json = JSON.stringify(payload);
-  const url = 'https://docs.google.com/forms/d/e/' + FORM_ID + '/formResponse?' + ENTRY_ID + '=' + encodeURIComponent(json);
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = url;
-  document.body.appendChild(iframe);
-  clearLocalPrediction();
-  showToast('Prediccion enviada! Gracias por participar, ' + name + '.');
-  fireConfetti();
-  document.getElementById('nameModal').style.display = 'none';
-  nameInput.value = '';
-  setTimeout(() => iframe.remove(), 5000);
+  const jsonString = JSON.stringify(payload);
+  const params = new URLSearchParams();
+  params.append(ENTRY_ID, jsonString);
+  showLoading('Enviando prediccion...');
+  fetch(GOOGLE_FORM_ACTION_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  })
+  .then(() => {
+    hideLoading();
+    clearLocalPrediction();
+    showToast('Prediccion enviada! Gracias por participar, ' + name + '.');
+    fireConfetti();
+    document.getElementById('nameModal').style.display = 'none';
+    nameInput.value = '';
+    setTimeout(() => { loadLeaderboardCSV(true).then(() => renderLeaderboard()); }, 5000);
+  })
+  .catch(err => {
+    console.error('Error al enviar:', err);
+    hideLoading();
+    showToast('Error al enviar. Intenta de nuevo.', true);
+  });
 }
 
 function resetAll() {
@@ -1660,7 +1673,11 @@ document.addEventListener('DOMContentLoaded', () => {
   init();
   document.getElementById('btnSubmit').addEventListener('click', submitPrediction);
   document.getElementById('btnReset').addEventListener('click', resetAll);
-  document.getElementById('confirmNameSubmit').addEventListener('click', confirmSubmitWithName);
+  document.getElementById('confirmNameSubmit').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    confirmSubmitWithName();
+  });
   document.getElementById('cancelNameSubmit').addEventListener('click', () => {
     document.getElementById('nameModal').style.display = 'none';
     document.getElementById('playerNameInput').value = '';
