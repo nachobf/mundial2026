@@ -6,7 +6,6 @@ const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/r
 const LEADERBOARD_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRzr5lTYv8zbctOQaMbeV9e05lABdOBzQ2fJbXjYXzkTx9yLjcRwNjTBO-GBtjeiVcqERl84Nk08lLu/pub?gid=303873390&single=true&output=csv';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
-const GOOGLE_FORM_ACTION_URL = `https://docs.google.com/forms/d/e/${FORM_ID}/formResponse`;
 
 const DEADLINE = new Date('2026-06-11T17:00:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
@@ -354,6 +353,77 @@ function submitPrediction() {
   
   document.getElementById('nameModal').style.display = 'flex';
 }
+
+window.confirmSubmitWithName = function() {
+  const nameInput = document.getElementById('playerNameInput');
+  const name = nameInput.value.trim();
+  
+  if (!name) { 
+    showToast('Introduce tu nombre antes de enviar.', true); 
+    return; 
+  }
+  
+  const payload = buildPayload();
+  payload.name = name;
+  
+  const jsonString = JSON.stringify(payload)
+    .replace(/:\s+/g, ':')
+    .replace(/,\s+/g, ',')
+    .replace(/\{\s+/g, '{')
+    .replace(/\s+\}/g, '}')
+    .replace(/\[\s+/g, '[')
+    .replace(/\s+\]/g, ']');
+  
+  const params = new URLSearchParams();
+  params.append(ENTRY_ID, jsonString);
+  
+  showLoading('Enviando predicción...');
+  
+  fetch(GOOGLE_FORM_ACTION_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  })
+  .then(() => {
+    hideLoading();
+    clearLocalPrediction();
+    showToast('¡Predicción enviada! Gracias, ' + name + '.');
+    fireConfetti();
+    document.getElementById('nameModal').style.display = 'none';
+    nameInput.value = '';
+    
+    setTimeout(() => {
+      loadLeaderboardCSV(true).then(() => renderLeaderboard());
+    }, 5000);
+  })
+  .catch(err => {
+    console.error('Error al enviar:', err);
+    hideLoading();
+    showToast('Error al enviar. Intenta de nuevo.', true);
+  });
+};
+
+// Eliminar TODOS los listeners antiguos del botón y poner el nuevo
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('confirmNameSubmit');
+  if (!btn) return;
+  
+  // Clonar el botón para eliminar todos los listeners antiguos
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  
+  // Añadir el listener fresco
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.confirmSubmitWithName();
+  });
+});
+
+
 
 // ============================================================
 // LEADERBOARD (recarga forzada)
@@ -1585,68 +1655,12 @@ async function init() {
   if (isSubmissionClosed()) showToast('El plazo de envio de predicciones ha cerrado.', true);
 }
 
----- EVENT LISTENERS ----
+// ---- EVENT LISTENERS ----
 document.addEventListener('DOMContentLoaded', () => {
   init();
   document.getElementById('btnSubmit').addEventListener('click', submitPrediction);
   document.getElementById('btnReset').addEventListener('click', resetAll);
-  
-  // REEMPLAZADO: confirmSubmitWithName viejo (hacía GET con iframe) → nuevo con fetch
-  document.getElementById('confirmNameSubmit').addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const nameInput = document.getElementById('playerNameInput');
-    const name = nameInput.value.trim();
-    
-    if (!name) { 
-      showToast('Introduce tu nombre antes de enviar.', true); 
-      return; 
-    }
-    
-    const payload = buildPayload();
-    payload.name = name;
-    
-    const jsonString = JSON.stringify(payload)
-      .replace(/:\s+/g, ':')
-      .replace(/,\s+/g, ',')
-      .replace(/\{\s+/g, '{')
-      .replace(/\s+\}/g, '}')
-      .replace(/\[\s+/g, '[')
-      .replace(/\s+\]/g, ']');
-    
-    const params = new URLSearchParams();
-    params.append(ENTRY_ID, jsonString);
-    
-    showLoading('Enviando predicción...');
-    
-    fetch(GOOGLE_FORM_ACTION_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: params.toString()
-    })
-    .then(() => {
-      hideLoading();
-      clearLocalPrediction();
-      showToast('¡Predicción enviada! Gracias, ' + name + '.');
-      fireConfetti();
-      document.getElementById('nameModal').style.display = 'none';
-      nameInput.value = '';
-      
-      setTimeout(() => {
-        loadLeaderboardCSV(true).then(() => renderLeaderboard());
-      }, 5000);
-    })
-    .catch(err => {
-      console.error('Error al enviar:', err);
-      hideLoading();
-      showToast('Error al enviar. Intenta de nuevo.', true);
-    });
-  });
-  
+  document.getElementById('confirmNameSubmit').addEventListener('click', confirmSubmitWithName);
   document.getElementById('cancelNameSubmit').addEventListener('click', () => {
     document.getElementById('nameModal').style.display = 'none';
     document.getElementById('playerNameInput').value = '';
