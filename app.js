@@ -4,7 +4,7 @@
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw94LCh2Alq8AOeX0rBOHydKS1VkNwyJszjPseBuiJuAnezG_eZ9NciLLyxAxjZsgGu/exec'; // ← REEMPLAZA con tu URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLSSLbFieeueA1YGfwz5zv2l19w0iLFB_Y4RhZxQQPsXmn5omquY7ZaMdS2wxeiJuf/exec ';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
 
@@ -318,6 +318,41 @@ function renderBestThirds() {
   card.appendChild(hint);
 
   container.appendChild(card);
+}
+
+/* ============================================================
+   SUBMIT / RESTORE (reemplaza submitPrediction y restoreLocalPrediction)
+   ============================================================ */
+
+function submitPrediction() {
+  if (!LOADED) { 
+    showToast('Los datos del torneo aún no se han cargado. Espera un momento.', true); 
+    return; 
+  }
+  
+  const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
+  if (incompleteGroups.length) { 
+    showToast('Completa todos los grupos antes de enviar.', true); 
+    return; 
+  }
+  
+  const missingKO = [];
+  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
+  rounds.forEach(round => {
+    (KO_TREE[round] || []).forEach(match => {
+      const teams = state.matchTeams[match.num] || {};
+      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) {
+        missingKO.push(match.num);
+      }
+    });
+  });
+  
+  if (missingKO.length) { 
+    showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); 
+    return; 
+  }
+  
+  document.getElementById('nameModal').style.display = 'flex';
 }
 
 
@@ -1342,51 +1377,53 @@ function showPlayerPrediction(entry) {
   const modal = document.getElementById('predictionModal');
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
-  title.textContent = 'Prediccion de ' + escapeHtml(entry.name);
+  
+  title.textContent = 'Predicción de ' + escapeHtml(entry.name);
   viewer.innerHTML = '';
-
+  
   const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
-
-  // Info de puntuacion
+  
+  // Puntuación
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
-  if (hasRealResults) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + entry.score + ' puntos</strong></p>';
-  } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aun no ha comenzado)</p>';
-  }
+  scoreDiv.innerHTML = hasRealResults 
+    ? '<p class="prediction-score">Puntuación: <strong>' + entry.score + ' puntos</strong></p>'
+    : '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
   viewer.appendChild(scoreDiv);
-
-  // Si hay detalles de puntuacion, mostrarlos
+  
+  // Detalles de puntuación
   if (entry.hasDetails && entry.details && entry.details.length) {
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'scoring-details';
+    
     const grouped = {};
     entry.details.forEach(d => {
       if (!grouped[d.type]) grouped[d.type] = [];
       grouped[d.type].push(d);
     });
+    
+    const typeLabels = {
+      posicion: 'Posiciones en grupo',
+      resultadoExacto: 'Resultados exactos',
+      '1x2': '1X2 acertados',
+      mejorTercero: 'Mejores terceros',
+      eliminatoria: 'Eliminatorias'
+    };
+    
     Object.keys(grouped).forEach(type => {
       const items = grouped[type];
       const total = items.reduce((sum, i) => sum + i.points, 0);
-      const typeLabel = {
-        posicion: 'Posiciones en grupo',
-        resultadoExacto: 'Resultados exactos',
-        '1x2': '1X2 acertados',
-        mejorTercero: 'Mejores terceros',
-        eliminatoria: 'Eliminatorias'
-      }[type] || type;
       const section = document.createElement('div');
       section.className = 'scoring-detail-section';
-      section.innerHTML = '<h4>' + typeLabel + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+      section.innerHTML = '<h4>' + (typeLabels[type] || type) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
       const list = document.createElement('div');
       list.className = 'scoring-detail-list';
       items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'scoring-detail-item';
-        if (item.team) div.textContent = '+ ' + item.points + ' pts - ' + item.team;
-        else if (item.team1 && item.team2) div.textContent = '+ ' + item.points + ' pts - ' + item.team1 + ' vs ' + item.team2;
+        if (item.team) div.textContent = '+ ' + item.points + ' pts — ' + item.team;
+        else if (item.team1 && item.team2) div.textContent = '+ ' + item.points + ' pts — ' + item.team1 + ' vs ' + item.team2;
         else div.textContent = '+ ' + item.points + ' pts';
         list.appendChild(div);
       });
@@ -1395,56 +1432,161 @@ function showPlayerPrediction(entry) {
     });
     viewer.appendChild(detailsDiv);
   }
-
-  // Mostrar prediccion del participante (grupos y eliminatorias)
+  
+  // PREDICCIÓN COMPLETA — FORMATO LEGIBLE
   const predDiv = document.createElement('div');
   predDiv.className = 'prediction-preview';
-  predDiv.innerHTML = '<h4>Prediccion completa</h4>';
-
-  // Grupos
-  if (entry.groups) {
+  
+  // Fase de grupos
+  if (entry.prediction && entry.prediction.groups) {
     const groupsDiv = document.createElement('div');
-    groupsDiv.className = 'prediction-groups';
-    Object.keys(entry.groups).forEach(g => {
+    groupsDiv.className = 'prediction-groups-section';
+    groupsDiv.innerHTML = '<h4>🌍 Fase de Grupos</h4>';
+    
+    Object.keys(entry.prediction.groups).sort().forEach(g => {
+      const teams = entry.prediction.groups[g] || [];
+      const realTeams = real.groups?.[g] || [];
+      
       const groupDiv = document.createElement('div');
       groupDiv.className = 'prediction-group';
-      const teams = entry.groups[g] || [];
-      groupDiv.innerHTML = '<strong>Grupo ' + g + ':</strong> ' + teams.map(t => escapeHtml(t)).join(', ');
+      
+      let html = '<strong>Grupo ' + g + ':</strong><div class="group-teams">';
+      teams.forEach((team, idx) => {
+        const isCorrect = hasRealResults && realTeams[idx] === team;
+        const pos = idx + 1;
+        const posName = pos === 1 ? '1º' : pos === 2 ? '2º' : pos === 3 ? '3º' : '4º';
+        html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '">';
+        html += '<span class="pos-badge">' + posName + '</span>';
+        html += '<span class="'+ getTeamFlagClass(team)+'"></span>';
+        html += '<span class="team-name">' + escapeHtml(team) + '</span>';
+        if (isCorrect) html += '<span class="check-mark">✓</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      groupDiv.innerHTML = html;
       groupsDiv.appendChild(groupDiv);
     });
     predDiv.appendChild(groupsDiv);
   }
-
-  // Eliminatorias
-  if (entry.knockout && entry.knockout.matches) {
-    const koDiv = document.createElement('div');
-    koDiv.className = 'prediction-knockout';
-    koDiv.innerHTML = '<h4>Eliminatorias</h4>';
-    const rounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
-    const roundNames = {
-      round32: 'Dieciseisavos', round16: 'Octavos', quarterfinals: 'Cuartos',
-      semifinals: 'Semis', thirdPlace: '3er puesto', final: 'Final'
-    };
-    rounds.forEach(round => {
-      const matches = entry.knockout.matches[round] || [];
-      if (matches.length) {
-        const roundDiv = document.createElement('div');
-        roundDiv.className = 'prediction-round';
-        roundDiv.innerHTML = '<strong>' + (roundNames[round] || round) + ':</strong>';
-        matches.forEach(m => {
-          if (m.winner) {
-            const matchDiv = document.createElement('div');
-            matchDiv.className = 'prediction-match';
-            matchDiv.textContent = (m.team1 || '?') + ' vs ' + (m.team2 || '?') + ' -> ' + m.winner;
-            roundDiv.appendChild(matchDiv);
-          }
-        });
-        koDiv.appendChild(roundDiv);
+  
+  // Resultados de partidos (quiniela)
+  if (entry.prediction && entry.prediction.groupMatchResults) {
+    const matchesDiv = document.createElement('div');
+    matchesDiv.className = 'prediction-matches-section';
+    matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
+    
+    Object.keys(entry.prediction.groupMatchResults).forEach(key => {
+      const pred = entry.prediction.groupMatchResults[key];
+      const realResult = real.groupMatchResults?.[key];
+      
+      const teams = key.split('__');
+      const matchDiv = document.createElement('div');
+      matchDiv.className = 'prediction-match';
+      
+      let html = '<div class="match-teams">';
+      html += '<span>' + escapeHtml(teams[0]) + '</span>';
+      html += '<span class="score">' + pred.team1Goals + ' - ' + pred.team2Goals + '</span>';
+      html += '<span>' + escapeHtml(teams[1]) + '</span>';
+      html += '</div>';
+      
+      if (realResult) {
+        const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
+        const p1x2 = get1x2FromResult(pred);
+        const r1x2 = get1x2FromResult(realResult);
+        const quinielaOk = p1x2 === r1x2;
+        
+        html += '<div class="match-result ' + (exact ? 'exact' : quinielaOk ? 'quiniela' : 'wrong') + '">';
+        html += 'Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals;
+        if (exact) html += ' <span class="badge exact">Resultado exacto (+5)</span>';
+        else if (quinielaOk) html += ' <span class="badge quiniela">1X2 (+1)</span>';
+        html += '</div>';
       }
+      
+      matchDiv.innerHTML = html;
+      matchesDiv.appendChild(matchDiv);
     });
+    predDiv.appendChild(matchesDiv);
+  }
+  
+  // Mejores terceros
+  if (entry.prediction && entry.prediction.thirdPlace) {
+    const tpDiv = document.createElement('div');
+    tpDiv.className = 'prediction-thirdplace-section';
+    tpDiv.innerHTML = '<h4>🥉 Mejores Terceros</h4>';
+    
+    const predTP = entry.prediction.thirdPlace;
+    const realTP = real.thirdPlace || [];
+    const realTPSet = new Set(realTP.slice(0, 8));
+    
+    let html = '<div class="third-place-list">';
+    predTP.forEach((team, idx) => {
+      const isQualified = idx < 8;
+      const isCorrect = realTPSet.has(team);
+      html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '">';
+      html += '<span class="tp-rank">' + (idx + 1) + '</span>';
+      html += '<span class="team-flag">' + getFlagEmoji(team) + '</span>';
+      html += '<span class="team-name">' + escapeHtml(team) + '</span>';
+      if (isCorrect) html += '<span class="check-mark">✓</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    
+    tpDiv.innerHTML += html;
+    predDiv.appendChild(tpDiv);
+  }
+  
+  // Eliminatorias
+  if (entry.prediction && entry.prediction.knockout && entry.prediction.knockout.matches) {
+    const koDiv = document.createElement('div');
+    koDiv.className = 'prediction-knockout-section';
+    koDiv.innerHTML = '<h4>🏆 Eliminatorias</h4>';
+    
+    const rounds = [
+      { key: 'round32', name: 'Dieciseisavos de Final' },
+      { key: 'round16', name: 'Octavos de Final' },
+      { key: 'quarterfinals', name: 'Cuartos de Final' },
+      { key: 'semifinals', name: 'Semifinales' },
+      { key: 'thirdPlace', name: 'Tercer Puesto' },
+      { key: 'final', name: 'Final' }
+    ];
+    
+    rounds.forEach(round => {
+      const matches = entry.prediction.knockout.matches[round.key] || [];
+      const realMatches = real.knockout?.matches?.[round.key] || [];
+      
+      if (!matches.length) return;
+      
+      const roundDiv = document.createElement('div');
+      roundDiv.className = 'prediction-round';
+      roundDiv.innerHTML = '<h5>' + round.name + '</h5>';
+      
+      matches.forEach(match => {
+        const realMatch = realMatches.find(m => m.match === match.match);
+        const isCorrect = realMatch && realMatch.winner && match.winner === realMatch.winner;
+        
+        const matchDiv = document.createElement('div');
+        matchDiv.className = 'prediction-ko-match ' + (isCorrect ? 'correct' : '');
+        
+        let html = '<div class="ko-teams">';
+        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '">' + escapeHtml(match.team1 || '?') + '</span>';
+        html += ' vs ';
+        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '">' + escapeHtml(match.team2 || '?') + '</span>';
+        html += '</div>';
+        html += '<div class="ko-winner">Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
+        if (isCorrect) html += ' <span class="check-mark">✓</span>';
+        html += '</div>';
+        
+        matchDiv.innerHTML = html;
+        roundDiv.appendChild(matchDiv);
+      });
+      
+      koDiv.appendChild(roundDiv);
+    });
+    
     predDiv.appendChild(koDiv);
   }
-
+  
   viewer.appendChild(predDiv);
   modal.style.display = 'flex';
 }
