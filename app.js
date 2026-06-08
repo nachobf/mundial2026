@@ -125,6 +125,12 @@ function getTeamFifaRank(team) {
   return FIFA_RANKING_TIEBREAK[team] || 999;
 }
 
+function getAllThirdPlaceCandidates() {
+  return GROUP_NAMES
+    .map(group => ({ group, team: state.groups[group]?.[2] || null }))
+    .filter(item => item.team);
+}
+
 // NUEVA FUNCIÓN: Calcula estadísticas reales del tercero de un grupo
 function getThirdPlaceStatsFromResults(group) {
   const standings = calculateGroupStandingsFromResults(group);
