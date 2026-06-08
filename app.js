@@ -1567,37 +1567,6 @@ function buildPayload() {
   };
 }
 
-function confirmSubmitWithName() {
-  const nameInput = document.getElementById('playerNameInput');
-  const name = nameInput.value.trim();
-  if (!name) { showToast('Introduce tu nombre antes de enviar.', true); return; }
-  const payload = buildPayload();
-  payload.name = name;
-  const jsonString = JSON.stringify(payload);
-  const params = new URLSearchParams();
-  params.append(ENTRY_ID, jsonString);
-  showLoading('Enviando prediccion...');
-  fetch(GOOGLE_FORM_ACTION_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString()
-  })
-  .then(() => {
-    hideLoading();
-    clearLocalPrediction();
-    showToast('Prediccion enviada! Gracias por participar, ' + name + '.');
-    fireConfetti();
-    document.getElementById('nameModal').style.display = 'none';
-    nameInput.value = '';
-    setTimeout(() => { loadLeaderboardCSV(true).then(() => renderLeaderboard()); }, 5000);
-  })
-  .catch(err => {
-    console.error('Error al enviar:', err);
-    hideLoading();
-    showToast('Error al enviar. Intenta de nuevo.', true);
-  });
-}
 
 function resetAll() {
   if (!confirm('Seguro que quieres borrar toda tu prediccion? Esta accion no se puede deshacer.')) return;
