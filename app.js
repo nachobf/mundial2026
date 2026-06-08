@@ -131,10 +131,10 @@ function getAllThirdPlaceCandidates() {
     .filter(item => item.team);
 }
 
-// NUEVA FUNCIÓN: Calcula estadísticas reales del tercero de un grupo
+// Calcula estadísticas reales del tercero de un grupo
 function getThirdPlaceStatsFromResults(group) {
   const standings = calculateGroupStandingsFromResults(group);
-  if (standings.length < 3) return null;
+  if (!standings || standings.length < 3) return null;
   const third = standings[2];
   return {
     team: third.team,
@@ -146,38 +146,49 @@ function getThirdPlaceStatsFromResults(group) {
   };
 }
 
-// NUEVA FUNCIÓN: Comparador correcto por criterios FIFA
+// Comparador correcto por criterios FIFA
 function compareBestThirdsByFifaCriteria(a, b) {
-  // Obtener stats reales de los resultados
   const statsA = getThirdPlaceStatsFromResults(a.group);
   const statsB = getThirdPlaceStatsFromResults(b.group);
-  
-  // Si no hay resultados, fallback al ranking FIFA (comportamiento original)
+
+  // Si falta alguno, fallback a ranking FIFA
   if (!statsA || !statsB) {
     return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
   }
-  
+
   // 1. Más puntos
   if (statsB.pts !== statsA.pts) return statsB.pts - statsA.pts;
   // 2. Mayor diferencia de goles
   if (statsB.gd !== statsA.gd) return statsB.gd - statsA.gd;
   // 3. Más goles marcados
   if (statsB.gf !== statsA.gf) return statsB.gf - statsA.gf;
-  // 4. Desempate final: ranking FIFA (criterio FIFA adicional)
+  // 4. Ranking FIFA como último desempate
   return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
 }
 
-// FUNCIÓN ORIGINAL MODIFICADA: Ahora usa el comparador correcto
+// CORREGIDO: Si no hay orden manual confirmado, reordena TODOS los terceros por FIFA.
+// Si el usuario ya confirmó manualmente, preserva su orden y solo añade los nuevos.
 function ensureThirdPlaceRanking() {
   const candidates = getAllThirdPlaceCandidates();
   const validSet = new Set(candidates.map(c => c.team));
-  const existing = (state.thirdPlace || []).filter(team => validSet.has(team));
-  const existingSet = new Set(existing);
-  const missing = candidates
-    .filter(item => !existingSet.has(item.team))
-    .sort(compareBestThirdsByFifaCriteria)  // <-- CAMBIO AQUÍ
-    .map(item => item.team);
-  state.thirdPlace = [...existing, ...missing];
+
+  if (!state.thirdPlaceConfirmed) {
+    // Sin orden manual: ordenar todos por criterios FIFA
+    const allTeams = candidates
+      .sort(compareBestThirdsByFifaCriteria)
+      .map(item => item.team);
+    state.thirdPlace = allTeams;
+  } else {
+    // Orden manual confirmado: preservar existing, añadir missing ordenados
+    const existing = (state.thirdPlace || []).filter(team => validSet.has(team));
+    const existingSet = new Set(existing);
+    const missing = candidates
+      .filter(item => !existingSet.has(item.team))
+      .sort(compareBestThirdsByFifaCriteria)
+      .map(item => item.team);
+    state.thirdPlace = [...existing, ...missing];
+  }
+
   if (state.thirdPlace.length < candidates.length) state.thirdPlaceConfirmed = false;
 }
 
@@ -781,7 +792,7 @@ function openBestThirdsModal() {
   const validSet = new Set(candidates.map(c => c.team));
   const existing = (state.thirdPlace || []).filter(team => validSet.has(team));
   const existingSet = new Set(existing);
-  const missing = candidates.filter(item => !existingSet.has(item.team)).sort(compareBestThirdsByRanking).map(item => item.team);
+  const missing = candidates.filter(item => !existingSet.has(item.team)).sort(compareBestThirdsByFifaCriteria).map(item => item.team);
   const all = [...existing, ...missing];
   const list = document.createElement('div');
   list.className = 'best-thirds-list';
