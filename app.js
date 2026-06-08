@@ -145,56 +145,373 @@ function getThirdPlaceStatsFromResults(group) {
     gd: third.gd
   };
 }
+function getThirdPlaceStatsFromResults(group) {
+  const standings = calculateGroupStandingsFromResults(group);
+  if (!standings || standings.length < 3) return null;
+  const third = standings[2];
+  return {
+    team: third.team,
+    group: group,
+    pts: third.pts,
+    gf: third.gf,
+    ga: third.ga,
+    gd: third.gd
+  };
+}
 
-// Comparador correcto por criterios FIFA
 function compareBestThirdsByFifaCriteria(a, b) {
   const statsA = getThirdPlaceStatsFromResults(a.group);
   const statsB = getThirdPlaceStatsFromResults(b.group);
 
-  // Si falta alguno, fallback a ranking FIFA
   if (!statsA || !statsB) {
     return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
   }
 
-  // 1. Más puntos
   if (statsB.pts !== statsA.pts) return statsB.pts - statsA.pts;
-  // 2. Mayor diferencia de goles
   if (statsB.gd !== statsA.gd) return statsB.gd - statsA.gd;
-  // 3. Más goles marcados
   if (statsB.gf !== statsA.gf) return statsB.gf - statsA.gf;
-  // 4. Ranking FIFA como último desempate
   return (getTeamFifaRank(a.team) - getTeamFifaRank(b.team)) || a.group.localeCompare(b.group);
 }
 
-// CORREGIDO: Si no hay orden manual confirmado, reordena TODOS los terceros por FIFA.
-// Si el usuario ya confirmó manualmente, preserva su orden y solo añade los nuevos.
+// Siempre recalcula automáticamente. No respeta orden manual previo.
 function ensureThirdPlaceRanking() {
   const candidates = getAllThirdPlaceCandidates();
-  const validSet = new Set(candidates.map(c => c.team));
-
-  if (!state.thirdPlaceConfirmed) {
-    // Sin orden manual: ordenar todos por criterios FIFA
-    const allTeams = candidates
-      .sort(compareBestThirdsByFifaCriteria)
-      .map(item => item.team);
-    state.thirdPlace = allTeams;
-  } else {
-    // Orden manual confirmado: preservar existing, añadir missing ordenados
-    const existing = (state.thirdPlace || []).filter(team => validSet.has(team));
-    const existingSet = new Set(existing);
-    const missing = candidates
-      .filter(item => !existingSet.has(item.team))
-      .sort(compareBestThirdsByFifaCriteria)
-      .map(item => item.team);
-    state.thirdPlace = [...existing, ...missing];
-  }
-
-  if (state.thirdPlace.length < candidates.length) state.thirdPlaceConfirmed = false;
+  const allTeams = candidates
+    .sort(compareBestThirdsByFifaCriteria)
+    .map(item => item.team);
+  state.thirdPlace = allTeams;
+  state.thirdPlaceConfirmed = candidates.length >= 8;
 }
 
 function getQualifiedThirdPlaceTeams() {
   ensureThirdPlaceRanking();
   return state.thirdPlace.slice(0, 8);
+}
+
+// Calcula los terceros de un jugador a partir de sus resultados (para puntuación)
+function calculateThirdPlaceForPlayer(player) {
+  const candidates = GROUP_NAMES
+    .map(group => ({ group, team: player.groups?.[group]?.[2] || null }))
+    .filter(item => item.team);
+
+  const candidatesWithStats = candidates.map(item => {
+    const group = item.group;
+    const teams = (TEAMS_BY_GROUP[group] || []).map(t => t.name);
+    const matches = getGroupMatchList(group);
+    const stats = {};
+    teams.forEach(t => {
+      stats[t] = { team: t, pts: 0, gf: 0, ga: 0, gd: 0, played: 0, wins: 0, draws: 0, losses: 0 };
+    });
+    matches.forEach(m => {
+      const result = player.groupMatchResults?.[m.key];
+      if (!result) return;
+      const g1 = Number(result.team1Goals);
+      const g2 = Number(result.team2Goals);
+      if (isNaN(g1) || isNaN(g2)) return;
+      const t1 = m.team1;
+      const t2 = m.team2;
+      stats[t1].played++;
+      stats[t2].played++;
+      stats[t1].gf += g1;
+      stats[t1].ga += g2;
+      stats[t2].gf += g2;
+      stats[t2].ga += g1;
+      if (g1 > g2) {
+        stats[t1].pts += 3; stats[t1].wins++; stats[t2].losses++;
+      } else if (g1 < g2) {
+        stats[t2].pts += 3; stats[t2].wins++; stats[t1].losses++;
+      } else {
+        stats[t1].pts += 1; stats[t2].pts += 1;
+        stats[t1].draws++; stats[t2].draws++;
+      }
+    });
+    teams.forEach(t => { stats[t].gd = stats[t].gf - stats[t].ga; });
+    const standings = teams.map(t => stats[t]).sort((a, b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (b.gd !== a.gd) return b.gd - a.gd;
+      if (b.gf !== a.gf) return b.gf - a.gf;
+      return getTeamFifaRank(a.team) - getTeamFifaRank(b.team);
+    });
+    const third = standings[2];
+    if (!third) return null;
+    return {
+      team: third.team,
+      group: group,
+      pts: third.pts,
+      gf: third.gf,
+      ga: third.ga,
+      gd: third.gd
+    };
+  }).filter(Boolean);
+
+  candidatesWithStats.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    if (b.gf !== a.gf) return b.gf - a.gf;
+    return getTeamFifaRank(a.team) - getTeamFifaRank(b.team);
+  });
+
+  return candidatesWithStats.map(c => c.team);
+}
+
+/* ============================================================
+   RENDERIZADO (reemplaza renderBestThirds y openBestThirdsModal)
+   ============================================================ */
+
+// Eliminado el modal de arrastrar. Ahora es solo informativo.
+function openBestThirdsModal() {
+  // Ya no hace nada. Los terceros se calculan solos.
+  return;
+}
+
+function renderBestThirds() {
+  const container = document.getElementById('bestThirdsPanel');
+  if (!container) return;
+  container.innerHTML = '';
+  const candidates = getAllThirdPlaceCandidates();
+  if (!candidates.length) return;
+  ensureThirdPlaceRanking();
+  const qualified = getQualifiedThirdPlaceTeams();
+  const qualifiedSet = new Set(qualified);
+
+  const card = document.createElement('div');
+  card.className = 'best-thirds-card best-thirds-complete';
+  const h3 = document.createElement('h3');
+  h3.textContent = 'Mejores Terceros';
+  card.appendChild(h3);
+
+  const all = state.thirdPlace || [];
+  all.forEach((team, index) => {
+    const isQualified = qualifiedSet.has(team);
+    const row = document.createElement('div');
+    row.className = 'best-third-row' + (isQualified ? ' best-third-qualified' : ' best-third-eliminated');
+    const badge = document.createElement('span');
+    badge.className = 'position-badge';
+    badge.textContent = index + 1;
+    row.appendChild(badge);
+    const flag = document.createElement('span');
+    flag.className = 'team-flag ' + getTeamFlagClass(team);
+    row.appendChild(flag);
+    const name = document.createElement('span');
+    name.className = 'team-name';
+    name.textContent = team;
+    row.appendChild(name);
+    const groupLabel = document.createElement('span');
+    groupLabel.className = 'group-label';
+    groupLabel.textContent = 'Grupo ' + findTeamGroup(team);
+    row.appendChild(groupLabel);
+    const stats = getThirdPlaceStatsFromResults(findTeamGroup(team));
+    if (stats) {
+      const statsSpan = document.createElement('span');
+      statsSpan.className = 'team-stats';
+      statsSpan.textContent = stats.pts + 'pts ' + stats.gf + '-' + stats.ga + ' (' + (stats.gd > 0 ? '+' : '') + stats.gd + ')';
+      statsSpan.style.cssText = 'margin-left:auto;font-size:12px;color:#666;';
+      row.appendChild(statsSpan);
+    }
+    card.appendChild(row);
+  });
+
+  const hint = document.createElement('div');
+  hint.className = 'best-thirds-hint';
+  hint.textContent = 'Calculado automáticamente por criterios FIFA';
+  card.appendChild(hint);
+
+  container.appendChild(card);
+}
+
+/* ============================================================
+   SUBMIT / RESTORE (reemplaza submitPrediction y restoreLocalPrediction)
+   ============================================================ */
+
+function submitPrediction() {
+  if (!LOADED) { showToast('Los datos del torneo aun no se han cargado. Espera un momento.', true); return; }
+  const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
+  if (incompleteGroups.length) { showToast('Completa todos los grupos antes de enviar.', true); return; }
+  // Ya no pide confirmar mejores terceros manualmente
+  const missingKO = [];
+  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
+  rounds.forEach(round => {
+    (KO_TREE[round] || []).forEach(match => {
+      const teams = state.matchTeams[match.num] || {};
+      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) missingKO.push(match.num);
+    });
+  });
+  if (missingKO.length) { showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); return; }
+  document.getElementById('nameModal').style.display = 'flex';
+}
+
+function restoreLocalPrediction() {
+  try {
+    const saved = localStorage.getItem(LOCAL_STORAGE_PICKS_KEY);
+    if (!saved) return false;
+    const data = JSON.parse(saved);
+    if (data.groups) {
+      GROUP_NAMES.forEach(g => {
+        if (Array.isArray(data.groups[g]) && data.groups[g].length) {
+          state.groups[g] = data.groups[g].slice();
+        }
+      });
+    }
+    if (data.groupsConfirmed) {
+      GROUP_NAMES.forEach(g => { if (data.groupsConfirmed[g]) state.groupsConfirmed[g] = true; });
+    }
+    // No restaurar thirdPlace manual — se recalcula automáticamente
+    if (data.groupMatchResults && typeof data.groupMatchResults === 'object') {
+      state.groupMatchResults = {};
+      Object.keys(data.groupMatchResults).forEach(key => {
+        const r = data.groupMatchResults[key];
+        if (r && typeof r === 'object') {
+          state.groupMatchResults[key] = {
+            team1Goals: r.team1Goals !== '' ? Number(r.team1Goals) : '',
+            team2Goals: r.team2Goals !== '' ? Number(r.team2Goals) : ''
+          };
+        }
+      });
+    }
+    if (data.knockout?.matches) {
+      Object.values(data.knockout.matches).flat().forEach(match => {
+        if (match?.match && match?.winner) state.knockoutResults[match.match] = match.winner;
+      });
+    } else if (data.knockout) {
+      ['round32','round16','quarterfinals','semifinals'].forEach(round => {
+        const treeArr = KO_TREE[round] || [];
+        (data.knockout[round] || []).forEach((team, index) => {
+          if (treeArr[index] && team) state.knockoutResults[treeArr[index].num] = team;
+        });
+      });
+      if (data.knockout.final && KO_TREE.final?.[0]) state.knockoutResults[KO_TREE.final[0].num] = data.knockout.final;
+      if (data.knockout.thirdPlace && KO_TREE.thirdPlace?.[0]) state.knockoutResults[KO_TREE.thirdPlace[0].num] = data.knockout.thirdPlace;
+    }
+    normalizeLoadedState();
+    return true;
+  } catch (e) {
+    console.warn('Could not restore local draft:', e);
+    clearLocalPrediction();
+    return false;
+  }
+}
+
+/* ============================================================
+   SCORING (reemplaza calculatePlayerScore y getTeamRoundFromPlayer)
+   ============================================================ */
+
+function calculatePlayerScore(player, real) {
+  let score = 0;
+  const details = [];
+
+  // Fase de grupos - posiciones (1º, 2º, 3º y 4º = 5 pts cada uno)
+  GROUP_NAMES.forEach(group => {
+    const predicted = player.groups?.[group] || [];
+    const realOrder = real.groups?.[group] || [];
+    for (let i = 0; i < 4; i++) {
+      if (predicted[i] && realOrder[i] && predicted[i] === realOrder[i]) {
+        score += puntuaciones.grupos.posicion.primero;
+        details.push({ type: 'posicion', group, position: i + 1, team: predicted[i], points: 5 });
+      }
+    }
+  });
+
+  // Resultados exactos y 1X2
+  QUINIELA_1X2_MATCHES.forEach(m => {
+    const predicted = player.groupMatchResults?.[m.key];
+    const realResult = real.groupMatchResults?.[m.key];
+    if (!predicted || !realResult) return;
+    const pG1 = Number(predicted.team1Goals);
+    const pG2 = Number(predicted.team2Goals);
+    const rG1 = Number(realResult.team1Goals);
+    const rG2 = Number(realResult.team2Goals);
+    if (isNaN(pG1) || isNaN(pG2) || isNaN(rG1) || isNaN(rG2)) return;
+    if (pG1 === rG1 && pG2 === rG2) {
+      score += puntuaciones.grupos.resultadoExacto;
+      details.push({ type: 'resultadoExacto', matchKey: m.key, team1: m.team1, team2: m.team2, points: 5 });
+    }
+    const p1x2 = get1x2FromResult(predicted);
+    const r1x2 = get1x2FromResult(realResult);
+    if (p1x2 === r1x2) {
+      score += puntuaciones.grupos.quiniela1x2;
+      details.push({ type: '1x2', matchKey: m.key, team1: m.team1, team2: m.team2, points: 1 });
+    }
+  });
+
+  // Mejores terceros — calculados automáticamente si no vienen en el payload
+  const playerThirdPlace = player.thirdPlace?.length ? player.thirdPlace : calculateThirdPlaceForPlayer(player);
+  const realThirdPlace = real.thirdPlace?.length ? real.thirdPlace : calculateThirdPlaceForPlayer(real);
+  if (playerThirdPlace && realThirdPlace) {
+    const predictedSet = new Set(playerThirdPlace.slice(0, 8));
+    const realSet = new Set(realThirdPlace.slice(0, 8));
+    predictedSet.forEach(team => {
+      if (realSet.has(team)) {
+        score += puntuaciones.grupos.mejorTercero;
+        details.push({ type: 'mejorTercero', team, points: puntuaciones.grupos.mejorTercero });
+      }
+    });
+  }
+
+  // Eliminatorias
+  const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+  const allTeams = new Set();
+  GROUP_NAMES.forEach(g => { (player.groups?.[g] || []).forEach(t => allTeams.add(t)); });
+  (playerThirdPlace || []).forEach(t => allTeams.add(t));
+  allTeams.forEach(team => {
+    const predRound = getTeamRoundFromPlayer(team, player, playerThirdPlace);
+    const realRound = getTeamRoundFromPlayer(team, real, realThirdPlace);
+    if (predRound && realRound && predRound === realRound) {
+      const pts = roundPoints[predRound] || 0;
+      if (pts > 0) { score += pts; details.push({ type: 'eliminatoria', team, round: predRound, points: pts }); }
+    }
+  });
+
+  return { score, details };
+}
+
+function getTeamRoundFromPlayer(team, player, precomputedThirdPlace) {
+  if (!team || !player) return null;
+  const kr = {};
+  if (player.knockout?.matches) {
+    Object.values(player.knockout.matches).flat().forEach(m => { if (m?.match && m?.winner) kr[m.match] = m.winner; });
+  }
+  const mt = {};
+  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
+  const tpAlloc = {};
+  const candidates = GROUP_NAMES.map(g => ({ group: g, team: player.groups?.[g]?.[2] || null })).filter(c => c.team);
+  const qualified = (precomputedThirdPlace || player.thirdPlace || calculateThirdPlaceForPlayer(player)).slice(0, 8);
+  const byGroup = {};
+  qualified.forEach(t => { const g = candidates.find(c => c.team === t)?.group; if (g) byGroup[g] = t; });
+  if (Object.keys(byGroup).length === 8) {
+    const groups = Object.keys(byGroup).sort();
+    const key = groups.join("");
+    const order = TP_TABLE[key];
+    if (order) {
+      TP_COLUMNS.forEach((mn, idx) => {
+        const g = String(order[idx]).replace(/^3/, "");
+        tpAlloc[mn] = byGroup[g] || null;
+      });
+    }
+  }
+  rounds.forEach(round => {
+    (KO_TREE?.[round] || []).forEach(match => {
+      const t1 = resolveSlotFromPlayer(match.slot1, match.num, player, kr, tpAlloc);
+      const t2 = resolveSlotFromPlayer(match.slot2, match.num, player, kr, tpAlloc);
+      mt[match.num] = { team1: t1, team2: t2 };
+    });
+  });
+  if (kr[104] === team) return 'champion';
+  if (kr[103] === team) return 'thirdPlace';
+  const loser103 = getMatchLoserFromData(103, kr, mt);
+  if (loser103 === team) return 'fourthPlace';
+  const loser101 = getMatchLoserFromData(101, kr, mt);
+  const loser102 = getMatchLoserFromData(102, kr, mt);
+  if (loser101 === team || loser102 === team) return 'semifinals';
+  const losersQF = [97,98,99,100].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
+  if (losersQF.includes(team)) return 'quarterfinals';
+  const losersR16 = [89,90,91,92,93,94,95,96].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
+  if (losersR16.includes(team)) return 'round16';
+  const losersR32 = [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
+  if (losersR32.includes(team)) return 'round32';
+  return null;
 }
 
 function buildTPAllocation() {
@@ -253,60 +570,6 @@ function saveLocalPredictionSoon() {
 function clearLocalPrediction() {
   clearTimeout(localSaveTimer);
   try { localStorage.removeItem(LOCAL_STORAGE_PICKS_KEY); } catch (e) {}
-}
-
-function restoreLocalPrediction() {
-  try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_PICKS_KEY);
-    if (!saved) return false;
-    const data = JSON.parse(saved);
-    if (data.groups) {
-      GROUP_NAMES.forEach(g => {
-        if (Array.isArray(data.groups[g]) && data.groups[g].length) {
-          state.groups[g] = data.groups[g].slice();
-        }
-      });
-    }
-    if (data.groupsConfirmed) {
-      GROUP_NAMES.forEach(g => { if (data.groupsConfirmed[g]) state.groupsConfirmed[g] = true; });
-    }
-    if (Array.isArray(data.thirdPlace) && data.thirdPlace.length) {
-      state.thirdPlace = data.thirdPlace.slice();
-      state.thirdPlaceConfirmed = Boolean(data.thirdPlaceConfirmed);
-    }
-    if (data.groupMatchResults && typeof data.groupMatchResults === 'object') {
-      state.groupMatchResults = {};
-      Object.keys(data.groupMatchResults).forEach(key => {
-        const r = data.groupMatchResults[key];
-        if (r && typeof r === 'object') {
-          state.groupMatchResults[key] = {
-            team1Goals: r.team1Goals !== '' ? Number(r.team1Goals) : '',
-            team2Goals: r.team2Goals !== '' ? Number(r.team2Goals) : ''
-          };
-        }
-      });
-    }
-    if (data.knockout?.matches) {
-      Object.values(data.knockout.matches).flat().forEach(match => {
-        if (match?.match && match?.winner) state.knockoutResults[match.match] = match.winner;
-      });
-    } else if (data.knockout) {
-      ['round32','round16','quarterfinals','semifinals'].forEach(round => {
-        const treeArr = KO_TREE[round] || [];
-        (data.knockout[round] || []).forEach((team, index) => {
-          if (treeArr[index] && team) state.knockoutResults[treeArr[index].num] = team;
-        });
-      });
-      if (data.knockout.final && KO_TREE.final?.[0]) state.knockoutResults[KO_TREE.final[0].num] = data.knockout.final;
-      if (data.knockout.thirdPlace && KO_TREE.thirdPlace?.[0]) state.knockoutResults[KO_TREE.thirdPlace[0].num] = data.knockout.thirdPlace;
-    }
-    normalizeLoadedState();
-    return true;
-  } catch (e) {
-    console.warn('Could not restore local draft:', e);
-    clearLocalPrediction();
-    return false;
-  }
 }
 
 async function loadData() {
@@ -781,102 +1044,6 @@ function openGroupResultsModal(group) {
   modal.style.display = 'flex';
 }
 
-function openBestThirdsModal() {
-  if (!LOADED) return;
-  const modal = document.getElementById('bestThirdsModal');
-  const body = document.getElementById('bestThirdsModalBody');
-  const confirmBtn = document.getElementById('bestThirdsModalConfirm');
-  body.innerHTML = '';
-  ensureThirdPlaceRanking();
-  const candidates = getAllThirdPlaceCandidates();
-  const validSet = new Set(candidates.map(c => c.team));
-  const existing = (state.thirdPlace || []).filter(team => validSet.has(team));
-  const existingSet = new Set(existing);
-  const missing = candidates.filter(item => !existingSet.has(item.team)).sort(compareBestThirdsByFifaCriteria).map(item => item.team);
-  const all = [...existing, ...missing];
-  const list = document.createElement('div');
-  list.className = 'best-thirds-list';
-  all.forEach((team, index) => {
-    const item = document.createElement('div');
-    item.className = 'best-third-item';
-    item.draggable = true;
-    item.dataset.team = team;
-    item.innerHTML = '<span class="drag-handle">&#8942;&#8942;</span><span class="position-badge">' + (index + 1) + '</span><span class="team-flag ' + getTeamFlagClass(team) + '"></span><span class="team-name">' + escapeHtml(team) + '</span><span class="group-label">Grupo ' + findTeamGroup(team) + '</span>';
-    item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', index); item.classList.add('dragging'); });
-    item.addEventListener('dragend', () => item.classList.remove('dragging'));
-    item.addEventListener('dragover', e => e.preventDefault());
-    item.addEventListener('drop', e => {
-      e.preventDefault();
-      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const to = index;
-      const reordered = moveArrayItem(all, from, to);
-      state.thirdPlace = reordered;
-      renderBestThirds();
-      openBestThirdsModal();
-      saveLocalPredictionSoon();
-    });
-    list.appendChild(item);
-  });
-  body.appendChild(list);
-  confirmBtn.textContent = 'Confirmar mejores terceros';
-  confirmBtn.onclick = () => {
-    state.thirdPlaceConfirmed = true;
-    buildTPAllocation();
-    computeMatchTeams();
-    renderGroups(); renderThirdPlace(); renderKnockout();
-    saveLocalPredictionSoon();
-    closeModal('bestThirdsModal');
-    showToast('Mejores terceros confirmados');
-  };
-  modal.style.display = 'flex';
-}
-
-function renderBestThirds() {
-  const container = document.getElementById('bestThirdsPanel');
-  if (!container) return;
-  container.innerHTML = '';
-  const candidates = getAllThirdPlaceCandidates();
-  if (!candidates.length) return;
-  ensureThirdPlaceRanking();
-  const qualified = getQualifiedThirdPlaceTeams();
-  const qualifiedSet = new Set(qualified);
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'best-thirds-card' + (state.thirdPlaceConfirmed ? ' best-thirds-complete' : ' best-thirds-empty');
-  card.title = state.thirdPlaceConfirmed ? 'Editar mejores terceros' : 'Ordenar mejores terceros';
-  const h3 = document.createElement('h3');
-  h3.textContent = 'Mejores Terceros';
-  card.appendChild(h3);
-  const all = state.thirdPlace || [];
-  all.forEach((team, index) => {
-    const isQualified = qualifiedSet.has(team);
-    const row = document.createElement('div');
-    row.className = 'best-third-row' + (isQualified ? ' best-third-qualified' : ' best-third-eliminated');
-    const badge = document.createElement('span');
-    badge.className = 'position-badge';
-    badge.textContent = index + 1;
-    row.appendChild(badge);
-    const flag = document.createElement('span');
-    flag.className = 'team-flag ' + getTeamFlagClass(team);
-    row.appendChild(flag);
-    const name = document.createElement('span');
-    name.className = 'team-name';
-    name.textContent = team;
-    row.appendChild(name);
-    const groupLabel = document.createElement('span');
-    groupLabel.className = 'group-label';
-    groupLabel.textContent = 'Grupo ' + findTeamGroup(team);
-    row.appendChild(groupLabel);
-    card.appendChild(row);
-  });
-  const hint = document.createElement('div');
-  hint.className = 'best-thirds-hint';
-  hint.textContent = state.thirdPlaceConfirmed ? 'Editar' : 'Ordenar';
-  card.appendChild(hint);
-  card.addEventListener('click', openBestThirdsModal);
-  container.appendChild(card);
-}
-
 function renderThirdPlace() {
   const container = document.getElementById('thirdPlacePanel');
   if (!container) return;
@@ -1051,120 +1218,7 @@ function openKnockoutMatchModal(matchNum, round) {
   modal.style.display = 'flex';
 }
 
-// ---- SCORING ----
-function calculatePlayerScore(player, real) {
-  let score = 0;
-  const details = [];
-  // Fase de grupos - posiciones (1º, 2º, 3º y 4º = 5 pts cada uno)
-  GROUP_NAMES.forEach(group => {
-    const predicted = player.groups?.[group] || [];
-    const realOrder = real.groups?.[group] || [];
-    for (let i = 0; i < 4; i++) {
-      if (predicted[i] && realOrder[i] && predicted[i] === realOrder[i]) {
-        score += puntuaciones.grupos.posicion.primero;
-        details.push({ type: 'posicion', group, position: i + 1, team: predicted[i], points: 5 });
-      }
-    }
-  });
-  // Resultados exactos y 1X2
-  QUINIELA_1X2_MATCHES.forEach(m => {
-    const predicted = player.groupMatchResults?.[m.key];
-    const realResult = real.groupMatchResults?.[m.key];
-    if (!predicted || !realResult) return;
-    const pG1 = Number(predicted.team1Goals);
-    const pG2 = Number(predicted.team2Goals);
-    const rG1 = Number(realResult.team1Goals);
-    const rG2 = Number(realResult.team2Goals);
-    if (isNaN(pG1) || isNaN(pG2) || isNaN(rG1) || isNaN(rG2)) return;
-    if (pG1 === rG1 && pG2 === rG2) {
-      score += puntuaciones.grupos.resultadoExacto;
-      details.push({ type: 'resultadoExacto', matchKey: m.key, team1: m.team1, team2: m.team2, points: 5 });
-    }
-    const p1x2 = get1x2FromResult(predicted);
-    const r1x2 = get1x2FromResult(realResult);
-    if (p1x2 === r1x2) {
-      score += puntuaciones.grupos.quiniela1x2;
-      details.push({ type: '1x2', matchKey: m.key, team1: m.team1, team2: m.team2, points: 1 });
-    }
-  });
-  // Mejores terceros
-  if (player.thirdPlace && real.thirdPlace) {
-    const predictedSet = new Set(player.thirdPlace.slice(0, 8));
-    const realSet = new Set(real.thirdPlace.slice(0, 8));
-    predictedSet.forEach(team => {
-      if (realSet.has(team)) {
-        score += puntuaciones.grupos.mejorTercero;
-        details.push({ type: 'mejorTercero', team, points: puntuaciones.grupos.mejorTercero });
-      }
-    });
-  }
-  // Eliminatorias
-  const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
-  };
-  const allTeams = new Set();
-  GROUP_NAMES.forEach(g => { (player.groups?.[g] || []).forEach(t => allTeams.add(t)); });
-  (player.thirdPlace || []).forEach(t => allTeams.add(t));
-  allTeams.forEach(team => {
-    const predRound = getTeamRoundFromPlayer(team, player);
-    const realRound = getTeamRoundFromPlayer(team, real);
-    if (predRound && realRound && predRound === realRound) {
-      const pts = roundPoints[predRound] || 0;
-      if (pts > 0) { score += pts; details.push({ type: 'eliminatoria', team, round: predRound, points: pts }); }
-    }
-  });
-  return { score, details };
-}
-
-function getTeamRoundFromPlayer(team, player) {
-  if (!team || !player) return null;
-  const kr = {};
-  if (player.knockout?.matches) {
-    Object.values(player.knockout.matches).flat().forEach(m => { if (m?.match && m?.winner) kr[m.match] = m.winner; });
-  }
-  const mt = {};
-  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
-  const tpAlloc = {};
-  const candidates = GROUP_NAMES.map(g => ({ group: g, team: player.groups?.[g]?.[2] || null })).filter(c => c.team);
-  const qualified = (player.thirdPlace || []).slice(0, 8);
-  const byGroup = {};
-  qualified.forEach(t => { const g = candidates.find(c => c.team === t)?.group; if (g) byGroup[g] = t; });
-  if (Object.keys(byGroup).length === 8) {
-    const groups = Object.keys(byGroup).sort();
-    const key = groups.join("");
-    const order = TP_TABLE[key];
-    if (order) {
-      TP_COLUMNS.forEach((mn, idx) => {
-        const g = String(order[idx]).replace(/^3/, "");
-        tpAlloc[mn] = byGroup[g] || null;
-      });
-    }
-  }
-  rounds.forEach(round => {
-    (KO_TREE?.[round] || []).forEach(match => {
-      const t1 = resolveSlotFromPlayer(match.slot1, match.num, player, kr, tpAlloc);
-      const t2 = resolveSlotFromPlayer(match.slot2, match.num, player, kr, tpAlloc);
-      mt[match.num] = { team1: t1, team2: t2 };
-    });
-  });
-  if (kr[104] === team) return 'champion';
-  if (kr[103] === team) return 'thirdPlace';
-  const loser103 = getMatchLoserFromData(103, kr, mt);
-  if (loser103 === team) return 'fourthPlace';
-  const loser101 = getMatchLoserFromData(101, kr, mt);
-  const loser102 = getMatchLoserFromData(102, kr, mt);
-  if (loser101 === team || loser102 === team) return 'semifinals';
-  const losersQF = [97,98,99,100].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersQF.includes(team)) return 'quarterfinals';
-  const losersR16 = [89,90,91,92,93,94,95,96].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersR16.includes(team)) return 'round16';
-  const losersR32 = [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersR32.includes(team)) return 'round32';
-  return null;
-}
-
-function resolveSlotFromPlayer(slot, matchNum, player, kr, tpAlloc) {
+ function resolveSlotFromPlayer(slot, matchNum, player, kr, tpAlloc) {
   if (!slot) return null;
   if (slot.type === 'winner') return (player.groups?.[slot.group] || [])[0] || null;
   if (slot.type === 'runner_up') return (player.groups?.[slot.group] || [])[1] || null;
@@ -1431,23 +1485,6 @@ function buildPayload() {
     groupMatchResults: state.groupMatchResults,
     knockout: { matches: knockoutMatches }
   };
-}
-
-function submitPrediction() {
-  if (!LOADED) { showToast('Los datos del torneo aun no se han cargado. Espera un momento.', true); return; }
-  const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
-  if (incompleteGroups.length) { showToast('Completa todos los grupos antes de enviar.', true); return; }
-  if (!state.thirdPlaceConfirmed) { showToast('Confirma los mejores terceros antes de enviar.', true); return; }
-  const missingKO = [];
-  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
-  rounds.forEach(round => {
-    (KO_TREE[round] || []).forEach(match => {
-      const teams = state.matchTeams[match.num] || {};
-      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) missingKO.push(match.num);
-    });
-  });
-  if (missingKO.length) { showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); return; }
-  document.getElementById('nameModal').style.display = 'flex';
 }
 
 function confirmSubmitWithName() {
