@@ -1728,46 +1728,39 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 // PATCH: Usar puntuaciones del backend + cargar REAL_RESULTS
 // ============================================================
+// --- CORRECCION DE escapeHtml ---
+// Guardar funcion original si existe
+const _originalEscapeHtml = (typeof escapeHtml === 'function') ? escapeHtml : null;
+
+// Reemplazar con version robusta
+escapeHtml = function(text) {
+  if (text == null || text === undefined) return '';
+  if (typeof text !== 'string') {
+    text = String(text);
+  }
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
 
 // --- 1. VARIABLE GLOBAL PARA RESULTADOS REALES ---
 window.REAL_RESULTS = null;
 
-// --- 2. FUNCIÓN: Cargar resultados reales desde backend ---
-async function loadRealResults() {
-  try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?action=realResults&_=' + Date.now(), {
-      method: 'GET',
-      cache: 'no-store'
-    });
-    const data = await resp.json();
-    if (data.realResults) {
-      window.REAL_RESULTS = data.realResults;
-      console.log('✅ REAL_RESULTS cargado desde backend');
-      console.log('Grupos:', Object.keys(window.REAL_RESULTS.groups || {}).length);
-      console.log('Partidos:', Object.keys(window.REAL_RESULTS.groupMatchResults || {}).length);
-      return true;
-    }
-    return false;
-  } catch (e) {
-    console.warn('No se pudieron cargar resultados reales:', e);
-    return false;
-  }
-}
-
-// --- 3. MODIFICAR renderLeaderboard para usar scores del backend ---
-// Guardar referencia original
+// --- 2. MODIFICAR renderLeaderboard para usar scores del backend ---
 const _originalRenderLeaderboard = renderLeaderboard;
 
 renderLeaderboard = function() {
   const container = document.getElementById('leaderboardContent');
   if (!container) return;
 
-  // Usar datos del leaderboard que ya vienen con score calculado
   const data = window.__leaderboardData || { players: [] };
   const leaderboard = data.players || [];
 
   if (!leaderboard.length) {
-    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
+    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavia.</p>';
     return;
   }
 
@@ -1780,16 +1773,17 @@ renderLeaderboard = function() {
     const row = document.createElement('div');
     row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
 
-    // El backend ya devuelve score, details y prediction
-    const score = entry.score || 0;
+    const score = (entry.score != null) ? Number(entry.score) : 0;
     const details = entry.details || [];
     const hasDetails = details.length > 0;
 
+    // Asegurar que name sea string
+    const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+
     row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
-      '<span class="leaderboard-name">' + escapeHtml(entry.name) + '</span>' +
+      '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
       '<span class="leaderboard-score">' + score + ' pts</span>';
 
-    // Al hacer clic, mostrar desglose
     row.addEventListener('click', () => showPlayerPredictionFromBackend(entry));
     table.appendChild(row);
   });
@@ -1797,49 +1791,51 @@ renderLeaderboard = function() {
   container.innerHTML = '';
   container.appendChild(table);
 
-  // Mensaje informativo
   if (!hasRealResults) {
     const msg = document.createElement('p');
     msg.className = 'note-text';
     msg.style.marginTop = '16px';
-    msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales.';
+    msg.textContent = 'El torneo aun no ha comenzado. Las puntuaciones se calcularan cuando haya resultados reales.';
     container.appendChild(msg);
   }
 };
 
-// --- 4. FUNCIÓN: Mostrar predicción con desglose del backend ---
+// --- 3. FUNCIÓN: Mostrar predicción con desglose del backend ---
 function showPlayerPredictionFromBackend(entry) {
   const modal = document.getElementById('predictionModal');
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
 
-  title.textContent = 'Predicción de ' + escapeHtml(entry.name);
+  // Asegurar que name sea string
+  const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+  title.textContent = 'Prediccion de ' + escapeHtml(name);
   viewer.innerHTML = '';
 
-  const score = entry.score || 0;
+  const score = (entry.score != null) ? Number(entry.score) : 0;
   const details = entry.details || [];
   const hasDetails = details.length > 0;
   const prediction = entry.prediction || {};
 
-  // Info de puntuación
+  // Info de puntuacion
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
   if (hasDetails) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
   } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong></p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong></p>';
   }
   viewer.appendChild(scoreDiv);
 
-  // Desglose de puntuación
+  // Desglose de puntuacion
   if (hasDetails && details.length) {
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'scoring-details';
 
     const grouped = {};
     details.forEach(d => {
-      if (!grouped[d.type]) grouped[d.type] = [];
-      grouped[d.type].push(d);
+      const t = d.type || 'otro';
+      if (!grouped[t]) grouped[t] = [];
+      grouped[t].push(d);
     });
 
     const typeLabels = {
@@ -1847,26 +1843,32 @@ function showPlayerPredictionFromBackend(entry) {
       resultadoExacto: 'Resultados exactos',
       '1x2': '1X2 acertados',
       mejorTercero: 'Mejores terceros',
-      eliminatoria: 'Eliminatorias'
+      eliminatoria: 'Eliminatorias',
+      otro: 'Otros'
     };
 
     Object.keys(grouped).forEach(type => {
       const items = grouped[type];
-      const total = items.reduce((sum, i) => sum + i.points, 0);
+      const total = items.reduce((sum, i) => sum + (Number(i.points) || 0), 0);
       const typeLabel = typeLabels[type] || type;
 
       const section = document.createElement('div');
       section.className = 'scoring-detail-section';
-      section.innerHTML = '<h4>' + typeLabel + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+      section.innerHTML = '<h4>' + escapeHtml(typeLabel) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
 
       const list = document.createElement('div');
       list.className = 'scoring-detail-list';
       items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'scoring-detail-item';
-        if (item.team) div.textContent = '+ ' + item.points + ' pts - ' + item.team;
-        else if (item.group) div.textContent = '+ ' + item.points + ' pts - Grupo ' + item.group + ' ' + item.position + 'º';
-        else div.textContent = '+ ' + item.points + ' pts';
+
+        let text = '+ ' + (Number(item.points) || 0) + ' pts';
+        if (item.team) text += ' - ' + String(item.team);
+        if (item.group) text += ' - Grupo ' + String(item.group) + ' ' + (item.position || '?') + 'o';
+        if (item.matchKey) text += ' - ' + String(item.matchKey);
+        if (item.round) text += ' (' + String(item.round) + ')';
+
+        div.textContent = text;
         list.appendChild(div);
       });
       section.appendChild(list);
@@ -1875,19 +1877,20 @@ function showPlayerPredictionFromBackend(entry) {
     viewer.appendChild(detailsDiv);
   }
 
-  // Mostrar predicción completa
+  // Mostrar prediccion completa
   const predDiv = document.createElement('div');
   predDiv.className = 'prediction-preview';
-  predDiv.innerHTML = '<h4>Predicción completa</h4>';
+  predDiv.innerHTML = '<h4>Prediccion completa</h4>';
 
-  if (prediction.groups) {
+  if (prediction.groups && typeof prediction.groups === 'object') {
     const groupsDiv = document.createElement('div');
     groupsDiv.className = 'prediction-groups';
     Object.keys(prediction.groups).forEach(g => {
       const groupDiv = document.createElement('div');
       groupDiv.className = 'prediction-group';
       const teams = prediction.groups[g] || [];
-      groupDiv.innerHTML = '<strong>Grupo ' + g + ':</strong> ' + teams.map(t => escapeHtml(t)).join(', ');
+      const teamsStr = teams.map(t => escapeHtml(String(t))).join(', ');
+      groupDiv.innerHTML = '<strong>Grupo ' + escapeHtml(String(g)) + ':</strong> ' + teamsStr;
       groupsDiv.appendChild(groupDiv);
     });
     predDiv.appendChild(groupsDiv);
@@ -1897,7 +1900,7 @@ function showPlayerPredictionFromBackend(entry) {
   modal.style.display = 'flex';
 }
 
-// --- 5. MODIFICAR loadLeaderboard para cargar también REAL_RESULTS ---
+// --- 4. MODIFICAR loadLeaderboard para cargar también REAL_RESULTS ---
 const _originalLoadLeaderboard = loadLeaderboard;
 
 loadLeaderboard = async function(forceReload = false) {
@@ -1922,7 +1925,7 @@ loadLeaderboard = async function(forceReload = false) {
   }
 };
 
-// --- 6. BOTÓN TEST (opcional, para debug) ---
+// --- 5. BOTÓN TEST (opcional, para debug) ---
 function initTestButton() {
   const rankingTab = document.getElementById('tab-ranking');
   if (!rankingTab) {
@@ -1933,7 +1936,7 @@ function initTestButton() {
 
   const btn = document.createElement('button');
   btn.id = 'btnTestPuntuacion';
-  btn.textContent = '🔄 Recalcular Puntuaciones';
+  btn.textContent = 'Recalcular Puntuaciones';
   btn.style.cssText = 'background:#4CAF50;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;margin:12px 0;display:block;width:100%;';
   btn.onmouseover = function() { btn.style.background = '#45a049'; };
   btn.onmouseout = function() { btn.style.background = '#4CAF50'; };
