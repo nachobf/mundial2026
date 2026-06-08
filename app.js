@@ -1725,27 +1725,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-// PATCH MINIMAL: Cargar REAL_RESULTS desde backend + botón recarga
-// NO modifica renderLeaderboard ni showPlayerPrediction
+// PATCH FINAL: Integración completa backend-frontend
 // ============================================================
 
-// --- 1. Cargar REAL_RESULTS desde backend al inicializar ---
+// --- 1. Cargar REAL_RESULTS desde backend ---
 async function loadRealResultsFromBackend() {
   try {
-    const resp = await fetch(APPS_SCRIPT_URL + '?action=realResults&_=' + Date.now(), {
+    const resp = await fetch(APPS_SCRIPT_URL + '?_=' + Date.now(), {
       method: 'GET',
       cache: 'no-store'
     });
     const data = await resp.json();
     if (data.realResults) {
       window.REAL_RESULTS = data.realResults;
-      console.log('✅ REAL_RESULTS cargado desde backend');
-      return true;
     }
-    return false;
+    return data;
   } catch (e) {
-    console.warn('No se pudieron cargar resultados reales:', e);
-    return false;
+    console.warn('Error cargando resultados reales:', e);
+    return null;
   }
 }
 
@@ -1762,7 +1759,6 @@ loadLeaderboard = async function(forceReload = false) {
     const data = await resp.json();
     window.__leaderboardData = data;
 
-    // Guardar realResults si viene del backend
     if (data.realResults) {
       window.REAL_RESULTS = data.realResults;
     }
@@ -1774,7 +1770,217 @@ loadLeaderboard = async function(forceReload = false) {
   }
 };
 
-// --- 3. BOTÓN RECARGAR PUNTUACIONES ---
+// --- 3. MODIFICAR renderLeaderboard para usar scores del backend ---
+const _originalRenderLeaderboard = renderLeaderboard;
+
+renderLeaderboard = function() {
+  const container = document.getElementById('leaderboardContent');
+  if (!container) return;
+
+  const data = window.__leaderboardData || { players: [] };
+  const leaderboard = data.players || [];
+
+  if (!leaderboard.length) {
+    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavia.</p>';
+    return;
+  }
+
+  const hasRealResults = data.hasRealResults || false;
+
+  const table = document.createElement('div');
+  table.className = 'leaderboard-table';
+
+  leaderboard.forEach((entry, index) => {
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
+
+    const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
+    const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+
+    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+      '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
+      '<span class="leaderboard-score">' + score + ' pts</span>';
+
+    row.addEventListener('click', () => showPlayerPrediction(entry));
+    table.appendChild(row);
+  });
+
+  container.innerHTML = '';
+  container.appendChild(table);
+
+  if (!hasRealResults) {
+    const msg = document.createElement('p');
+    msg.className = 'note-text';
+    msg.style.marginTop = '16px';
+    msg.textContent = 'El torneo aun no ha comenzado. Las puntuaciones se calcularan cuando haya resultados reales. Haz clic en cualquier participante para ver su prediccion.';
+    container.appendChild(msg);
+  }
+};
+
+// --- 4. MODIFICAR showPlayerPrediction para mostrar desglose del backend ---
+const _originalShowPlayerPrediction = showPlayerPrediction;
+
+showPlayerPrediction = function(entry) {
+  const modal = document.getElementById('predictionModal');
+  const title = document.getElementById('predictionModalTitle');
+  const viewer = document.getElementById('predictionViewer');
+
+  const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+  title.textContent = 'Prediccion de ' + escapeHtml(name);
+  viewer.innerHTML = '';
+
+  const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
+  const details = entry.details || [];
+  const hasDetails = details.length > 0;
+  const prediction = entry.prediction || entry;
+  const real = window.REAL_RESULTS || {};
+  const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
+
+  // Puntuación
+  const scoreDiv = document.createElement('div');
+  scoreDiv.className = 'prediction-score-info';
+  if (hasRealResults) {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
+  } else {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aun no ha comenzado)</p>';
+  }
+  viewer.appendChild(scoreDiv);
+
+  // Desglose de puntuación
+  if (hasDetails && details.length) {
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'scoring-details';
+
+    const grouped = {};
+    details.forEach(d => {
+      const t = d.type || 'otro';
+      if (!grouped[t]) grouped[t] = [];
+      grouped[t].push(d);
+    });
+
+    const typeLabels = {
+      posicion: 'Posiciones en grupo',
+      resultadoExacto: 'Resultados exactos',
+      '1x2': '1X2 acertados',
+      mejorTercero: 'Mejores terceros',
+      eliminatoria: 'Eliminatorias',
+      otro: 'Otros'
+    };
+
+    Object.keys(grouped).forEach(type => {
+      const items = grouped[type];
+      const total = items.reduce((sum, i) => sum + (Number(i.points) || 0), 0);
+      const typeLabel = typeLabels[type] || type;
+
+      const section = document.createElement('div');
+      section.className = 'scoring-detail-section';
+      section.innerHTML = '<h4>' + escapeHtml(typeLabel) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+
+      const list = document.createElement('div');
+      list.className = 'scoring-detail-list';
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'scoring-detail-item';
+
+        let text = '+ ' + (Number(item.points) || 0) + ' pts';
+        if (item.team) text += ' - ' + String(item.team);
+        if (item.group) text += ' - Grupo ' + String(item.group) + ' ' + (item.position || '?') + 'o';
+        if (item.matchKey) text += ' - ' + String(item.matchKey);
+        if (item.round) text += ' (' + String(item.round) + ')';
+
+        div.textContent = text;
+        list.appendChild(div);
+      });
+      section.appendChild(list);
+      detailsDiv.appendChild(section);
+    });
+    viewer.appendChild(detailsDiv);
+  }
+
+  // Predicción completa (usando código original adaptado)
+  const predDiv = document.createElement('div');
+  predDiv.className = 'prediction-preview';
+  predDiv.innerHTML = '<h4>Prediccion completa</h4>';
+
+  if (prediction.groups && typeof prediction.groups === 'object') {
+    const groupsDiv = document.createElement('div');
+    groupsDiv.className = 'prediction-groups';
+    Object.keys(prediction.groups).sort().forEach(g => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'prediction-group';
+      const teams = prediction.groups[g] || [];
+      const realTeams = real.groups?.[g] || [];
+
+      let html = '<strong>Grupo ' + escapeHtml(String(g)) + ':</strong><div class="group-teams">';
+      teams.forEach((team, idx) => {
+        const isCorrect = hasRealResults && realTeams[idx] === team;
+        const pos = idx + 1;
+        const posName = pos === 1 ? '1o' : pos === 2 ? '2o' : pos === 3 ? '3o' : '4o';
+        html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '">';
+        html += '<span class="pos-badge">' + posName + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(team) + '"></span>';
+        html += '<span class="team-name">' + escapeHtml(String(team)) + '</span>';
+        if (isCorrect) html += '<span class="check-mark">✓</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      groupDiv.innerHTML = html;
+      groupsDiv.appendChild(groupDiv);
+    });
+    predDiv.appendChild(groupsDiv);
+  }
+
+  // Eliminatorias
+  if (prediction.knockout && prediction.knockout.matches) {
+    const koDiv = document.createElement('div');
+    koDiv.className = 'prediction-knockout';
+    koDiv.innerHTML = '<h4>Eliminatorias</h4>';
+
+    const rounds = [
+      { key: 'round32', name: 'Dieciseisavos' },
+      { key: 'round16', name: 'Octavos' },
+      { key: 'quarterfinals', name: 'Cuartos' },
+      { key: 'semifinals', name: 'Semis' },
+      { key: 'thirdPlace', name: '3er puesto' },
+      { key: 'final', name: 'Final' }
+    ];
+
+    rounds.forEach(round => {
+      const matches = prediction.knockout.matches[round.key] || [];
+      const realMatches = real.knockout?.matches?.[round.key] || [];
+
+      if (!matches.length) return;
+
+      const roundDiv = document.createElement('div');
+      roundDiv.className = 'prediction-round';
+      roundDiv.innerHTML = '<strong>' + round.name + ':</strong>';
+
+      matches.forEach(match => {
+        const realMatch = realMatches.find(m => m.match === match.match);
+        const isCorrect = realMatch && realMatch.winner && match.winner === realMatch.winner;
+
+        const matchDiv = document.createElement('div');
+        matchDiv.className = 'prediction-match';
+
+        let html = (match.team1 || '?') + ' vs ' + (match.team2 || '?') + ' -> ' + match.winner;
+        if (isCorrect) html += ' ✓';
+
+        matchDiv.textContent = html;
+        roundDiv.appendChild(matchDiv);
+      });
+
+      koDiv.appendChild(roundDiv);
+    });
+
+    predDiv.appendChild(koDiv);
+  }
+
+  viewer.appendChild(predDiv);
+  modal.style.display = 'flex';
+};
+
+// --- 5. BOTÓN RECARGAR PUNTUACIONES ---
 function initReloadButton() {
   const rankingTab = document.getElementById('tab-ranking');
   if (!rankingTab) {
@@ -1806,10 +2012,8 @@ function initReloadButton() {
   }
 }
 
-// --- 4. Cargar resultados reales al inicio ---
-// Se ejecuta después de que init() termine
+// --- 6. INICIALIZAR ---
 document.addEventListener('DOMContentLoaded', function() {
-  // Esperar a que la app cargue completamente
   setTimeout(async function() {
     await loadRealResultsFromBackend();
     initReloadButton();
