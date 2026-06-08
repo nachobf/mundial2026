@@ -4,7 +4,7 @@
 
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLSSLbFieeueA1YGfwz5zv2l19w0iLFB_Y4RhZxQQPsXmn5omquY7ZaMdS2wxeiJuf/exec ';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw94LCh2Alq8AOeX0rBOHydKS1VkNwyJszjPseBuiJuAnezG_eZ9NciLLyxAxjZsgGu/exec'; // ← REEMPLAZA con tu URL
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
 
@@ -318,41 +318,6 @@ function renderBestThirds() {
   card.appendChild(hint);
 
   container.appendChild(card);
-}
-
-/* ============================================================
-   SUBMIT / RESTORE (reemplaza submitPrediction y restoreLocalPrediction)
-   ============================================================ */
-
-function submitPrediction() {
-  if (!LOADED) { 
-    showToast('Los datos del torneo aún no se han cargado. Espera un momento.', true); 
-    return; 
-  }
-  
-  const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
-  if (incompleteGroups.length) { 
-    showToast('Completa todos los grupos antes de enviar.', true); 
-    return; 
-  }
-  
-  const missingKO = [];
-  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
-  rounds.forEach(round => {
-    (KO_TREE[round] || []).forEach(match => {
-      const teams = state.matchTeams[match.num] || {};
-      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) {
-        missingKO.push(match.num);
-      }
-    });
-  });
-  
-  if (missingKO.length) { 
-    showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); 
-    return; 
-  }
-  
-  document.getElementById('nameModal').style.display = 'flex';
 }
 
 
