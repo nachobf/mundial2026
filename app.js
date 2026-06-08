@@ -354,7 +354,7 @@ function submitPrediction() {
   document.getElementById('nameModal').style.display = 'flex';
 }
 
-function confirmSubmitWithName() {
+window.confirmSubmitWithName = function() {
   const nameInput = document.getElementById('playerNameInput');
   const name = nameInput.value.trim();
   
@@ -366,7 +366,6 @@ function confirmSubmitWithName() {
   const payload = buildPayload();
   payload.name = name;
   
-  // Comprimir JSON
   const jsonString = JSON.stringify(payload)
     .replace(/:\s+/g, ':')
     .replace(/,\s+/g, ',')
@@ -375,7 +374,6 @@ function confirmSubmitWithName() {
     .replace(/\[\s+/g, '[')
     .replace(/\s+\]/g, ']');
   
-  // Construir body como x-www-form-urlencoded
   const params = new URLSearchParams();
   params.append(ENTRY_ID, jsonString);
   
@@ -390,7 +388,6 @@ function confirmSubmitWithName() {
     body: params.toString()
   })
   .then(() => {
-    // Con no-cors no podemos leer la respuesta, pero el envío ocurrió
     hideLoading();
     clearLocalPrediction();
     showToast('¡Predicción enviada! Gracias, ' + name + '.');
@@ -398,7 +395,6 @@ function confirmSubmitWithName() {
     document.getElementById('nameModal').style.display = 'none';
     nameInput.value = '';
     
-    // Recargar leaderboard tras unos segundos
     setTimeout(() => {
       loadLeaderboardCSV(true).then(() => renderLeaderboard());
     }, 5000);
@@ -408,7 +404,24 @@ function confirmSubmitWithName() {
     hideLoading();
     showToast('Error al enviar. Intenta de nuevo.', true);
   });
-}
+};
+
+// Eliminar TODOS los listeners antiguos del botón y poner el nuevo
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('confirmNameSubmit');
+  if (!btn) return;
+  
+  // Clonar el botón para eliminar todos los listeners antiguos
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  
+  // Añadir el listener fresco
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.confirmSubmitWithName();
+  });
+});
 
 
 
