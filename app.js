@@ -1307,16 +1307,15 @@ function calculateLeaderboard() {
   const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
   if (!players.length) return [];
 
-  // Si no hay resultados reales (REAL_RESULTS vacio), mostrar 0 puntos pero listar participantes
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0 && 
                          real.groupMatchResults && Object.keys(real.groupMatchResults).length > 0;
 
   return players.map(player => {
     if (hasRealResults) {
       const result = calculatePlayerScore(player, real);
-      return { name: player.name, score: result.score, details: result.details, hasDetails: true };
+      return { ...player, score: result.score, details: result.details, hasDetails: true };
     } else {
-      return { name: player.name, score: 0, details: [], hasDetails: false };
+      return { ...player, score: 0, details: [], hasDetails: false };
     }
   }).sort((a, b) => b.score - a.score);
 }
@@ -1374,6 +1373,7 @@ function renderLeaderboard() {
 }
 
 function showPlayerPrediction(entry) {
+  console.log('Predicción de', entry.name, JSON.stringify(entry, null, 2));
   const modal = document.getElementById('predictionModal');
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
@@ -1438,13 +1438,13 @@ function showPlayerPrediction(entry) {
   predDiv.className = 'prediction-preview';
   
   // Fase de grupos
-  if (entry.prediction && entry.prediction.groups) {
+  if (entry.groups) {
     const groupsDiv = document.createElement('div');
     groupsDiv.className = 'prediction-groups-section';
     groupsDiv.innerHTML = '<h4>🌍 Fase de Grupos</h4>';
     
-    Object.keys(entry.prediction.groups).sort().forEach(g => {
-      const teams = entry.prediction.groups[g] || [];
+    Object.keys(entry.groups).sort().forEach(g => {
+      const teams = entry.groups[g] || [];
       const realTeams = real.groups?.[g] || [];
       
       const groupDiv = document.createElement('div');
@@ -1457,7 +1457,7 @@ function showPlayerPrediction(entry) {
         const posName = pos === 1 ? '1º' : pos === 2 ? '2º' : pos === 3 ? '3º' : '4º';
         html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '">';
         html += '<span class="pos-badge">' + posName + '</span>';
-        html += '<span class="'+ getTeamFlagClass(team)+'"></span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(team) + '"></span>';
         html += '<span class="team-name">' + escapeHtml(team) + '</span>';
         if (isCorrect) html += '<span class="check-mark">✓</span>';
         html += '</div>';
@@ -1471,13 +1471,13 @@ function showPlayerPrediction(entry) {
   }
   
   // Resultados de partidos (quiniela)
-  if (entry.prediction && entry.prediction.groupMatchResults) {
+  if (entry.groupMatchResults) {
     const matchesDiv = document.createElement('div');
     matchesDiv.className = 'prediction-matches-section';
     matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
     
-    Object.keys(entry.prediction.groupMatchResults).forEach(key => {
-      const pred = entry.prediction.groupMatchResults[key];
+    Object.keys(entry.groupMatchResults).forEach(key => {
+      const pred = entry.groupMatchResults[key];
       const realResult = real.groupMatchResults?.[key];
       
       const teams = key.split('__');
@@ -1510,12 +1510,12 @@ function showPlayerPrediction(entry) {
   }
   
   // Mejores terceros
-  if (entry.prediction && entry.prediction.thirdPlace) {
+  if (entry.thirdPlace) {
     const tpDiv = document.createElement('div');
     tpDiv.className = 'prediction-thirdplace-section';
     tpDiv.innerHTML = '<h4>🥉 Mejores Terceros</h4>';
     
-    const predTP = entry.prediction.thirdPlace;
+    const predTP = entry.thirdPlace;
     const realTP = real.thirdPlace || [];
     const realTPSet = new Set(realTP.slice(0, 8));
     
@@ -1525,7 +1525,7 @@ function showPlayerPrediction(entry) {
       const isCorrect = realTPSet.has(team);
       html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '">';
       html += '<span class="tp-rank">' + (idx + 1) + '</span>';
-      html += '<span class="team-flag">' + getFlagEmoji(team) + '</span>';
+      html += '<span class="team-flag ' + getTeamFlagClass(team) + '"></span>';
       html += '<span class="team-name">' + escapeHtml(team) + '</span>';
       if (isCorrect) html += '<span class="check-mark">✓</span>';
       html += '</div>';
@@ -1537,7 +1537,7 @@ function showPlayerPrediction(entry) {
   }
   
   // Eliminatorias
-  if (entry.prediction && entry.prediction.knockout && entry.prediction.knockout.matches) {
+  if (entry.knockout && entry.knockout.matches) {
     const koDiv = document.createElement('div');
     koDiv.className = 'prediction-knockout-section';
     koDiv.innerHTML = '<h4>🏆 Eliminatorias</h4>';
@@ -1552,7 +1552,7 @@ function showPlayerPrediction(entry) {
     ];
     
     rounds.forEach(round => {
-      const matches = entry.prediction.knockout.matches[round.key] || [];
+      const matches = entry.knockout.matches[round.key] || [];
       const realMatches = real.knockout?.matches?.[round.key] || [];
       
       if (!matches.length) return;
