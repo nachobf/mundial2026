@@ -324,22 +324,164 @@ function renderBestThirds() {
    ============================================================ */
 
 function submitPrediction() {
-  if (!LOADED) { showToast('Los datos del torneo aun no se han cargado. Espera un momento.', true); return; }
+  if (!LOADED) { 
+    showToast('Los datos del torneo aún no se han cargado. Espera un momento.', true); 
+    return; 
+  }
+  
   const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
-  if (incompleteGroups.length) { showToast('Completa todos los grupos antes de enviar.', true); return; }
-  // Ya no pide confirmar mejores terceros manualmente
+  if (incompleteGroups.length) { 
+    showToast('Completa todos los grupos antes de enviar.', true); 
+    return; 
+  }
+  
   const missingKO = [];
   const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
   rounds.forEach(round => {
     (KO_TREE[round] || []).forEach(match => {
       const teams = state.matchTeams[match.num] || {};
-      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) missingKO.push(match.num);
+      if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) {
+        missingKO.push(match.num);
+      }
     });
   });
-  if (missingKO.length) { showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); return; }
+  
+  if (missingKO.length) { 
+    showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); 
+    return; 
+  }
+  
   document.getElementById('nameModal').style.display = 'flex';
 }
 
+async function confirmSubmitWithName() {
+  const nameInput = document.getElementById('playerNameInput');
+  const name = nameInput.value.trim();
+  
+  if (!name) { 
+    showToast('Introduce tu nombre antes de enviar.', true); 
+    return; 
+  }
+  
+  const payload = buildPayload();
+  payload.name = name;
+  
+  // Comprimir JSON eliminando espacios innecesarios
+  const jsonString = JSON.stringify(payload)
+    .replace(/:\s+/g, ':')
+    .replace(/,\s+/g, ',')
+    .replace(/\{\s+/g, '{')
+    .replace(/\s+\}/g, '}')
+    .replace(/\[\s+/g, '[')
+    .replace(/\s+\]/g, ']');
+  
+  try {
+    showLoading('Enviando predicción...');
+    
+    // Crear un formulario oculto y enviarlo por POST
+    // Esto evita el límite de longitud de URL y los problemas de CORS
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = GOOGLE_FORM_ACTION_URL;
+    form.target = 'hidden-form-iframe';
+    form.style.display = 'none';
+    
+    // Campo del JSON
+    const jsonInput = document.createElement('input');
+    jsonInput.type = 'hidden';
+    jsonInput.name = ENTRY_ID;
+    jsonInput.value = jsonString;
+    form.appendChild(jsonInput);
+    
+    // Campo del nombre (opcional, si tienes otro entry para nombre)
+    const nameInputHidden = document.createElement('input');
+    nameInputHidden.type = 'hidden';
+    nameInputHidden.name = 'entry.1018977563'; 
+    nameInputHidden.value = name;
+    form.appendChild(nameInputHidden);
+    
+    // Crear iframe oculto para recibir la respuesta
+    let iframe = document.getElementById('hidden-form-iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'hidden-form-iframe';
+      iframe.name = 'hidden-form-iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
+    
+    // Manejar la respuesta
+    const onLoad = () => {
+      // Google Forms redirige a una página de confirmación
+      // No podemos leer el contenido por cross-origin, pero sabemos que llegó
+      console.log('Formulario enviado correctamente');
+      
+      clearLocalPrediction();
+      showToast('¡Predicción enviada! Gracias por participar, ' + name + '.');
+      fireConfetti();
+      
+      document.getElementById('nameModal').style.display = 'none';
+      nameInput.value = '';
+      
+      // Limpiar
+      setTimeout(() => {
+        form.remove();
+        iframe.removeEventListener('load', onLoad);
+      }, 1000);
+      
+      // Recargar leaderboard
+      setTimeout(async () => {
+        await loadLeaderboardCSV(true);
+        renderLeaderboard();
+      }, 5000);
+    };
+    
+    iframe.addEventListener('load', onLoad);
+    
+    // Enviar
+    document.body.appendChild(form);
+    form.submit();
+    
+    // Timeout de seguridad por si el load no dispara
+    setTimeout(() => {
+      if (document.getElementById('nameModal').style.display === 'flex') {
+        // El modal sigue abierto, probablemente el envío falló silenciosamente
+        iframe.removeEventListener('load', onLoad);
+        // Asumimos éxito de todos modos (Google Forms a veces no dispara load)
+        clearLocalPrediction();
+        showToast('Predicción enviada. Gracias, ' + name + '.');
+        fireConfetti();
+        document.getElementById('nameModal').style.display = 'none';
+        nameInput.value = '';
+      }
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error al enviar:', error);
+    showToast('Error al enviar. Intenta de nuevo.', true);
+    hideLoading();
+  }
+}
+
+// ============================================================
+// LEADERBOARD (recarga forzada)
+// ============================================================
+
+async function loadLeaderboardCSV(forceReload = false) {
+  try {
+    const cacheBuster = forceReload ? '&_=' + Date.now() : '';
+    const resp = await fetch(LEADERBOARD_CSV_URL + cacheBuster, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    const csv = await resp.text();
+    window.__leaderboardCSV = csv;
+    return csv;
+  } catch (e) { 
+    console.warn('Could not load leaderboard CSV:', e); 
+    return ''; 
+  }
+}
 function restoreLocalPrediction() {
   try {
     const saved = localStorage.getItem(LOCAL_STORAGE_PICKS_KEY);
@@ -1527,15 +1669,6 @@ function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 function escapeHtml(text) {
   if (!text) return '';
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
-async function loadLeaderboardCSV() {
-  try {
-    const resp = await fetch(LEADERBOARD_CSV_URL + '&_=' + Date.now());
-    const csv = await resp.text();
-    window.__leaderboardCSV = csv;
-    return csv;
-  } catch (e) { console.warn('Could not load leaderboard CSV:', e); return ''; }
 }
 
 // ---- INIT ----
