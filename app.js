@@ -1723,3 +1723,240 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
   });
 });
+
+
+// ============================================================
+// PATCH: Usar puntuaciones del backend + cargar REAL_RESULTS
+// ============================================================
+
+// --- 1. VARIABLE GLOBAL PARA RESULTADOS REALES ---
+window.REAL_RESULTS = null;
+
+// --- 2. FUNCIÓN: Cargar resultados reales desde backend ---
+async function loadRealResults() {
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + '?action=realResults&_=' + Date.now(), {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    const data = await resp.json();
+    if (data.realResults) {
+      window.REAL_RESULTS = data.realResults;
+      console.log('✅ REAL_RESULTS cargado desde backend');
+      console.log('Grupos:', Object.keys(window.REAL_RESULTS.groups || {}).length);
+      console.log('Partidos:', Object.keys(window.REAL_RESULTS.groupMatchResults || {}).length);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('No se pudieron cargar resultados reales:', e);
+    return false;
+  }
+}
+
+// --- 3. MODIFICAR renderLeaderboard para usar scores del backend ---
+// Guardar referencia original
+const _originalRenderLeaderboard = renderLeaderboard;
+
+renderLeaderboard = function() {
+  const container = document.getElementById('leaderboardContent');
+  if (!container) return;
+
+  // Usar datos del leaderboard que ya vienen con score calculado
+  const data = window.__leaderboardData || { players: [] };
+  const leaderboard = data.players || [];
+
+  if (!leaderboard.length) {
+    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
+    return;
+  }
+
+  const hasRealResults = data.hasRealResults || false;
+
+  const table = document.createElement('div');
+  table.className = 'leaderboard-table';
+
+  leaderboard.forEach((entry, index) => {
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
+
+    // El backend ya devuelve score, details y prediction
+    const score = entry.score || 0;
+    const details = entry.details || [];
+    const hasDetails = details.length > 0;
+
+    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+      '<span class="leaderboard-name">' + escapeHtml(entry.name) + '</span>' +
+      '<span class="leaderboard-score">' + score + ' pts</span>';
+
+    // Al hacer clic, mostrar desglose
+    row.addEventListener('click', () => showPlayerPredictionFromBackend(entry));
+    table.appendChild(row);
+  });
+
+  container.innerHTML = '';
+  container.appendChild(table);
+
+  // Mensaje informativo
+  if (!hasRealResults) {
+    const msg = document.createElement('p');
+    msg.className = 'note-text';
+    msg.style.marginTop = '16px';
+    msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales.';
+    container.appendChild(msg);
+  }
+};
+
+// --- 4. FUNCIÓN: Mostrar predicción con desglose del backend ---
+function showPlayerPredictionFromBackend(entry) {
+  const modal = document.getElementById('predictionModal');
+  const title = document.getElementById('predictionModalTitle');
+  const viewer = document.getElementById('predictionViewer');
+
+  title.textContent = 'Predicción de ' + escapeHtml(entry.name);
+  viewer.innerHTML = '';
+
+  const score = entry.score || 0;
+  const details = entry.details || [];
+  const hasDetails = details.length > 0;
+  const prediction = entry.prediction || {};
+
+  // Info de puntuación
+  const scoreDiv = document.createElement('div');
+  scoreDiv.className = 'prediction-score-info';
+  if (hasDetails) {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
+  } else {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong></p>';
+  }
+  viewer.appendChild(scoreDiv);
+
+  // Desglose de puntuación
+  if (hasDetails && details.length) {
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'scoring-details';
+
+    const grouped = {};
+    details.forEach(d => {
+      if (!grouped[d.type]) grouped[d.type] = [];
+      grouped[d.type].push(d);
+    });
+
+    const typeLabels = {
+      posicion: 'Posiciones en grupo',
+      resultadoExacto: 'Resultados exactos',
+      '1x2': '1X2 acertados',
+      mejorTercero: 'Mejores terceros',
+      eliminatoria: 'Eliminatorias'
+    };
+
+    Object.keys(grouped).forEach(type => {
+      const items = grouped[type];
+      const total = items.reduce((sum, i) => sum + i.points, 0);
+      const typeLabel = typeLabels[type] || type;
+
+      const section = document.createElement('div');
+      section.className = 'scoring-detail-section';
+      section.innerHTML = '<h4>' + typeLabel + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+
+      const list = document.createElement('div');
+      list.className = 'scoring-detail-list';
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'scoring-detail-item';
+        if (item.team) div.textContent = '+ ' + item.points + ' pts - ' + item.team;
+        else if (item.group) div.textContent = '+ ' + item.points + ' pts - Grupo ' + item.group + ' ' + item.position + 'º';
+        else div.textContent = '+ ' + item.points + ' pts';
+        list.appendChild(div);
+      });
+      section.appendChild(list);
+      detailsDiv.appendChild(section);
+    });
+    viewer.appendChild(detailsDiv);
+  }
+
+  // Mostrar predicción completa
+  const predDiv = document.createElement('div');
+  predDiv.className = 'prediction-preview';
+  predDiv.innerHTML = '<h4>Predicción completa</h4>';
+
+  if (prediction.groups) {
+    const groupsDiv = document.createElement('div');
+    groupsDiv.className = 'prediction-groups';
+    Object.keys(prediction.groups).forEach(g => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'prediction-group';
+      const teams = prediction.groups[g] || [];
+      groupDiv.innerHTML = '<strong>Grupo ' + g + ':</strong> ' + teams.map(t => escapeHtml(t)).join(', ');
+      groupsDiv.appendChild(groupDiv);
+    });
+    predDiv.appendChild(groupsDiv);
+  }
+
+  viewer.appendChild(predDiv);
+  modal.style.display = 'flex';
+}
+
+// --- 5. MODIFICAR loadLeaderboard para cargar también REAL_RESULTS ---
+const _originalLoadLeaderboard = loadLeaderboard;
+
+loadLeaderboard = async function(forceReload = false) {
+  try {
+    const cacheBuster = forceReload ? '?_=' + Date.now() : '';
+    const resp = await fetch(APPS_SCRIPT_URL + cacheBuster, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    const data = await resp.json();
+    window.__leaderboardData = data;
+
+    // Si el backend devuelve realResults, guardarlo
+    if (data.realResults) {
+      window.REAL_RESULTS = data.realResults;
+    }
+
+    return data;
+  } catch (e) {
+    console.warn('Could not load leaderboard:', e);
+    return { players: [] };
+  }
+};
+
+// --- 6. BOTÓN TEST (opcional, para debug) ---
+function initTestButton() {
+  const rankingTab = document.getElementById('tab-ranking');
+  if (!rankingTab) {
+    setTimeout(initTestButton, 1000);
+    return;
+  }
+  if (document.getElementById('btnTestPuntuacion')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'btnTestPuntuacion';
+  btn.textContent = '🔄 Recalcular Puntuaciones';
+  btn.style.cssText = 'background:#4CAF50;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:bold;margin:12px 0;display:block;width:100%;';
+  btn.onmouseover = function() { btn.style.background = '#45a049'; };
+  btn.onmouseout = function() { btn.style.background = '#4CAF50'; };
+
+  btn.addEventListener('click', async function() {
+    showLoading('Recalculando puntuaciones...');
+    await loadLeaderboard(true);
+    renderLeaderboard();
+    hideLoading();
+    showToast('Puntuaciones actualizadas desde el backend');
+  });
+
+  const leaderboardContent = document.getElementById('leaderboardContent');
+  if (leaderboardContent && leaderboardContent.parentNode) {
+    leaderboardContent.parentNode.insertBefore(btn, leaderboardContent);
+  } else {
+    rankingTab.insertBefore(btn, rankingTab.firstChild);
+  }
+}
+
+// Inicializar botón cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(initTestButton, 2500);
+});
+
+window.initTestButton = initTestButton;
