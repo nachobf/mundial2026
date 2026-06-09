@@ -787,3 +787,105 @@ body {
   font-weight: bold;
   color: #1a237e;
 }
+
+
+/* ============================================================
+ FIXES PARA DESBORDAMIENTO EN MÓVIL
+ ============================================================ */
+
+/* --- Quiniela 1X2 --- */
+.quiniela1x2-row {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.quiniela-match-teams {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.quiniela-match-teams .team-name-input {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* --- Modal de resultados de grupo --- */
+.group-result-row {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.result-match-teams {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.result-match-teams .team-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* --- Knockout matches --- */
+.knockout-match {
+  overflow: hidden;
+}
+
+.knockout-team .team-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Group cards --- */
+.group-team .team-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Score inputs y 1X2 no se encogen --- */
+.score-inputs,
+.quiniela-1x2-display,
+.quiniela-match-info {
+  flex-shrink: 0;
+}
+
+/* --- Responsive móvil --- */
+@media (max-width: 768px) {
+  .quiniela-match-teams .team-name-input,
+  .result-match-teams .team-name {
+    font-size: 12px;
+  }
+  
+  .score-input {
+    width: 36px;
+    height: 32px;
+    font-size: 14px;
+  }
+  
+  .team-flag, .fi {
+    width: 20px !important;
+    height: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .quiniela-match-info {
+    display: none;
+  }
+  
+  .score-input {
+    width: 32px;
+    height: 30px;
+  }
+}
