@@ -8,7 +8,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8M51mQ860o7z8
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
 
-const DEADLINE = new Date('2026-06-11T17:00:00Z');
+const DEADLINE = new Date('2026-06-11T18:30:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
 
 function isSubmissionClosed() {
@@ -1337,7 +1337,7 @@ function renderLeaderboard() {
   if (!container) return;
   const leaderboard = calculateLeaderboard();
   if (!leaderboard.length) {
-    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavia.</p>';
+    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
     return;
   }
 
@@ -1367,64 +1367,119 @@ function renderLeaderboard() {
     const msg = document.createElement('p');
     msg.className = 'note-text';
     msg.style.marginTop = '16px';
-    msg.textContent = 'El torneo aun no ha comenzado. Las puntuaciones se calcularan cuando haya resultados reales. Haz clic en cualquier participante para ver su prediccion.';
+    msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales. Haz clic en cualquier participante para ver su predicción.';
     container.appendChild(msg);
   }
 }
 
 function showPlayerPrediction(entry) {
-  console.log('Predicción de', entry.name, JSON.stringify(entry, null, 2));
   const modal = document.getElementById('predictionModal');
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
-  
-  title.textContent = 'Predicción de ' + escapeHtml(entry.name);
+
+  const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+  title.textContent = 'Predicción de ' + escapeHtml(name);
   viewer.innerHTML = '';
-  
-  const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
+
+  const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
+  const details = entry.details || [];
+  const hasDetails = details.length > 0;
+  const prediction = entry.prediction || entry;
+  const real = window.REAL_RESULTS || {};
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
-  
-  // Puntuación
+
+  // Puntuacion
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
-  scoreDiv.innerHTML = hasRealResults 
-    ? '<p class="prediction-score">Puntuación: <strong>' + entry.score + ' puntos</strong></p>'
-    : '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
+  if (hasRealResults) {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
+  } else {
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
+  }
   viewer.appendChild(scoreDiv);
-  
-  // Detalles de puntuación
-  if (entry.hasDetails && entry.details && entry.details.length) {
+
+  // Desglose de puntuacion
+  if (hasDetails && details.length) {
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'scoring-details';
-    
+
     const grouped = {};
-    entry.details.forEach(d => {
-      if (!grouped[d.type]) grouped[d.type] = [];
-      grouped[d.type].push(d);
+    details.forEach(d => {
+      const t = d.type || 'otro';
+      if (!grouped[t]) grouped[t] = [];
+      grouped[t].push(d);
     });
-    
+
     const typeLabels = {
       posicion: 'Posiciones en grupo',
       resultadoExacto: 'Resultados exactos',
       '1x2': '1X2 acertados',
       mejorTercero: 'Mejores terceros',
-      eliminatoria: 'Eliminatorias'
+      eliminatoria: 'Eliminatorias',
+      otro: 'Otros'
     };
-    
+
     Object.keys(grouped).forEach(type => {
       const items = grouped[type];
-      const total = items.reduce((sum, i) => sum + i.points, 0);
+      const total = items.reduce((sum, i) => sum + (Number(i.points) || 0), 0);
+      const typeLabel = typeLabels[type] || type;
+
       const section = document.createElement('div');
       section.className = 'scoring-detail-section';
-      section.innerHTML = '<h4>' + (typeLabels[type] || type) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+      section.innerHTML = '<h4>' + escapeHtml(typeLabel) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
+
       const list = document.createElement('div');
       list.className = 'scoring-detail-list';
       items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'scoring-detail-item';
-        if (item.team) div.textContent = '+ ' + item.points + ' pts — ' + item.team;
-        else if (item.team1 && item.team2) div.textContent = '+ ' + item.points + ' pts — ' + item.team1 + ' vs ' + item.team2;
-        else div.textContent = '+ ' + item.points + ' pts';
+        div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;';
+
+        let html = '<span style="color:#4a90d9;font-weight:700;flex-shrink:0;">+' + (Number(item.points) || 0) + ' pts</span>';
+
+        // Banderas para eliminatorias
+        if (type === 'eliminatoria' && item.team) {
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
+          if (item.round) {
+            const roundNames = {
+              round32: 'Dieciseisavos', round16: 'Octavos', quarterfinals: 'Cuartos',
+              semifinals: 'Semis', finalist: 'Finalista', champion: 'Campeon',
+              thirdPlace: '3er puesto', fourthPlace: '4o puesto'
+            };
+            html += '<span style="color:#888;font-size:12px;">(' + (roundNames[item.round] || item.round) + ')</span>';
+          }
+        }
+        // Banderas para posiciones de grupo
+        else if (type === 'posicion' && item.team) {
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
+          if (item.group) {
+            html += '<span style="color:#888;font-size:12px;">(Grupo ' + String(item.group) + ' - ' + (item.position || '?') + 'o)</span>';
+          }
+        }
+        // Banderas para mejores terceros
+        else if (type === 'mejorTercero' && item.team) {
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
+        }
+        // Banderas para resultados exactos y 1X2
+        else if ((type === 'resultadoExacto' || type === '1x2') && item.team1 && item.team2) {
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team1)) + '</span>';
+          html += '<span style="color:#888;">vs</span>';
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team2)) + '</span>';
+        }
+        else if (item.team) {
+          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
+        }
+        else if (item.team1 && item.team2) {
+          html += '<span>' + escapeHtml(String(item.team1)) + ' vs ' + escapeHtml(String(item.team2)) + '</span>';
+        }
+
+        div.innerHTML = html;
         list.appendChild(div);
       });
       section.appendChild(list);
@@ -1432,116 +1487,156 @@ function showPlayerPrediction(entry) {
     });
     viewer.appendChild(detailsDiv);
   }
-  
-  // PREDICCIÓN COMPLETA — FORMATO LEGIBLE
+
+  // Prediccion completa
   const predDiv = document.createElement('div');
   predDiv.className = 'prediction-preview';
-  
-  // Fase de grupos
-  if (entry.groups) {
+
+  // === FASE DE GRUPOS ===
+  if (prediction.groups && typeof prediction.groups === 'object') {
     const groupsDiv = document.createElement('div');
     groupsDiv.className = 'prediction-groups-section';
     groupsDiv.innerHTML = '<h4>🌍 Fase de Grupos</h4>';
-    
-    Object.keys(entry.groups).sort().forEach(g => {
-      const teams = entry.groups[g] || [];
-      const realTeams = real.groups?.[g] || [];
-      
+
+    Object.keys(prediction.groups).sort().forEach(g => {
       const groupDiv = document.createElement('div');
       groupDiv.className = 'prediction-group';
-      
-      let html = '<strong>Grupo ' + g + ':</strong><div class="group-teams">';
+      const teams = prediction.groups[g] || [];
+      const realTeams = real.groups?.[g] || [];
+
+      let html = '<strong>Grupo ' + escapeHtml(String(g)) + ':</strong><div class="group-teams">';
       teams.forEach((team, idx) => {
         const isCorrect = hasRealResults && realTeams[idx] === team;
         const pos = idx + 1;
-        const posName = pos === 1 ? '1º' : pos === 2 ? '2º' : pos === 3 ? '3º' : '4º';
-        html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '">';
+        const posName = pos === 1 ? '1o' : pos === 2 ? '2o' : pos === 3 ? '3o' : '4o';
+        html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '" style="display:flex;align-items:center;gap:6px;padding:3px 0;">';
         html += '<span class="pos-badge">' + posName + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(team) + '"></span>';
-        html += '<span class="team-name">' + escapeHtml(team) + '</span>';
-        if (isCorrect) html += '<span class="check-mark">✓</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
+        html += '<span class="team-name">' + escapeHtml(String(team)) + '</span>';
+        if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓</span>';
         html += '</div>';
       });
       html += '</div>';
-      
+
       groupDiv.innerHTML = html;
       groupsDiv.appendChild(groupDiv);
     });
     predDiv.appendChild(groupsDiv);
   }
-  
-  // Resultados de partidos (quiniela)
-  if (entry.groupMatchResults) {
+
+  // === RESULTADOS DE PARTIDOS (QUINIELA) ===
+  if (prediction.groupMatchResults && Object.keys(prediction.groupMatchResults).length > 0) {
     const matchesDiv = document.createElement('div');
     matchesDiv.className = 'prediction-matches-section';
     matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
-    
-    Object.keys(entry.groupMatchResults).forEach(key => {
-      const pred = entry.groupMatchResults[key];
-      const realResult = real.groupMatchResults?.[key];
-      
-      const teams = key.split('__');
-      const matchDiv = document.createElement('div');
-      matchDiv.className = 'prediction-match';
-      
-      let html = '<div class="match-teams">';
-      html += '<span>' + escapeHtml(teams[0]) + '</span>';
-      html += '<span class="score">' + pred.team1Goals + ' - ' + pred.team2Goals + '</span>';
-      html += '<span>' + escapeHtml(teams[1]) + '</span>';
-      html += '</div>';
-      
-      if (realResult) {
-        const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
-        const p1x2 = get1x2FromResult(pred);
-        const r1x2 = get1x2FromResult(realResult);
-        const quinielaOk = p1x2 === r1x2;
-        
-        html += '<div class="match-result ' + (exact ? 'exact' : quinielaOk ? 'quiniela' : 'wrong') + '">';
-        html += 'Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals;
-        if (exact) html += ' <span class="badge exact">Resultado exacto (+5)</span>';
-        else if (quinielaOk) html += ' <span class="badge quiniela">1X2 (+1)</span>';
-        html += '</div>';
-      }
-      
-      matchDiv.innerHTML = html;
-      matchesDiv.appendChild(matchDiv);
+
+    // Ordenar por grupo
+    const matchesByGroup = {};
+    Object.keys(prediction.groupMatchResults).forEach(key => {
+      const matchInfo = QUINIELA_1X2_MATCHES.find(m => m.key === key);
+      const group = matchInfo ? matchInfo.group : '?';
+      if (!matchesByGroup[group]) matchesByGroup[group] = [];
+      matchesByGroup[group].push({ key, matchInfo });
     });
+
+    Object.keys(matchesByGroup).sort().forEach(g => {
+      const groupHeader = document.createElement('div');
+      groupHeader.style.cssText = 'font-weight:600;color:#1a1a2e;margin:10px 0 6px;font-size:14px;';
+      groupHeader.textContent = 'Grupo ' + g;
+      matchesDiv.appendChild(groupHeader);
+
+      matchesByGroup[g].forEach(({ key, matchInfo }) => {
+        const pred = prediction.groupMatchResults[key];
+        const realResult = real.groupMatchResults?.[key];
+
+        const teams = key.split('__');
+        const t1 = teams[0];
+        const t2 = teams[1];
+
+        const matchDiv = document.createElement('div');
+        matchDiv.className = 'prediction-match';
+        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
+
+        let html = '';
+        // Equipo 1 con bandera
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
+        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
+        html += '</div>';
+
+        // Score
+        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
+        html += '<span style="color:#888;">-</span>';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
+        html += '</div>';
+
+        // Equipo 2 con bandera
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '</div>';
+
+        // Resultado real y puntos
+        if (realResult) {
+          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
+          const p1x2 = get1x2FromResult(pred);
+          const r1x2 = get1x2FromResult(realResult);
+          const quinielaOk = p1x2 === r1x2;
+
+          html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
+          html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
+          if (exact) {
+            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
+          } else if (quinielaOk) {
+            html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
+          } else {
+            html += ' <span style="color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
+          }
+          html += '</div>';
+        }
+
+        matchDiv.innerHTML = html;
+        matchesDiv.appendChild(matchDiv);
+      });
+    });
+
     predDiv.appendChild(matchesDiv);
   }
-  
-  // Mejores terceros
-  if (entry.thirdPlace) {
+
+  // === MEJORES TERCEROS ===
+  if (prediction.thirdPlace && prediction.thirdPlace.length) {
     const tpDiv = document.createElement('div');
     tpDiv.className = 'prediction-thirdplace-section';
     tpDiv.innerHTML = '<h4>🥉 Mejores Terceros</h4>';
-    
-    const predTP = entry.thirdPlace;
+
+    const predTP = prediction.thirdPlace;
     const realTP = real.thirdPlace || [];
     const realTPSet = new Set(realTP.slice(0, 8));
-    
+
     let html = '<div class="third-place-list">';
     predTP.forEach((team, idx) => {
       const isQualified = idx < 8;
       const isCorrect = realTPSet.has(team);
-      html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '">';
-      html += '<span class="tp-rank">' + (idx + 1) + '</span>';
-      html += '<span class="team-flag ' + getTeamFlagClass(team) + '"></span>';
-      html += '<span class="team-name">' + escapeHtml(team) + '</span>';
-      if (isCorrect) html += '<span class="check-mark">✓</span>';
+      html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin:2px 0;">';
+      html += '<span class="tp-rank" style="font-weight:700;color:#666;width:24px;">' + (idx + 1) + '</span>';
+      html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
+      html += '<span class="team-name" style="flex:1;">' + escapeHtml(String(team)) + '</span>';
+      if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓ +1 pt</span>';
       html += '</div>';
     });
     html += '</div>';
-    
+
     tpDiv.innerHTML += html;
     predDiv.appendChild(tpDiv);
   }
-  
-  // Eliminatorias
-  if (entry.knockout && entry.knockout.matches) {
+
+  // === ELIMINATORIAS CON BANDERAS ===
+  if (prediction.knockout && prediction.knockout.matches) {
     const koDiv = document.createElement('div');
     koDiv.className = 'prediction-knockout-section';
     koDiv.innerHTML = '<h4>🏆 Eliminatorias</h4>';
-    
+
     const rounds = [
       { key: 'round32', name: 'Dieciseisavos de Final' },
       { key: 'round16', name: 'Octavos de Final' },
@@ -1550,43 +1645,68 @@ function showPlayerPrediction(entry) {
       { key: 'thirdPlace', name: 'Tercer Puesto' },
       { key: 'final', name: 'Final' }
     ];
-    
+
+    const roundPointsMap = {
+      round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+      finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    };
+
     rounds.forEach(round => {
-      const matches = entry.knockout.matches[round.key] || [];
+      const matches = prediction.knockout.matches[round.key] || [];
       const realMatches = real.knockout?.matches?.[round.key] || [];
-      
+
       if (!matches.length) return;
-      
+
       const roundDiv = document.createElement('div');
       roundDiv.className = 'prediction-round';
-      roundDiv.innerHTML = '<h5>' + round.name + '</h5>';
-      
+      roundDiv.innerHTML = '<h5 style="color:#1a1a2e;margin:12px 0 6px;font-size:15px;">' + round.name + '</h5>';
+
       matches.forEach(match => {
         const realMatch = realMatches.find(m => m.match === match.match);
         const isCorrect = realMatch && realMatch.winner && match.winner === realMatch.winner;
-        
+
         const matchDiv = document.createElement('div');
         matchDiv.className = 'prediction-ko-match ' + (isCorrect ? 'correct' : '');
-        
-        let html = '<div class="ko-teams">';
-        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '">' + escapeHtml(match.team1 || '?') + '</span>';
-        html += ' vs ';
-        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '">' + escapeHtml(match.team2 || '?') + '</span>';
+        matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
+
+        let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+
+        // Equipo 1
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
+        html += '<span class="team-flag ' + getTeamFlagClass(match.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team1 || '?') + '</span>';
         html += '</div>';
-        html += '<div class="ko-winner">Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
-        if (isCorrect) html += ' <span class="check-mark">✓</span>';
+
+        html += '<span style="color:#888;font-weight:700;">vs</span>';
+
+        // Equipo 2
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
+        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team2 || '?') + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(match.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
-        
+
+        html += '</div>';
+
+        // Ganador
+        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
+        html += 'Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
+        html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
+        if (isCorrect) {
+          const pts = roundPointsMap[round.key] || 0;
+          html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">✓ +' + pts + ' pts</span>';
+        }
+        html += '</div>';
+
         matchDiv.innerHTML = html;
         roundDiv.appendChild(matchDiv);
       });
-      
+
       koDiv.appendChild(roundDiv);
     });
-    
+
     predDiv.appendChild(koDiv);
   }
-  
+
   viewer.appendChild(predDiv);
   modal.style.display = 'flex';
 }
