@@ -1392,9 +1392,9 @@ function showPlayerPrediction(entry) {
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
   if (hasRealResults) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
   } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
   }
   viewer.appendChild(scoreDiv);
 
@@ -1960,9 +1960,9 @@ showPlayerPrediction = function(entry) {
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
   if (hasRealResults) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
   } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
   }
   viewer.appendChild(scoreDiv);
 
@@ -2318,6 +2318,16 @@ document.addEventListener('DOMContentLoaded', function() {
     initReloadButton();
   }, 3000);
 });
+
+// Registro del Service Worker para PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('sw.js')
+      .then((reg) => console.log('SW registrado:', reg.scope))
+      .catch((err) => console.log('SW error:', err));
+  });
+}
 
 window.initReloadButton = initReloadButton;
 window.loadRealResultsFromBackend = loadRealResultsFromBackend;
