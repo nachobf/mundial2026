@@ -1982,6 +1982,46 @@ showPlayerPrediction = function(entry) {
   const real = window.REAL_RESULTS || {};
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
 
+  // Lista de keys que están invertidas en la base de datos
+  const INVERTED_KEYS = new Set([
+    'Corea del Sur__Mexico',
+    'Mexico__Republica Checa',
+    'Corea del Sur__Sudafrica',
+    'Bosnia y Herzegovina__Canada',
+    'Bosnia y Herzegovina__Suiza',
+    'Canada__Suiza',
+    'Escocia__Haiti',
+    'Brasil__Escocia',
+    'Haiti__Marruecos',
+    'Australia__Estados Unidos',
+    'Paraguay__Turquia',
+    'Estados Unidos__Turquia',
+    'Australia__Paraguay',
+    'Curaçao__Ecuador',
+    'Costa de Marfil__Curaçao',
+    'Alemania__Ecuador',
+    'Japon__Paises Bajos',
+    'Japon__Tunez',
+    'Paises Bajos__Tunez',
+    'Egipto__Nueva Zelanda',
+    'Belgica__Nueva Zelanda',
+    'Cabo Verde__Espana',
+    'Arabia Saudi__Espana',
+    'Cabo Verde__Uruguay',
+    'Espana__Uruguay',
+    'Arabia Saudi__Cabo Verde',
+    'Francia__Noruega',
+    'Irak__Senegal',
+    'Argelia__Argentina',
+    'Argelia__Jordania',
+    'Argentina__Jordania',
+    'Colombia__Uzbekistan',
+    'Croacia__Inglaterra',
+    'Ghana__Inglaterra',
+    'Croacia__Panama',
+    'Inglaterra__Panama'
+  ]);
+
   // Puntuacion
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
@@ -2031,7 +2071,6 @@ showPlayerPrediction = function(entry) {
 
         let html = '<span style="color:#4a90d9;font-weight:700;flex-shrink:0;">+' + (Number(item.points) || 0) + ' pts</span>';
 
-        // Banderas para eliminatorias
         if (type === 'eliminatoria' && item.team) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
           html += '<span>' + escapeHtml(String(item.team)) + '</span>';
@@ -2044,7 +2083,6 @@ showPlayerPrediction = function(entry) {
             html += '<span style="color:#888;font-size:12px;">(' + (roundNames[item.round] || item.round) + ')</span>';
           }
         }
-        // Banderas para posiciones de grupo
         else if (type === 'posicion' && item.team) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
           html += '<span>' + escapeHtml(String(item.team)) + '</span>';
@@ -2052,12 +2090,10 @@ showPlayerPrediction = function(entry) {
             html += '<span style="color:#888;font-size:12px;">(Grupo ' + String(item.group) + ' - ' + (item.position || '?') + 'o)</span>';
           }
         }
-        // Banderas para mejores terceros
         else if (type === 'mejorTercero' && item.team) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
           html += '<span>' + escapeHtml(String(item.team)) + '</span>';
         }
-        // Banderas para resultados exactos y 1X2
         else if ((type === 'resultadoExacto' || type === '1x2') && item.team1 && item.team2) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
           html += '<span>' + escapeHtml(String(item.team1)) + '</span>';
@@ -2118,19 +2154,18 @@ showPlayerPrediction = function(entry) {
     predDiv.appendChild(groupsDiv);
   }
 
-  // === RESULTADOS DE PARTIDOS (QUINIELA) ===
-  if (prediction.groupMatchResults && Object.keys(prediction.groupMatchResults).length > 0) {
+  // === RESULTADOS DE PARTIDOS (QUINIELA) - ORDEN CORRECTO POR FECHA ===
+  const gmr = prediction.groupMatchResults || {};
+  if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
     const matchesDiv = document.createElement('div');
     matchesDiv.className = 'prediction-matches-section';
     matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
 
-    // Ordenar por grupo
     const matchesByGroup = {};
-    Object.keys(prediction.groupMatchResults).forEach(key => {
-      const matchInfo = QUINIELA_1X2_MATCHES.find(m => m.key === key);
-      const group = matchInfo ? matchInfo.group : '?';
-      if (!matchesByGroup[group]) matchesByGroup[group] = [];
-      matchesByGroup[group].push({ key, matchInfo });
+    QUINIELA_1X2_MATCHES.forEach(m => {
+      if (!gmr[m.key]) return;
+      if (!matchesByGroup[m.group]) matchesByGroup[m.group] = [];
+      matchesByGroup[m.group].push(m);
     });
 
     Object.keys(matchesByGroup).sort().forEach(g => {
@@ -2139,20 +2174,40 @@ showPlayerPrediction = function(entry) {
       groupHeader.textContent = 'Grupo ' + g;
       matchesDiv.appendChild(groupHeader);
 
-      matchesByGroup[g].forEach(({ key, matchInfo }) => {
-        const pred = prediction.groupMatchResults[key];
-        const realResult = real.groupMatchResults?.[key];
+      matchesByGroup[g].forEach(m => {
+        const rawPred = gmr[m.key];
+        const realResult = real.groupMatchResults?.[m.key];
 
-        const teams = key.split('__');
-        const t1 = teams[0];
-        const t2 = teams[1];
+        // Detectar si la key está invertida en la base de datos
+        const isInverted = INVERTED_KEYS.has(m.key);
+
+        // Corregir goles si la key está invertida
+        const pred = isInverted ? {
+          team1Goals: rawPred.team2Goals,
+          team2Goals: rawPred.team1Goals
+        } : rawPred;
+
+        const t1 = m.team1;
+        const t2 = m.team2;
 
         const matchDiv = document.createElement('div');
         matchDiv.className = 'prediction-match';
         matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
 
         let html = '';
-        // Equipo 1 con bandera
+
+        const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
+        const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
+        const groundLabel = m.ground || '';
+        if (dateLabel || roundLabel || groundLabel) {
+          let infoParts = [];
+          if (dateLabel) infoParts.push(dateLabel);
+          if (roundLabel) infoParts.push(roundLabel);
+          if (groundLabel) infoParts.push(groundLabel);
+          html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
+        }
+
+        // LOCAL
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
         html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
@@ -2165,21 +2220,26 @@ showPlayerPrediction = function(entry) {
         html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
         html += '</div>';
 
-        // Equipo 2 con bandera
+        // VISITANTE
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
 
-        // Resultado real y puntos
+        // Resultado real
         if (realResult) {
-          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
+          const realCorrected = isInverted ? {
+            team1Goals: realResult.team2Goals,
+            team2Goals: realResult.team1Goals
+          } : realResult;
+
+          const exact = pred.team1Goals === realCorrected.team1Goals && pred.team2Goals === realCorrected.team2Goals;
           const p1x2 = get1x2FromResult(pred);
-          const r1x2 = get1x2FromResult(realResult);
+          const r1x2 = get1x2FromResult(realCorrected);
           const quinielaOk = p1x2 === r1x2;
 
           html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-          html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
+          html += '<span style="color:#888;">Real: ' + realCorrected.team1Goals + ' - ' + realCorrected.team2Goals + '</span>';
           if (exact) {
             html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
           } else if (quinielaOk) {
@@ -2265,7 +2325,6 @@ showPlayerPrediction = function(entry) {
 
         let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
 
-        // Equipo 1
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
         html += '<span class="team-flag ' + getTeamFlagClass(match.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team1 || '?') + '</span>';
@@ -2273,7 +2332,6 @@ showPlayerPrediction = function(entry) {
 
         html += '<span style="color:#888;font-weight:700;">vs</span>';
 
-        // Equipo 2
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
         html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team2 || '?') + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
@@ -2281,7 +2339,6 @@ showPlayerPrediction = function(entry) {
 
         html += '</div>';
 
-        // Ganador
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
         html += 'Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
