@@ -2092,21 +2092,19 @@ showPlayerPrediction = function(entry) {
     predDiv.appendChild(groupsDiv);
   }
 
-  // === RESULTADOS DE PARTIDOS (QUINIELA) - ORDENADOS POR FECHA ===
+  // === RESULTADOS DE PARTIDOS (QUINIELA) ===
   if (prediction.groupMatchResults && Object.keys(prediction.groupMatchResults).length > 0) {
     const matchesDiv = document.createElement('div');
     matchesDiv.className = 'prediction-matches-section';
     matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
 
-    // Usar QUINIELA_1X2_MATCHES que ya tiene el orden correcto por fecha
-    const predictedKeys = new Set(Object.keys(prediction.groupMatchResults));
-    const orderedMatches = QUINIELA_1X2_MATCHES.filter(m => predictedKeys.has(m.key));
-
-    // Agrupar por grupo manteniendo el orden de QUINIELA_1X2_MATCHES
+    // Ordenar por grupo
     const matchesByGroup = {};
-    orderedMatches.forEach(m => {
-      if (!matchesByGroup[m.group]) matchesByGroup[m.group] = [];
-      matchesByGroup[m.group].push(m);
+    Object.keys(prediction.groupMatchResults).forEach(key => {
+      const matchInfo = QUINIELA_1X2_MATCHES.find(m => m.key === key);
+      const group = matchInfo ? matchInfo.group : '?';
+      if (!matchesByGroup[group]) matchesByGroup[group] = [];
+      matchesByGroup[group].push({ key, matchInfo });
     });
 
     Object.keys(matchesByGroup).sort().forEach(g => {
@@ -2115,26 +2113,20 @@ showPlayerPrediction = function(entry) {
       groupHeader.textContent = 'Grupo ' + g;
       matchesDiv.appendChild(groupHeader);
 
-      matchesByGroup[g].forEach(m => {
-        const pred = prediction.groupMatchResults[m.key];
-        const realResult = real.groupMatchResults?.[m.key];
+      matchesByGroup[g].forEach(({ key, matchInfo }) => {
+        const pred = prediction.groupMatchResults[key];
+        const realResult = real.groupMatchResults?.[key];
 
-        // Usar team1 y team2 del match en el ORDEN CORRECTO (local vs visitante)
-        const t1 = m.team1;
-        const t2 = m.team2;
+        const teams = key.split('__');
+        const t1 = teams[0];
+        const t2 = teams[1];
 
         const matchDiv = document.createElement('div');
         matchDiv.className = 'prediction-match';
         matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
 
         let html = '';
-        // Fecha del partido
-        const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
-        if (dateLabel) {
-          html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(dateLabel) + '</div>';
-        }
-
-        // Equipo 1 (LOCAL) con bandera
+        // Equipo 1 con bandera
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
         html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
@@ -2147,7 +2139,7 @@ showPlayerPrediction = function(entry) {
         html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
         html += '</div>';
 
-        // Equipo 2 (VISITANTE) con bandera
+        // Equipo 2 con bandera
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
