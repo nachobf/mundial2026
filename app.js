@@ -1524,85 +1524,111 @@ function showPlayerPrediction(entry) {
     predDiv.appendChild(groupsDiv);
   }
 
-  // === RESULTADOS DE PARTIDOS (QUINIELA) ===
-  if (prediction.groupMatchResults && Object.keys(prediction.groupMatchResults).length > 0) {
-    const matchesDiv = document.createElement('div');
-    matchesDiv.className = 'prediction-matches-section';
-    matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
+  const gmr = prediction.groupMatchResults || {};
+if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
+  const matchesDiv = document.createElement('div');
+  matchesDiv.className = 'prediction-matches-section';
+  matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
 
-    // Ordenar por grupo
-    const matchesByGroup = {};
-    Object.keys(prediction.groupMatchResults).forEach(key => {
-      const matchInfo = QUINIELA_1X2_MATCHES.find(m => m.key === key);
-      const group = matchInfo ? matchInfo.group : '?';
-      if (!matchesByGroup[group]) matchesByGroup[group] = [];
-      matchesByGroup[group].push({ key, matchInfo });
-    });
+  const matchesByGroup = {};
+  QUINIELA_1X2_MATCHES.forEach(m => {
+    if (!gmr[m.key]) return;
+    if (!matchesByGroup[m.group]) matchesByGroup[m.group] = [];
+    matchesByGroup[m.group].push(m);
+  });
 
-    Object.keys(matchesByGroup).sort().forEach(g => {
-      const groupHeader = document.createElement('div');
-      groupHeader.style.cssText = 'font-weight:600;color:#1a1a2e;margin:10px 0 6px;font-size:14px;';
-      groupHeader.textContent = 'Grupo ' + g;
-      matchesDiv.appendChild(groupHeader);
+  Object.keys(matchesByGroup).sort().forEach(g => {
+    const groupHeader = document.createElement('div');
+    groupHeader.style.cssText = 'font-weight:600;color:#1a1a2e;margin:10px 0 6px;font-size:14px;';
+    groupHeader.textContent = 'Grupo ' + g;
+    matchesDiv.appendChild(groupHeader);
 
-      matchesByGroup[g].forEach(({ key, matchInfo }) => {
-        const pred = prediction.groupMatchResults[key];
-        const realResult = real.groupMatchResults?.[key];
+    matchesByGroup[g].forEach(m => {
+      const rawPred = gmr[m.key];
+      const realResult = real.groupMatchResults?.[m.key];
 
-        const teams = key.split('__');
-        const t1 = teams[0];
-        const t2 = teams[1];
+      // Detectar si la key está invertida respecto al orden real del calendario
+      // La key se genera con sort() alfabético: [team1, team2].sort().join('__')
+      // Si m.team1 NO es el primero alfabéticamente, entonces los goles están swapeados
+      const sortedTeams = [m.team1, m.team2].sort();
+      const isInverted = sortedTeams[0] !== m.team1;
 
-        const matchDiv = document.createElement('div');
-        matchDiv.className = 'prediction-match';
-        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
+      // Corregir goles si la key está invertida
+      const pred = isInverted ? {
+        team1Goals: rawPred.team2Goals,
+        team2Goals: rawPred.team1Goals
+      } : rawPred;
 
-        let html = '';
-        // Equipo 1 con bandera
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
-        html += '</div>';
+      const t1 = m.team1; // LOCAL real
+      const t2 = m.team2; // VISITANTE real
 
-        // Score
-        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
-        html += '<span style="color:#888;">-</span>';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
-        html += '</div>';
+      const matchDiv = document.createElement('div');
+      matchDiv.className = 'prediction-match';
+      matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
 
-        // Equipo 2 con bandera
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '</div>';
+      let html = '';
 
-        // Resultado real y puntos
-        if (realResult) {
-          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
-          const p1x2 = get1x2FromResult(pred);
-          const r1x2 = get1x2FromResult(realResult);
-          const quinielaOk = p1x2 === r1x2;
+      const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
+      const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
+      const groundLabel = m.ground || '';
+      if (dateLabel || roundLabel || groundLabel) {
+        let infoParts = [];
+        if (dateLabel) infoParts.push(dateLabel);
+        if (roundLabel) infoParts.push(roundLabel);
+        if (groundLabel) infoParts.push(groundLabel);
+        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
+      }
 
-          html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-          html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
-          if (exact) {
-            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
-          } else if (quinielaOk) {
-            html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
-          } else {
-            html += ' <span style="color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
-          }
-          html += '</div>';
+      // LOCAL (team1 del calendario real)
+      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
+      html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+      html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
+      html += '</div>';
+
+      // Score (ya corregido si hacía falta)
+      html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
+      html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
+      html += '<span style="color:#888;">-</span>';
+      html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
+      html += '</div>';
+
+      // VISITANTE (team2 del calendario real)
+      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
+      html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
+      html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+      html += '</div>';
+
+      // Resultado real (también puede estar invertido)
+      if (realResult) {
+        const realCorrected = isInverted ? {
+          team1Goals: realResult.team2Goals,
+          team2Goals: realResult.team1Goals
+        } : realResult;
+
+        const exact = pred.team1Goals === realCorrected.team1Goals && pred.team2Goals === realCorrected.team2Goals;
+        const p1x2 = get1x2FromResult(pred);
+        const r1x2 = get1x2FromResult(realCorrected);
+        const quinielaOk = p1x2 === r1x2;
+
+        html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
+        html += '<span style="color:#888;">Real: ' + realCorrected.team1Goals + ' - ' + realCorrected.team2Goals + '</span>';
+        if (exact) {
+          html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
+        } else if (quinielaOk) {
+          html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
+        } else {
+          html += ' <span style="color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
         }
+        html += '</div>';
+      }
 
-        matchDiv.innerHTML = html;
-        matchesDiv.appendChild(matchDiv);
-      });
+      matchDiv.innerHTML = html;
+      matchesDiv.appendChild(matchDiv);
     });
+  });
 
-    predDiv.appendChild(matchesDiv);
-  }
+  predDiv.appendChild(matchesDiv);
+}
 
   // === MEJORES TERCEROS ===
   if (prediction.thirdPlace && prediction.thirdPlace.length) {
