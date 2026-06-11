@@ -45,13 +45,13 @@ function updateCountdowns() {
   const betEl = document.getElementById('cdBet');
   if (betEl) {
     const diff = DEADLINE.getTime() - now;
-    betEl.textContent = diff > 0 ? formatCountdown(diff) : 'Cerrado!';
+    betEl.textContent = diff > 0 ? formatCountdown(diff) : '¡Cerrado!';
     betEl.classList.toggle('countdown-finished', diff <= 0);
   }
   const kickEl = document.getElementById('cdKick');
   if (kickEl) {
     const diff = KICKOFF.getTime() - now;
-    kickEl.textContent = diff > 0 ? formatCountdown(diff) : 'Ya rueda el balon!';
+    kickEl.textContent = diff > 0 ? formatCountdown(diff) : 'Ya rueda el balón!';
     kickEl.classList.toggle('countdown-finished', diff <= 0);
   }
 }
