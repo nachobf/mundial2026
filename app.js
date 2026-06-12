@@ -1983,6 +1983,7 @@ showPlayerPrediction = function(entry) {
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
 
   // Lista de keys que están invertidas en la base de datos
+  // (la key se generó alfabéticamente pero el orden real del calendario es distinto)
   const INVERTED_KEYS = new Set([
     'Corea del Sur__Mexico',
     'Mexico__Republica Checa',
@@ -2175,20 +2176,29 @@ showPlayerPrediction = function(entry) {
       matchesDiv.appendChild(groupHeader);
 
       matchesByGroup[g].forEach(m => {
-        const rawPred = gmr[m.key];
+        const pred = gmr[m.key];
         const realResult = real.groupMatchResults?.[m.key];
 
         // Detectar si la key está invertida en la base de datos
         const isInverted = INVERTED_KEYS.has(m.key);
 
-        // Corregir goles si la key está invertida
-        const pred = isInverted ? {
-          team1Goals: rawPred.team2Goals,
-          team2Goals: rawPred.team1Goals
-        } : rawPred;
-
-        const t1 = m.team1;
-        const t2 = m.team2;
+        // Si está invertida, mostrar equipos en orden del calendario (m.team1 local, m.team2 visitante)
+        // pero los goles SE MANTIENEN EXACTAMENTE COMO ESTÁN GUARDADOS
+        let t1, t2;
+        if (isInverted) {
+          // La key es "Visitante__Local" alfabéticamente, pero en la BD:
+          // team1Goals = goles del primer nombre alfabético (visitante)
+          // team2Goals = goles del segundo nombre alfabético (local)
+          // Mostramos: Local (m.team1) vs Visitante (m.team2)
+          // Los goles ya están correctos para ese orden en la BD
+          t1 = m.team1; // Local real
+          t2 = m.team2; // Visitante real
+          // pred.team1Goals = goles de t1 (local), pred.team2Goals = goles de t2 (visitante)
+          // ¡NO TOCAR LOS GOLES!
+        } else {
+          t1 = m.team1;
+          t2 = m.team2;
+        }
 
         const matchDiv = document.createElement('div');
         matchDiv.className = 'prediction-match';
@@ -2213,7 +2223,7 @@ showPlayerPrediction = function(entry) {
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
         html += '</div>';
 
-        // Score
+        // Score (SIN MODIFICAR - tal cual está en la BD)
         html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
         html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
         html += '<span style="color:#888;">-</span>';
@@ -2226,20 +2236,15 @@ showPlayerPrediction = function(entry) {
         html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
 
-        // Resultado real
+        // Resultado real (también sin modificar goles)
         if (realResult) {
-          const realCorrected = isInverted ? {
-            team1Goals: realResult.team2Goals,
-            team2Goals: realResult.team1Goals
-          } : realResult;
-
-          const exact = pred.team1Goals === realCorrected.team1Goals && pred.team2Goals === realCorrected.team2Goals;
+          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
           const p1x2 = get1x2FromResult(pred);
-          const r1x2 = get1x2FromResult(realCorrected);
+          const r1x2 = get1x2FromResult(realResult);
           const quinielaOk = p1x2 === r1x2;
 
           html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-          html += '<span style="color:#888;">Real: ' + realCorrected.team1Goals + ' - ' + realCorrected.team2Goals + '</span>';
+          html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
           if (exact) {
             html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
           } else if (quinielaOk) {
