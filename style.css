@@ -891,164 +891,186 @@ body {
 }
 
 
-/* ===== MODAL DE GRUPOS - RESPONSIVE ===== */
+/* ===== LAYOUT RESPONSIVE PARTIDOS ===== */
 
 .match-container {
-  background: #fff;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  border: 1px solid #e8e8e8;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .match-info-row {
-  font-size: 12px;
-  color: #888;
+  font-size: 13px;
+  color: #999;
   text-align: center;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #333;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* FILA DE EQUIPOS */
-.match-teams-row {
+/* Fila principal: equipos + marcador en una sola línea */
+.match-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 12px;
 }
 
 .team-block {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex: 1;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .team-block.team-home {
   justify-content: flex-start;
-  text-align: left;
 }
 
 .team-block.team-away {
   justify-content: flex-end;
-  text-align: right;
   flex-direction: row-reverse;
 }
 
 .team-block .team-flag {
   flex-shrink: 0;
   font-size: 22px;
-  width: 28px;
-  height: 20px;
-  display: inline-block;
   line-height: 1;
-  margin-top: 2px;
 }
 
 .team-block .team-name {
-  font-weight: 600;
   font-size: 15px;
-  color: #1a1a2e;
+  font-weight: 600;
+  color: #fff;
   line-height: 1.3;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* FILA DE MARCADOR */
-.match-score-row {
+/* Caja de marcador */
+.score-box {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.match-score-row .score-input {
-  width: 52px;
-  height: 46px;
+.score-input {
+  width: 56px;
+  height: 52px;
   text-align: center;
   font-size: 20px;
   font-weight: bold;
-  border: 2px solid #ddd;
-  border-radius: 10px;
+  color: #fff;
+  background: #2a2a2a;
+  border: 2px solid #444;
+  border-radius: 12px;
   padding: 0;
-  background: #fafafa;
   transition: border-color 0.2s, box-shadow 0.2s;
   -moz-appearance: textfield;
 }
 
-.match-score-row .score-input:focus {
+.score-input:focus {
   border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
-  background: #fff;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+  background: #333;
   outline: none;
 }
 
-.match-score-row .score-input::-webkit-outer-spin-button,
-.match-score-row .score-input::-webkit-inner-spin-button {
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.match-score-row .score-separator {
+.score-separator {
   font-size: 22px;
   font-weight: bold;
-  color: #999;
+  color: #666;
 }
 
-/* ===== MÓVIL: AJUSTES ===== */
-@media (max-width: 480px) {
-  .match-container {
-    padding: 12px;
-  }
-  
-  .match-teams-row {
+/* ===== MÓVIL: apilar verticalmente ===== */
+@media (max-width: 768px) {
+  .match-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
     gap: 12px;
   }
+
+  .team-block {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
   
+  .team-block.team-home {
+    justify-content: flex-start;
+  }
+  
+  .team-block.team-away {
+    justify-content: flex-end;
+    flex-direction: row-reverse;
+  }
+
+  /* En móvil los nombres pueden ocupar varias líneas */
   .team-block .team-name {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
     font-size: 14px;
   }
-  
+
   .team-block .team-flag {
     font-size: 20px;
-    width: 24px;
-    height: 18px;
+    margin-top: 2px; /* alinea con la primera línea del texto */
+  }
+
+  /* Los inputs saltan a una nueva fila completa y centrada */
+  .score-box {
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .score-input {
+    width: 60px;
+    height: 52px;
+    font-size: 22px;
   }
   
-  .match-score-row .score-input {
-    width: 50px;
-    height: 44px;
-    font-size: 18px;
-  }
-  
-  .match-score-row .score-separator {
+  .score-separator {
     font-size: 20px;
   }
+}
+
+/* Móvil muy estrecho */
+@media (max-width: 380px) {
+  .team-block .team-name {
+    font-size: 13px;
+  }
   
-  .match-info-row {
-    font-size: 11px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+  .score-input {
+    width: 54px;
+    height: 48px;
+    font-size: 20px;
   }
 }
 
 /* Ajustes del modal en móvil */
 @media (max-width: 600px) {
   #groupResultsModal .modal-content {
-    width: 95%;
-    max-width: 95%;
+    width: 92%;
+    max-width: 92%;
     margin: 10px auto;
     padding: 16px;
-    max-height: 92vh;
+    max-height: 95vh;
     border-radius: 16px;
-  }
-  
-  #groupResultsModalTitle {
-    font-size: 18px;
   }
 }
