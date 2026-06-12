@@ -949,9 +949,8 @@ body {
   font-weight: 600;
   color: #fff;
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* En PC los nombres se muestran completos */
+  word-break: break-word;
 }
 
 /* Caja de marcador */
@@ -997,6 +996,8 @@ body {
   color: #666;
 }
 
+
+
 /* ===== MÓVIL: apilar verticalmente ===== */
 @media (max-width: 768px) {
   .match-row {
@@ -1029,10 +1030,9 @@ body {
 
   .team-block .team-flag {
     font-size: 20px;
-    margin-top: 2px; /* alinea con la primera línea del texto */
+    margin-top: 2px;
   }
 
-  /* Los inputs saltan a una nueva fila completa y centrada */
   .score-box {
     order: 3;
     width: 100%;
