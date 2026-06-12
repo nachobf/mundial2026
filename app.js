@@ -1022,24 +1022,6 @@ function renderGroups() {
   });
 }
 
-// Helper para manejar inputs con valor por defecto 0
-function getScoreValue(result, isTeam1) {
-  const val = isTeam1 ? result.team1Goals : result.team2Goals;
-  return val !== '' ? val : '0';
-}
-
-function handleScoreInputFocus(e) {
-  if (e.target.value === '0') {
-    e.target.select();
-  }
-}
-
-function handleScoreInputBlur(e) {
-  if (e.target.value === '' || e.target.value === null || e.target.value === undefined) {
-    e.target.value = '0';
-  }
-}
-
 function renderQuiniela1x2() {
   const container = document.getElementById('quiniela1x2Panel');
   if (!container) return;
@@ -1062,29 +1044,24 @@ function renderQuiniela1x2() {
       const row = document.createElement('div');
       row.className = 'quiniela1x2-row';
       row.dataset.key = m.key;
-      row.innerHTML = '<div class="quiniela-match-info"><span class="match-date">' + (dateLabel ? escapeHtml(dateLabel) : '') + '</span></div>' +
-        '<div class="quiniela-match-teams">' +
-        '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
-        '<span class="team-name-input">' + escapeHtml(m.team1) + '</span>' +
-        '<div class="score-inputs">' +
-        '<input type="number" min="0" max="20" class="score-input team1-goals" value="' + getScoreValue(result, true) + '" data-key="' + m.key + '" data-team="1">' +
-        '<span class="score-separator">-</span>' +
-        '<input type="number" min="0" max="20" class="score-input team2-goals" value="' + getScoreValue(result, false) + '" data-key="' + m.key + '" data-team="2">' +
+      row.innerHTML = 
+        '<div class="match-info-line">' + (dateLabel ? escapeHtml(dateLabel) : '') + '</div>' +
+        '<div class="match-teams-line">' +
+          '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
+          '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+          '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
+          '<span class="score-separator">-</span>' +
+          '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
+          '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
+          '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
         '</div>' +
-        '<span class="team-name-input">' + escapeHtml(m.team2) + '</span>' +
-        '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
-        '</div>' +
-        '<div class="quiniela-1x2-display" id="1x2-' + m.key + '">' + get1x2FromResult(result) + '</div>';
+        '<div class="result-1x2" id="1x2-' + m.key + '">' + get1x2FromResult(result) + '</div>';
       panel.appendChild(row);
     });
   });
   container.appendChild(panel);
+  
   panel.querySelectorAll('.score-input').forEach(input => {
-    // Focus: seleccionar todo si es 0
-    input.addEventListener('focus', handleScoreInputFocus);
-    // Blur: volver a 0 si queda vacío
-    input.addEventListener('blur', handleScoreInputBlur);
-    // Input: manejar cambios
     input.addEventListener('input', (e) => {
       const key = e.target.dataset.key;
       const isTeam1 = e.target.dataset.team === '1';
@@ -1111,6 +1088,7 @@ function get1x2FromResult(result) {
   return 'X';
 }
 
+
 function openGroupResultsModal(group) {
   if (!LOADED) return;
   const modal = document.getElementById('groupResultsModal');
@@ -1122,12 +1100,12 @@ function openGroupResultsModal(group) {
   const matches = getGroupMatchList(group);
   const table = document.createElement('div');
   table.className = 'group-results-table';
+  
   matches.forEach((m, idx) => {
     const result = state.groupMatchResults[m.key] || { team1Goals: '', team2Goals: '' };
     const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
     const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, idx) : '';
     
-    // Línea de info (fecha, hora, lugar) - ahora en una línea separada
     const infoRow = document.createElement('div');
     infoRow.className = 'match-info-row';
     let infoParts = [];
@@ -1136,30 +1114,27 @@ function openGroupResultsModal(group) {
     if (m.ground) infoParts.push(m.ground);
     infoRow.textContent = infoParts.join(' · ');
     
-    // Fila principal: banderas, nombres y marcador
     const row = document.createElement('div');
     row.className = 'group-result-row';
     row.innerHTML = 
       '<div class="match-teams-row">' +
         '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
         '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
-        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + getScoreValue(result, true) + '">' +
+        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
         '<span class="score-separator">-</span>' +
-        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + getScoreValue(result, false) + '">' +
+        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
         '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
         '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
       '</div>';
     
-    // Contenedor del partido
     const matchContainer = document.createElement('div');
     matchContainer.className = 'match-container';
     matchContainer.appendChild(infoRow);
     matchContainer.appendChild(row);
     table.appendChild(matchContainer);
   });
-  body.appendChild(table);
   
-  // ... resto de la función (standings preview, event listeners, confirmBtn) permanece igual
+  body.appendChild(table);
   const standingsTitle = document.createElement('h4');
   standingsTitle.className = 'standings-preview-title';
   standingsTitle.textContent = 'Clasificacion (se calcula automaticamente)';
@@ -1168,6 +1143,7 @@ function openGroupResultsModal(group) {
   standingsDiv.id = 'modalStandingsPreview';
   standingsDiv.className = 'standings-preview';
   body.appendChild(standingsDiv);
+  
   const updateStandingsPreview = () => {
     const standings = calculateGroupStandingsFromResults(group);
     standingsDiv.innerHTML = '';
@@ -1179,9 +1155,8 @@ function openGroupResultsModal(group) {
     });
   };
   updateStandingsPreview();
+  
   table.querySelectorAll('.score-input').forEach(input => {
-    input.addEventListener('focus', handleScoreInputFocus);
-    input.addEventListener('blur', handleScoreInputBlur);
     input.addEventListener('input', (e) => {
       const key = e.target.dataset.key;
       const isTeam1 = e.target.dataset.team === '1';
@@ -1194,6 +1169,7 @@ function openGroupResultsModal(group) {
     });
     input.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'e' || e.key === 'E') e.preventDefault(); });
   });
+  
   confirmBtn.textContent = 'Confirmar grupo';
   confirmBtn.onclick = () => {
     const allFilled = matches.every(m => {
