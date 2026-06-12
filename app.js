@@ -323,35 +323,124 @@ function renderBestThirds() {
 /* ============================================================
    SUBMIT / RESTORE (reemplaza submitPrediction y restoreLocalPrediction)
    ============================================================ */
+function validatePrediction() {
+  const errors = [];
 
-function submitPrediction() {
-  if (!LOADED) { 
-    showToast('Los datos del torneo aún no se han cargado. Espera un momento.', true); 
-    return; 
-  }
-  
-  const incompleteGroups = GROUP_NAMES.filter(g => !state.groupsConfirmed[g]);
-  if (incompleteGroups.length) { 
-    showToast('Completa todos los grupos antes de enviar.', true); 
-    return; 
-  }
-  
-  const missingKO = [];
+  // 1. Validar grupos
+  GROUP_NAMES.forEach(g => {
+    const matches = getGroupMatchList(g);
+    const results = matches.map(m => state.groupMatchResults[m.key]);
+    const filled = results.filter(r => r && r.team1Goals !== '' && r.team2Goals !== '').length;
+    const total = matches.length;
+
+    if (filled === 0 && !state.groupsConfirmed[g]) {
+      errors.push({ type: 'grupo_vacio', group: g, message: 'Grupo ' + g + ': no has introducido ningún resultado' });
+    } else if (filled > 0 && filled < total) {
+      // Resultados parciales - listar partidos que faltan
+      const missing = matches.filter(m => {
+        const r = state.groupMatchResults[m.key];
+        return !r || r.team1Goals === '' || r.team2Goals === '';
+      });
+      missing.forEach(m => {
+        errors.push({
+          type: 'partido_incompleto',
+          group: g,
+          match: m,
+          message: 'Grupo ' + g + ': falta ' + m.team1 + ' vs ' + m.team2
+        });
+      });
+    }
+  });
+
+  // 2. Validar eliminatorias
   const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
+  const roundNames = {
+    round32: 'Dieciseisavos', round16: 'Octavos', quarterfinals: 'Cuartos',
+    semifinals: 'Semifinales', thirdPlace: 'Tercer puesto', final: 'Final'
+  };
   rounds.forEach(round => {
     (KO_TREE[round] || []).forEach(match => {
       const teams = state.matchTeams[match.num] || {};
       if (teams.team1 && teams.team2 && !state.knockoutResults[match.num]) {
-        missingKO.push(match.num);
+        errors.push({
+          type: 'eliminatoria',
+          round: round,
+          matchNum: match.num,
+          team1: teams.team1,
+          team2: teams.team2,
+          message: roundNames[round] + ': falta ' + teams.team1 + ' vs ' + teams.team2
+        });
       }
     });
   });
-  
-  if (missingKO.length) { 
-    showToast('Completa todos los partidos de eliminatoria antes de enviar.', true); 
-    return; 
+
+  return errors;
+}
+
+function autoConfirmGroups() {
+  let confirmed = 0;
+  GROUP_NAMES.forEach(g => {
+    if (state.groupsConfirmed[g]) return;
+    const matches = getGroupMatchList(g);
+    const allFilled = matches.every(m => {
+      const r = state.groupMatchResults[m.key];
+      return r && r.team1Goals !== '' && r.team2Goals !== '';
+    });
+    if (allFilled) {
+      state.groupsConfirmed[g] = true;
+      const standings = calculateGroupStandingsFromResults(g);
+      state.groups[g] = standings.map(s => s.team);
+      confirmed++;
+    }
+  });
+  if (confirmed > 0) {
+    ensureThirdPlaceRanking();
+    buildTPAllocation();
+    computeMatchTeams();
+    renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
+    saveLocalPredictionSoon();
   }
-  
+  return confirmed;
+}
+function submitPrediction() {
+  if (!LOADED) {
+    showToast('Los datos del torneo aún no se han cargado. Espera un momento.', true);
+    return;
+  }
+
+  // Auto-confirmar grupos completos
+  const autoConfirmed = autoConfirmGroups();
+  if (autoConfirmed > 0) {
+    showToast(autoConfirmed + ' grupo' + (autoConfirmed > 1 ? 's' : '') + ' confirmado' + (autoConfirmed > 1 ? 's' : '') + ' automáticamente');
+  }
+
+  // Validar y mostrar errores específicos
+  const errors = validatePrediction();
+  if (errors.length > 0) {
+    const grupoVacio = errors.filter(e => e.type === 'grupo_vacio');
+    const partidosIncompletos = errors.filter(e => e.type === 'partido_incompleto');
+    const eliminatorias = errors.filter(e => e.type === 'eliminatoria');
+
+    let msg = 'Completa antes de enviar:\n\n';
+    if (grupoVacio.length) {
+      msg += '📋 Grupos vacíos:\n';
+      grupoVacio.forEach(e => msg += '  • ' + e.message + '\n');
+      msg += '\n';
+    }
+    if (partidosIncompletos.length) {
+      msg += '⚽ Partidos incompletos:\n';
+      partidosIncompletos.forEach(e => msg += '  • ' + e.message + '\n');
+      msg += '\n';
+    }
+    if (eliminatorias.length) {
+      msg += '🏆 Eliminatorias:\n';
+      eliminatorias.forEach(e => msg += '  • ' + e.message + '\n');
+    }
+
+    showToast(msg, true);
+    return;
+  }
+
   document.getElementById('nameModal').style.display = 'flex';
 }
 
@@ -933,6 +1022,24 @@ function renderGroups() {
   });
 }
 
+// Helper para manejar inputs con valor por defecto 0
+function getScoreValue(result, isTeam1) {
+  const val = isTeam1 ? result.team1Goals : result.team2Goals;
+  return val !== '' ? val : '0';
+}
+
+function handleScoreInputFocus(e) {
+  if (e.target.value === '0') {
+    e.target.select();
+  }
+}
+
+function handleScoreInputBlur(e) {
+  if (e.target.value === '' || e.target.value === null || e.target.value === undefined) {
+    e.target.value = '0';
+  }
+}
+
 function renderQuiniela1x2() {
   const container = document.getElementById('quiniela1x2Panel');
   if (!container) return;
@@ -960,9 +1067,9 @@ function renderQuiniela1x2() {
         '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
         '<span class="team-name-input">' + escapeHtml(m.team1) + '</span>' +
         '<div class="score-inputs">' +
-        '<input type="number" min="0" max="20" class="score-input team1-goals" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '" placeholder="0" data-key="' + m.key + '" data-team="1">' +
+        '<input type="number" min="0" max="20" class="score-input team1-goals" value="' + getScoreValue(result, true) + '" data-key="' + m.key + '" data-team="1">' +
         '<span class="score-separator">-</span>' +
-        '<input type="number" min="0" max="20" class="score-input team2-goals" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '" placeholder="0" data-key="' + m.key + '" data-team="2">' +
+        '<input type="number" min="0" max="20" class="score-input team2-goals" value="' + getScoreValue(result, false) + '" data-key="' + m.key + '" data-team="2">' +
         '</div>' +
         '<span class="team-name-input">' + escapeHtml(m.team2) + '</span>' +
         '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
@@ -973,6 +1080,11 @@ function renderQuiniela1x2() {
   });
   container.appendChild(panel);
   panel.querySelectorAll('.score-input').forEach(input => {
+    // Focus: seleccionar todo si es 0
+    input.addEventListener('focus', handleScoreInputFocus);
+    // Blur: volver a 0 si queda vacío
+    input.addEventListener('blur', handleScoreInputBlur);
+    // Input: manejar cambios
     input.addEventListener('input', (e) => {
       const key = e.target.dataset.key;
       const isTeam1 = e.target.dataset.team === '1';
@@ -1018,7 +1130,7 @@ function openGroupResultsModal(group) {
     row.className = 'group-result-row';
     row.innerHTML = '<div class="result-match-info"><span class="result-match-date">' + escapeHtml(dateLabel) + (roundLabel ? ' &middot; ' + roundLabel : '') + '</span><span class="result-match-ground">' + escapeHtml(m.ground || '') + '</span></div>' +
       '<div class="result-match-teams"><span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span><span class="team-name">' + escapeHtml(m.team1) + '</span>' +
-      '<div class="score-inputs"><input type="number" min="0" max="20" class="score-input modal-score-input team1-goals" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '" placeholder="0" data-key="' + m.key + '" data-team="1"><span class="score-separator">-</span><input type="number" min="0" max="20" class="score-input modal-score-input team2-goals" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '" placeholder="0" data-key="' + m.key + '" data-team="2"></div>' +
+      '<div class="score-inputs"><input type="number" min="0" max="20" class="score-input modal-score-input team1-goals" value="' + getScoreValue(result, true) + '" data-key="' + m.key + '" data-team="1"><span class="score-separator">-</span><input type="number" min="0" max="20" class="score-input modal-score-input team2-goals" value="' + getScoreValue(result, false) + '" data-key="' + m.key + '" data-team="2"></div>' +
       '<span class="team-name">' + escapeHtml(m.team2) + '</span><span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span></div>';
     table.appendChild(row);
   });
@@ -1043,6 +1155,11 @@ function openGroupResultsModal(group) {
   };
   updateStandingsPreview();
   table.querySelectorAll('.score-input').forEach(input => {
+    // Focus: seleccionar todo si es 0
+    input.addEventListener('focus', handleScoreInputFocus);
+    // Blur: volver a 0 si queda vacío
+    input.addEventListener('blur', handleScoreInputBlur);
+    // Input: manejar cambios
     input.addEventListener('input', (e) => {
       const key = e.target.dataset.key;
       const isTeam1 = e.target.dataset.team === '1';
