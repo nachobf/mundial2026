@@ -1046,14 +1046,20 @@ function renderQuiniela1x2() {
       row.dataset.key = m.key;
       row.innerHTML = 
         '<div class="match-info-line">' + (dateLabel ? escapeHtml(dateLabel) : '') + '</div>' +
-        '<div class="match-teams-line">' +
-          '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
-          '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+        '<div class="match-teams-row">' +
+          '<div class="team-block team-home">' +
+            '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
+            '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+          '</div>' +
+          '<div class="team-block team-away">' +
+            '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
+            '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="match-score-row">' +
           '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
           '<span class="score-separator">-</span>' +
           '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
-          '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
-          '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
         '</div>' +
         '<div class="result-1x2" id="1x2-' + m.key + '">' + get1x2FromResult(result) + '</div>';
       panel.appendChild(row);
@@ -1114,23 +1120,30 @@ function openGroupResultsModal(group) {
     if (m.ground) infoParts.push(m.ground);
     infoRow.textContent = infoParts.join(' · ');
     
-    const row = document.createElement('div');
-    row.className = 'group-result-row';
-    row.innerHTML = 
-      '<div class="match-teams-row">' +
+    const teamsRow = document.createElement('div');
+    teamsRow.className = 'match-teams-row';
+    teamsRow.innerHTML = 
+      '<div class="team-block team-home">' +
         '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
         '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
-        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
-        '<span class="score-separator">-</span>' +
-        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
+      '</div>' +
+      '<div class="team-block team-away">' +
         '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
         '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
       '</div>';
     
+    const scoreRow = document.createElement('div');
+    scoreRow.className = 'match-score-row';
+    scoreRow.innerHTML = 
+      '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
+      '<span class="score-separator">-</span>' +
+      '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">';
+    
     const matchContainer = document.createElement('div');
     matchContainer.className = 'match-container';
     matchContainer.appendChild(infoRow);
-    matchContainer.appendChild(row);
+    matchContainer.appendChild(teamsRow);
+    matchContainer.appendChild(scoreRow);
     table.appendChild(matchContainer);
   });
   
