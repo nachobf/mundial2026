@@ -1927,7 +1927,7 @@ renderLeaderboard = function() {
   const leaderboard = data.players || [];
 
   if (!leaderboard.length) {
-    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavia.</p>';
+    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
     return;
   }
 
@@ -1958,7 +1958,7 @@ renderLeaderboard = function() {
     const msg = document.createElement('p');
     msg.className = 'note-text';
     msg.style.marginTop = '16px';
-    msg.textContent = 'El torneo aun no ha comenzado. Las puntuaciones se calcularan cuando haya resultados reales. Haz clic en cualquier participante para ver su prediccion.';
+    msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales. Haz clic en cualquier participante para ver su predicción.';
     container.appendChild(msg);
   }
 };
@@ -1972,7 +1972,7 @@ showPlayerPrediction = function(entry) {
   const viewer = document.getElementById('predictionViewer');
 
   const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
-  title.textContent = 'Prediccion de ' + escapeHtml(name);
+  title.textContent = 'Predicción de ' + escapeHtml(name);
   viewer.innerHTML = '';
 
   const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
@@ -2027,9 +2027,9 @@ showPlayerPrediction = function(entry) {
   const scoreDiv = document.createElement('div');
   scoreDiv.className = 'prediction-score-info';
   if (hasRealResults) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>' + score + ' puntos</strong></p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
   } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuacion: <strong>Pendiente</strong> (el torneo aun no ha comenzado)</p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
   }
   viewer.appendChild(scoreDiv);
 
