@@ -1126,15 +1126,40 @@ function openGroupResultsModal(group) {
     const result = state.groupMatchResults[m.key] || { team1Goals: '', team2Goals: '' };
     const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
     const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, idx) : '';
+    
+    // Línea de info (fecha, hora, lugar) - ahora en una línea separada
+    const infoRow = document.createElement('div');
+    infoRow.className = 'match-info-row';
+    let infoParts = [];
+    if (dateLabel) infoParts.push(dateLabel);
+    if (roundLabel) infoParts.push(roundLabel);
+    if (m.ground) infoParts.push(m.ground);
+    infoRow.textContent = infoParts.join(' · ');
+    
+    // Fila principal: banderas, nombres y marcador
     const row = document.createElement('div');
     row.className = 'group-result-row';
-    row.innerHTML = '<div class="result-match-info"><span class="result-match-date">' + escapeHtml(dateLabel) + (roundLabel ? ' &middot; ' + roundLabel : '') + '</span><span class="result-match-ground">' + escapeHtml(m.ground || '') + '</span></div>' +
-      '<div class="result-match-teams"><span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span><span class="team-name">' + escapeHtml(m.team1) + '</span>' +
-      '<div class="score-inputs"><input type="number" min="0" max="20" class="score-input modal-score-input team1-goals" value="' + getScoreValue(result, true) + '" data-key="' + m.key + '" data-team="1"><span class="score-separator">-</span><input type="number" min="0" max="20" class="score-input modal-score-input team2-goals" value="' + getScoreValue(result, false) + '" data-key="' + m.key + '" data-team="2"></div>' +
-      '<span class="team-name">' + escapeHtml(m.team2) + '</span><span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span></div>';
-    table.appendChild(row);
+    row.innerHTML = 
+      '<div class="match-teams-row">' +
+        '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
+        '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + getScoreValue(result, true) + '">' +
+        '<span class="score-separator">-</span>' +
+        '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + getScoreValue(result, false) + '">' +
+        '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
+        '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
+      '</div>';
+    
+    // Contenedor del partido
+    const matchContainer = document.createElement('div');
+    matchContainer.className = 'match-container';
+    matchContainer.appendChild(infoRow);
+    matchContainer.appendChild(row);
+    table.appendChild(matchContainer);
   });
   body.appendChild(table);
+  
+  // ... resto de la función (standings preview, event listeners, confirmBtn) permanece igual
   const standingsTitle = document.createElement('h4');
   standingsTitle.className = 'standings-preview-title';
   standingsTitle.textContent = 'Clasificacion (se calcula automaticamente)';
@@ -1149,17 +1174,14 @@ function openGroupResultsModal(group) {
     standings.forEach((s, idx) => {
       const div = document.createElement('div');
       div.className = 'standings-preview-row pos-' + (idx + 1);
-      div.innerHTML = '<span class="position-badge">' + (idx + 1) + '</span><span class="team-flag ' + getTeamFlagClass(s.team) + '"></span><span class="team-name">' + escapeHtml(s.team) + '</span><span class="team-stats">' + s.pts + 'pts  ' + s.gf + '-' + s.ga + '  (' + s.wins + 'V ' + s.draws + 'E ' + s.losses + 'D)</span>';
+      div.innerHTML = '<span>' + (idx + 1) + '</span><span>' + escapeHtml(s.team) + '</span><span>' + s.pts + 'pts ' + s.gf + '-' + s.ga + ' (' + s.wins + 'V ' + s.draws + 'E ' + s.losses + 'D)</span>';
       standingsDiv.appendChild(div);
     });
   };
   updateStandingsPreview();
   table.querySelectorAll('.score-input').forEach(input => {
-    // Focus: seleccionar todo si es 0
     input.addEventListener('focus', handleScoreInputFocus);
-    // Blur: volver a 0 si queda vacío
     input.addEventListener('blur', handleScoreInputBlur);
-    // Input: manejar cambios
     input.addEventListener('input', (e) => {
       const key = e.target.dataset.key;
       const isTeam1 = e.target.dataset.team === '1';
