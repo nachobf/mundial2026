@@ -1147,12 +1147,19 @@ function renderQuiniela1x2() {
 }
 
 function get1x2FromResult(result) {
-  if (!result || result.team1Goals === '' || result.team2Goals === '') return '—';
+  if (!result || result.team1Goals === '' || result.team2Goals === '') {
+    return '<span class="bet-option">1</span><span class="bet-option">X</span><span class="bet-option">2</span>';
+  }
   const g1 = Number(result.team1Goals);
   const g2 = Number(result.team2Goals);
-  if (g1 > g2) return '1';
-  if (g1 < g2) return '2';
-  return 'X';
+  let active = '';
+  if (g1 > g2) active = '1';
+  else if (g1 < g2) active = '2';
+  else active = 'X';
+  
+  return '<span class="bet-option' + (active === '1' ? ' active' : '') + '">1</span>' +
+         '<span class="bet-option' + (active === 'X' ? ' active' : '') + '">X</span>' +
+         '<span class="bet-option' + (active === '2' ? ' active' : '') + '">2</span>';
 }
 
 
