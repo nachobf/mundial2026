@@ -153,8 +153,13 @@ const FLAG_CODE = {
 
 function getFlagClass(team) {
   if (!team) return '';
+  // Alias para Curazao (varias formas posibles)
+  if (team === 'Curacao' || team === 'Curazao' || team === 'Curaçao') {
+    return 'fi fi-cw';
+  }
+  
   const code = FLAG_CODE[team];
-  return code ? 'fi fi-'+code : '';
+  return code ? 'fi fi-' + code : '';
 }
 
 let TEAMS_BY_GROUP = {};
