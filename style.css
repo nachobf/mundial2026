@@ -1030,8 +1030,11 @@ body {
 /* ===== RESULTADO 1X2 - BOTONES ESTILO [1][X][2] ===== */
 .result-1x2 {
   display: flex;
-  justify-content: center;
+  align-items: center;
   gap: 6px;
+  margin-left: auto;      /* Empuja a la derecha */
+  padding-left: 8px;      /* Separación del marcador */
+  flex-shrink: 0;
 }
 
 .result-1x2 .bet-option {
