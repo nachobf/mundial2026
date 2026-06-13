@@ -977,10 +977,11 @@ body {
   font-size: 15px;
   color: #fff;
   line-height: 1.3;
-  white-space: nowrap;      /* En PC: una sola línea */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;            /* Permite encogimiento */
+  white-space: nowrap;        /* Una sola línea, siempre */
+  overflow: visible;          /* No ocultar lo que sobresale */
+  text-overflow: clip;        /* Sin puntos suspensivos */
+  flex-shrink: 0;             /* NO encoger - el texto mantiene su ancho natural */
+  min-width: auto;            /* Ancho mínimo = ancho del contenido */
 }
 
 /* Caja de marcador */
@@ -1031,9 +1032,6 @@ body {
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #333;
 }
 
 .result-1x2 .bet-option {
