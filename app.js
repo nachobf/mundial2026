@@ -1137,7 +1137,7 @@ function renderQuiniela1x2() {
       if (isTeam1) state.groupMatchResults[key].team1Goals = val === '' ? '' : Number(val);
       else state.groupMatchResults[key].team2Goals = val === '' ? '' : Number(val);
       const display = document.getElementById('1x2-' + key);
-      if (display) display.textContent = get1x2FromResult(state.groupMatchResults[key]);
+      if (display) display.innerHTML = get1x2FromResult(state.groupMatchResults[key]);
       const group = QUINIELA_1X2_MATCHES.find(m => m.key === key)?.group;
       if (group) { renderGroups(); renderBestThirds(); renderThirdPlace(); }
       saveLocalPredictionSoon();
