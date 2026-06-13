@@ -940,9 +940,10 @@ body {
 
 /* FILA DE EQUIPOS */
 .match-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto 1fr;
+  grid-template-areas: "home score score away";
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
 
@@ -1129,5 +1130,12 @@ body {
     padding: 16px;
     max-height: 95vh;
     border-radius: 16px;
+  }
+ .result-1x2 {
+    /* Sin width: 100%, sin order: 4 */
+    margin-left: auto;   /* Se mantiene a la derecha */
+    padding-left: 8px;
+    margin-top: 0;       /* Sin margen superior extra */
+    padding-top: 0;
   }
 }
