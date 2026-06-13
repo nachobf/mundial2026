@@ -1974,7 +1974,7 @@ function confirmSubmitWithName() {
   const params = new URLSearchParams();
   params.append('data', jsonString);
 
-  showLoading('Enviando prediccion...');
+  showLoading('Enviando predicción...');
 
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
@@ -1985,7 +1985,7 @@ function confirmSubmitWithName() {
   .then(() => {
     hideLoading();
     clearLocalPrediction();
-    showToast('Prediccion enviada! Gracias, ' + name + '.');
+    showToast('¡Predicción enviada! Gracias, ' + name + '.');
     fireConfetti();
     document.getElementById('nameModal').style.display = 'none';
     nameInput.value = '';
@@ -1999,7 +1999,7 @@ function confirmSubmitWithName() {
 }
 
 function resetAll() {
-  if (!confirm('Seguro que quieres borrar toda tu prediccion? Esta accion no se puede deshacer.')) return;
+  if (!confirm('¿Seguro que quieres borrar toda tu predicción? Esta acción no se puede deshacer.')) return;
   state = {
     groups: {}, groupsConfirmed: {}, thirdPlace: [], thirdPlaceConfirmed: false,
     groupMatchResults: {}, knockoutResults: {}, matchTeams: {}
@@ -2009,7 +2009,7 @@ function resetAll() {
   });
   clearLocalPrediction();
   renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
-  showToast('Prediccion reiniciada.');
+  showToast('Predicción reiniciada.');
 }
 
 // ---- HELPERS ----
