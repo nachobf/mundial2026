@@ -1137,5 +1137,6 @@ body {
     padding-left: 8px;
     margin-top: 0;       /* Sin margen superior extra */
     padding-top: 0;
+    justify-content: center;
   }
 }
