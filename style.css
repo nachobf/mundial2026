@@ -20,6 +20,32 @@
   background-size: cover;
 }
 
+/* ============================================================
+   FIX: Bandera de Curazao (cw) no incluida en flag-icons@7.3.2
+   ============================================================ */
+
+.fi-cw {
+  /* Desactivar el sprite/background de flag-icons para este código */
+  background-image: none !important;
+  position: relative;
+  display: inline-block;
+  width: 1.33333333em;
+  line-height: 1em;
+  aspect-ratio: 4 / 3;
+}
+
+.fi-cw::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('https://flagpedia.net/data/flags/w580/cw.webp');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
