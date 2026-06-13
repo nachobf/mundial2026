@@ -1029,7 +1029,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  justify-self: end;    /* Alineado a la derecha de su columna */
+  margin-left: auto;
 }
 
 .result-1x2 .bet-option {
