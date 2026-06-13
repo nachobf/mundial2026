@@ -75,6 +75,62 @@ const TEAM_NAME_ES = {
   'USA': 'Estados Unidos', 'Uruguay': 'Uruguay', 'Uzbekistan': 'Uzbekistan'
 };
 
+const DISPLAY_NAME_ES = {
+  'Argelia': 'Argelia',
+  'Argentina': 'Argentina',
+  'Australia': 'Australia',
+  'Austria': 'Austria',
+  'Belgica': 'Bélgica',
+  'Bosnia y Herzegovina': 'Bosnia y Herzegovina',
+  'Brasil': 'Brasil',
+  'Canada': 'Canadá',
+  'Cabo Verde': 'Cabo Verde',
+  'Colombia': 'Colombia',
+  'Croacia': 'Croacia',
+  'Curazao': 'Curazao',
+  'Republica Checa': 'República Checa',
+  'RD del Congo': 'RD del Congo',
+  'Ecuador': 'Ecuador',
+  'Egipto': 'Egipto',
+  'Inglaterra': 'Inglaterra',
+  'Francia': 'Francia',
+  'Alemania': 'Alemania',
+  'Ghana': 'Ghana',
+  'Haiti': 'Haití',
+  'Iran': 'Irán',
+  'Irak': 'Irak',
+  'Costa de Marfil': 'Costa de Marfil',
+  'Japon': 'Japón',
+  'Jordania': 'Jordania',
+  'Mexico': 'México',
+  'Marruecos': 'Marruecos',
+  'Paises Bajos': 'Países Bajos',
+  'Nueva Zelanda': 'Nueva Zelanda',
+  'Noruega': 'Noruega',
+  'Panama': 'Panamá',
+  'Paraguay': 'Paraguay',
+  'Portugal': 'Portugal',
+  'Catar': 'Qatar',
+  'Arabia Saudi': 'Arabia Saudí',
+  'Escocia': 'Escocia',
+  'Senegal': 'Senegal',
+  'Sudafrica': 'Sudáfrica',
+  'Corea del Sur': 'Corea del Sur',
+  'Espana': 'España',
+  'Suecia': 'Suecia',
+  'Suiza': 'Suiza',
+  'Tunez': 'Túnez',
+  'Turquia': 'Turquía',
+  'Estados Unidos': 'Estados Unidos',
+  'Uruguay': 'Uruguay',
+  'Uzbekistan': 'Uzbekistán'
+};
+
+function displayTeamName(name) {
+  if (!name) return name;
+  return DISPLAY_NAME_ES[name] || name;
+}
+
 function translateTeamName(name) {
   if (!name) return name;
   return TEAM_NAME_ES[name] || name;
@@ -295,7 +351,7 @@ function renderBestThirds() {
     row.appendChild(flag);
     const name = document.createElement('span');
     name.className = 'team-name';
-    name.textContent = team;
+    name.textContent = displayTeamName(team);
     row.appendChild(name);
     const groupLabel = document.createElement('span');
     groupLabel.className = 'group-label';
@@ -1002,7 +1058,7 @@ function renderGroups() {
       row.appendChild(flag);
       const name = document.createElement('span');
       name.className = 'team-name';
-      name.textContent = team;
+      name.textContent = displayTeamName(team);
       row.appendChild(name);
       if (stat.played > 0) {
         const stats = document.createElement('span');
@@ -1049,7 +1105,7 @@ function renderQuiniela1x2() {
         '<div class="match-row">' +
           '<div class="team-block team-home">' +
             '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
-            '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+            '<span class="team-name">' + escapeHtml(displayTeamName(m.team1)) + '</span>' +
           '</div>' +
           '<div class="score-box">' +
             '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
@@ -1057,7 +1113,7 @@ function renderQuiniela1x2() {
             '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
           '</div>' +
           '<div class="team-block team-away">' +
-            '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
+            '<span class="team-name">' + escapeHtml(displayTeamName(m.team2)) + '</span>' +
             '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
           '</div>' +
         '</div>' +
@@ -1125,7 +1181,7 @@ function openGroupResultsModal(group) {
     matchRow.innerHTML = 
       '<div class="team-block team-home">' +
         '<span class="team-flag ' + getTeamFlagClass(m.team1) + '"></span>' +
-        '<span class="team-name">' + escapeHtml(m.team1) + '</span>' +
+        '<span class="team-name">' + escapeHtml(displayTeamName(m.team1)) + '</span>' +
       '</div>' +
       '<div class="score-box">' +
         '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="1" value="' + (result.team1Goals !== '' ? result.team1Goals : '') + '">' +
@@ -1133,7 +1189,7 @@ function openGroupResultsModal(group) {
         '<input type="number" min="0" class="score-input" data-key="' + m.key + '" data-team="2" value="' + (result.team2Goals !== '' ? result.team2Goals : '') + '">' +
       '</div>' +
       '<div class="team-block team-away">' +
-        '<span class="team-name">' + escapeHtml(m.team2) + '</span>' +
+        '<span class="team-name">' + escapeHtml(displayTeamName(m.team2)) + '</span>' +
         '<span class="team-flag ' + getTeamFlagClass(m.team2) + '"></span>' +
       '</div>';
     
@@ -1220,7 +1276,7 @@ function renderThirdPlace() {
     const isQualified = qualifiedSet.has(team);
     const div = document.createElement('div');
     div.className = 'third-place-item' + (isQualified ? ' third-place-qualified' : ' third-place-eliminated');
-    div.innerHTML = '<span class="team-flag ' + getTeamFlagClass(team) + '"></span><span class="team-name">' + escapeHtml(team) + '</span><span class="group-label">' + item.group + '</span>';
+    div.innerHTML = '<span class="team-flag ' + getTeamFlagClass(team) + '"></span><span class="team-name">' + escapeHtml(displayTeamName(team)) + '</span><span class="group-label">' + item.group + '</span>';
     grid.appendChild(div);
   });
   container.appendChild(grid);
@@ -1322,7 +1378,7 @@ function renderKnockout() {
         row.appendChild(flag);
         const name = document.createElement('span');
         name.className = 'team-name';
-        name.textContent = team || 'Por determinar';
+        name.textContent = displayTeamName(team) || 'Por determinar';
         row.appendChild(name);
         if (isWinner) {
           const check = document.createElement('span');
@@ -1363,7 +1419,7 @@ function openKnockoutMatchModal(matchNum, round) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'knockout-team-select' + (currentWinner === team ? ' selected' : '');
-    btn.innerHTML = '<span class="team-flag ' + getTeamFlagClass(team) + '"></span><span class="team-name">' + escapeHtml(team) + '</span>';
+    btn.innerHTML = '<span class="team-flag ' + getTeamFlagClass(team) + '"></span><span class="team-name">' + escapeHtml(displayTeamName(team)) + '</span>';
     btn.addEventListener('click', () => {
       state.knockoutResults[matchNum] = team;
       renderKnockout();
