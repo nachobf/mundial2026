@@ -938,11 +938,10 @@ body {
   text-overflow: ellipsis;
 }
 
-/* PC: Grid de 4 columnas */
+/* PC: Grid de 4 columnas - local | marcador | visitante | 1x2 */
 .match-row {
   display: grid;
-  grid-template-columns: 1fr auto auto 1fr;
-  grid-template-areas: "home score score away";
+  grid-template-columns: 1fr auto auto 1fr auto;
   align-items: center;
   gap: 12px;
 }
@@ -955,12 +954,10 @@ body {
 }
 
 .team-block.team-home {
-  grid-area: home;
   justify-content: flex-start;
 }
 
 .team-block.team-away {
-  grid-area: away;
   justify-content: flex-end;
   flex-direction: row-reverse;
 }
@@ -985,9 +982,8 @@ body {
   text-overflow: clip;
 }
 
+/* Caja de marcador */
 .score-box {
-  grid-area: score;
-  justify-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1030,13 +1026,10 @@ body {
 
 /* ===== RESULTADO 1X2 ===== */
 .result-1x2 {
-  grid-area: away;
-  justify-self: end;
-  align-self: center;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-left: 8px;
+  justify-self: end;    /* Alineado a la derecha de su columna */
 }
 
 .result-1x2 .bet-option {
@@ -1125,7 +1118,6 @@ body {
     order: 4;
     width: 100%;
     justify-content: center;
-    padding-left: 0;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid #333;
