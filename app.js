@@ -2438,7 +2438,7 @@ showPlayerPrediction = function(entry) {
           html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
           html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
           if (exact) {
-            html += ' <span style="color:#2e7d32;font-weight:700;background:#ff6b6b;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
+            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
           } else if (quinielaOk) {
             html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
           } else {
