@@ -2538,7 +2538,7 @@ showPlayerPrediction = function(entry) {
         html += '</div>';
 
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-        html += 'Ganador: <strong>' + scapeHtml(displayTeamName(match.winner || '?')) + '</strong>';
+        html += 'Ganador: <strong>' + escapeHtml(displayTeamName(match.winner || '?')) + '</strong>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
         if (isCorrect) {
           const pts = roundPointsMap[round.key] || 0;
