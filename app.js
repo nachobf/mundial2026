@@ -2163,6 +2163,47 @@ showPlayerPrediction = function(entry) {
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
 
+  // Lista de keys que están invertidas en la base de datos
+  // (la key se generó alfabéticamente pero el orden real del calendario es distinto)
+  const INVERTED_KEYS = new Set([
+    'Corea del Sur__Mexico',
+    'Mexico__Republica Checa',
+    'Corea del Sur__Sudafrica',
+    'Bosnia y Herzegovina__Canada',
+    'Bosnia y Herzegovina__Suiza',
+    'Canada__Suiza',
+    'Escocia__Haiti',
+    'Brasil__Escocia',
+    'Haiti__Marruecos',
+    'Australia__Estados Unidos',
+    'Paraguay__Turquia',
+    'Estados Unidos__Turquia',
+    'Australia__Paraguay',
+    'Curaçao__Ecuador',
+    'Costa de Marfil__Curaçao',
+    'Alemania__Ecuador',
+    'Japon__Paises Bajos',
+    'Japon__Tunez',
+    'Paises Bajos__Tunez',
+    'Egipto__Nueva Zelanda',
+    'Belgica__Nueva Zelanda',
+    'Cabo Verde__Espana',
+    'Arabia Saudi__Espana',
+    'Cabo Verde__Uruguay',
+    'Espana__Uruguay',
+    'Arabia Saudi__Cabo Verde',
+    'Francia__Noruega',
+    'Irak__Senegal',
+    'Argelia__Argentina',
+    'Argelia__Jordania',
+    'Argentina__Jordania',
+    'Colombia__Uzbekistan',
+    'Croacia__Inglaterra',
+    'Ghana__Inglaterra',
+    'Croacia__Panama',
+    'Inglaterra__Panama'
+  ]);
+
   const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
   title.textContent = 'Predicción de ' + escapeHtml(name);
   viewer.innerHTML = '';
