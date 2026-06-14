@@ -207,19 +207,6 @@ function getThirdPlaceStatsFromResults(group) {
     gd: third.gd
   };
 }
-function getThirdPlaceStatsFromResults(group) {
-  const standings = calculateGroupStandingsFromResults(group);
-  if (!standings || standings.length < 3) return null;
-  const third = standings[2];
-  return {
-    team: third.team,
-    group: group,
-    pts: third.pts,
-    gf: third.gf,
-    ga: third.ga,
-    gd: third.gd
-  };
-}
 
 function compareBestThirdsByFifaCriteria(a, b) {
   const statsA = getThirdPlaceStatsFromResults(a.group);
@@ -507,24 +494,8 @@ function submitPrediction() {
 
 
 // ============================================================
-// LEADERBOARD (recarga forzada)
+// ELIMINAR PREDICCIÓN
 // ============================================================
-
-async function loadLeaderboard(forceReload = false) {
-  try {
-    const cacheBuster = forceReload ? '?_=' + Date.now() : '';
-    const resp = await fetch(APPS_SCRIPT_URL + cacheBuster, {
-      method: 'GET',
-      cache: 'no-store'
-    });
-    const data = await resp.json();
-    window.__leaderboardData = data;
-    return data;
-  } catch (e) { 
-    console.warn('Could not load leaderboard:', e); 
-    return { players: [] }; 
-  }
-}
 function restoreLocalPrediction() {
   try {
     const saved = localStorage.getItem(LOCAL_STORAGE_PICKS_KEY);
@@ -1525,410 +1496,6 @@ function parseLeaderboardData() {
   });
 }
 
-function renderLeaderboard() {
-  const container = document.getElementById('leaderboardContent');
-  if (!container) return;
-  const leaderboard = calculateLeaderboard();
-  if (!leaderboard.length) {
-    container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
-    return;
-  }
-
-  const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
-  const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
-
-  const table = document.createElement('div');
-  table.className = 'leaderboard-table';
-
-  leaderboard.forEach((entry, index) => {
-    const row = document.createElement('div');
-    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
-    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
-      '<span class="leaderboard-name">' + escapeHtml(entry.name) + '</span>' +
-      '<span class="leaderboard-score">' + entry.score + ' pts</span>';
-
-    // Siempre permitir ver la prediccion del participante, aunque no haya resultados reales
-    row.addEventListener('click', () => showPlayerPrediction(entry));
-    table.appendChild(row);
-  });
-
-  container.innerHTML = '';
-  container.appendChild(table);
-
-  // Mensaje informativo si no hay resultados reales todavia
-  if (!hasRealResults) {
-    const msg = document.createElement('p');
-    msg.className = 'note-text';
-    msg.style.marginTop = '16px';
-    msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales. Haz clic en cualquier participante para ver su predicción.';
-    container.appendChild(msg);
-  }
-}
-
-function showPlayerPrediction(entry) {
-  const modal = document.getElementById('predictionModal');
-  const title = document.getElementById('predictionModalTitle');
-  const viewer = document.getElementById('predictionViewer');
-
-  const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
-  title.textContent = 'Predicción de ' + escapeHtml(name);
-  viewer.innerHTML = '';
-
-  const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
-  const details = entry.details || [];
-  const hasDetails = details.length > 0;
-  const prediction = entry.prediction || entry;
-  const real = window.REAL_RESULTS || {};
-  const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
-
-  // Puntuacion
-  const scoreDiv = document.createElement('div');
-  scoreDiv.className = 'prediction-score-info';
-  if (hasRealResults) {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
-  } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>En curso</strong> (el torneo está en progreso)</p>';
-  }
-  viewer.appendChild(scoreDiv);
-
-  // Desglose de puntuacion
-  if (hasDetails && details.length) {
-    const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'scoring-details';
-
-    const grouped = {};
-    details.forEach(d => {
-      const t = d.type || 'otro';
-      if (!grouped[t]) grouped[t] = [];
-      grouped[t].push(d);
-    });
-
-    const typeLabels = {
-      posicion: 'Posiciones en grupo',
-      resultadoExacto: 'Resultados exactos',
-      '1x2': '1X2 acertados',
-      mejorTercero: 'Mejores terceros',
-      eliminatoria: 'Eliminatorias',
-      otro: 'Otros'
-    };
-
-    Object.keys(grouped).forEach(type => {
-      const items = grouped[type];
-      const total = items.reduce((sum, i) => sum + (Number(i.points) || 0), 0);
-      const typeLabel = typeLabels[type] || type;
-
-      const section = document.createElement('div');
-      section.className = 'scoring-detail-section';
-      section.innerHTML = '<h4>' + escapeHtml(typeLabel) + ' (' + items.length + ' aciertos, ' + total + ' pts)</h4>';
-
-      const list = document.createElement('div');
-      list.className = 'scoring-detail-list';
-      items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'scoring-detail-item';
-        div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;';
-
-        let html = '<span style="color:#4a90d9;font-weight:700;flex-shrink:0;">+' + (Number(item.points) || 0) + ' pts</span>';
-
-        // Banderas para eliminatorias
-        if (type === 'eliminatoria' && item.team) {
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
-          if (item.round) {
-            const roundNames = {
-              round32: 'Dieciseisavos', round16: 'Octavos', quarterfinals: 'Cuartos',
-              semifinals: 'Semis', finalist: 'Finalista', champion: 'Campeon',
-              thirdPlace: '3er puesto', fourthPlace: '4o puesto'
-            };
-            html += '<span style="color:#888;font-size:12px;">(' + (roundNames[item.round] || item.round) + ')</span>';
-          }
-        }
-        // Banderas para posiciones de grupo
-        else if (type === 'posicion' && item.team) {
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
-          if (item.group) {
-            html += '<span style="color:#888;font-size:12px;">(Grupo ' + String(item.group) + ' - ' + (item.position || '?') + 'o)</span>';
-          }
-        }
-        // Banderas para mejores terceros
-        else if (type === 'mejorTercero' && item.team) {
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
-        }
-        // Banderas para resultados exactos y 1X2
-        else if ((type === 'resultadoExacto' || type === '1x2') && item.team1 && item.team2) {
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team1)) + '</span>';
-          html += '<span style="color:#888;">vs</span>';
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team2)) + '</span>';
-        }
-        else if (item.team) {
-          html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-          html += '<span>' + escapeHtml(String(item.team)) + '</span>';
-        }
-        else if (item.team1 && item.team2) {
-          html += '<span>' + escapeHtml(String(item.team1)) + ' vs ' + escapeHtml(String(item.team2)) + '</span>';
-        }
-
-        div.innerHTML = html;
-        list.appendChild(div);
-      });
-      section.appendChild(list);
-      detailsDiv.appendChild(section);
-    });
-    viewer.appendChild(detailsDiv);
-  }
-
-  // Prediccion completa
-  const predDiv = document.createElement('div');
-  predDiv.className = 'prediction-preview';
-
-  // === FASE DE GRUPOS ===
-  if (prediction.groups && typeof prediction.groups === 'object') {
-    const groupsDiv = document.createElement('div');
-    groupsDiv.className = 'prediction-groups-section';
-    groupsDiv.innerHTML = '<h4>🌍 Fase de Grupos</h4>';
-
-    Object.keys(prediction.groups).sort().forEach(g => {
-      const groupDiv = document.createElement('div');
-      groupDiv.className = 'prediction-group';
-      const teams = prediction.groups[g] || [];
-      const realTeams = real.groups?.[g] || [];
-
-      let html = '<strong>Grupo ' + escapeHtml(String(g)) + ':</strong><div class="group-teams">';
-      teams.forEach((team, idx) => {
-        const isCorrect = hasRealResults && realTeams[idx] === team;
-        const pos = idx + 1;
-        const posName = pos === 1 ? '1o' : pos === 2 ? '2o' : pos === 3 ? '3o' : '4o';
-        html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '" style="display:flex;align-items:center;gap:6px;padding:3px 0;">';
-        html += '<span class="pos-badge">' + posName + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
-        html += '<span class="team-name">' + escapeHtml(String(team)) + '</span>';
-        if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓</span>';
-        html += '</div>';
-      });
-      html += '</div>';
-
-      groupDiv.innerHTML = html;
-      groupsDiv.appendChild(groupDiv);
-    });
-    predDiv.appendChild(groupsDiv);
-  }
-
-  const gmr = prediction.groupMatchResults || {};
-if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
-  const matchesDiv = document.createElement('div');
-  matchesDiv.className = 'prediction-matches-section';
-  matchesDiv.innerHTML = '<h4>⚽ Resultados de Partidos</h4>';
-
-  const matchesByGroup = {};
-  QUINIELA_1X2_MATCHES.forEach(m => {
-    if (!gmr[m.key]) return;
-    if (!matchesByGroup[m.group]) matchesByGroup[m.group] = [];
-    matchesByGroup[m.group].push(m);
-  });
-
-  Object.keys(matchesByGroup).sort().forEach(g => {
-    const groupHeader = document.createElement('div');
-    groupHeader.style.cssText = 'font-weight:600;color:#1a1a2e;margin:10px 0 6px;font-size:14px;';
-    groupHeader.textContent = 'Grupo ' + g;
-    matchesDiv.appendChild(groupHeader);
-
-    matchesByGroup[g].forEach(m => {
-      const rawPred = gmr[m.key];
-      const realResult = real.groupMatchResults?.[m.key];
-
-      // Detectar si la key está invertida respecto al orden real del calendario
-      // La key se genera con sort() alfabético: [team1, team2].sort().join('__')
-      // Si m.team1 NO es el primero alfabéticamente, entonces los goles están swapeados
-      const sortedTeams = [m.team1, m.team2].sort();
-      const isInverted = sortedTeams[0] !== m.team1;
-
-      // Corregir goles si la key está invertida
-      const pred = isInverted ? {
-        team1Goals: rawPred.team2Goals,
-        team2Goals: rawPred.team1Goals
-      } : rawPred;
-
-      const t1 = m.team1; // LOCAL real
-      const t2 = m.team2; // VISITANTE real
-
-      const matchDiv = document.createElement('div');
-      matchDiv.className = 'prediction-match';
-      matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
-
-      let html = '';
-
-      const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
-      const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
-      const groundLabel = m.ground || '';
-      if (dateLabel || roundLabel || groundLabel) {
-        let infoParts = [];
-        if (dateLabel) infoParts.push(dateLabel);
-        if (roundLabel) infoParts.push(roundLabel);
-        if (groundLabel) infoParts.push(groundLabel);
-        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
-      }
-
-      // LOCAL (team1 del calendario real)
-      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-      html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-      html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
-      html += '</div>';
-
-      // Score (ya corregido si hacía falta)
-      html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
-      html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
-      html += '<span style="color:#888;">-</span>';
-      html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
-      html += '</div>';
-
-      // VISITANTE (team2 del calendario real)
-      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-      html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
-      html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-      html += '</div>';
-
-      // Resultado real (también puede estar invertido)
-      if (realResult) {
-        const realCorrected = isInverted ? {
-          team1Goals: realResult.team2Goals,
-          team2Goals: realResult.team1Goals
-        } : realResult;
-
-        const exact = pred.team1Goals === realCorrected.team1Goals && pred.team2Goals === realCorrected.team2Goals;
-        const p1x2 = get1x2FromResult(pred);
-        const r1x2 = get1x2FromResult(realCorrected);
-        const quinielaOk = p1x2 === r1x2;
-
-        html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
-        html += '<span style="color:#888;">Resultado real: ' + realCorrected.team1Goals + ' - ' + realCorrected.team2Goals + '</span>';
-        if (exact) {
-          html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
-        } else if (quinielaOk) {
-          html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
-        } else {
-          html += ' <span style="color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
-        }
-        html += '</div>';
-      }
-
-      matchDiv.innerHTML = html;
-      matchesDiv.appendChild(matchDiv);
-    });
-  });
-
-  predDiv.appendChild(matchesDiv);
-}
-
-  // === MEJORES TERCEROS ===
-  if (prediction.thirdPlace && prediction.thirdPlace.length) {
-    const tpDiv = document.createElement('div');
-    tpDiv.className = 'prediction-thirdplace-section';
-    tpDiv.innerHTML = '<h4>🥉 Mejores Terceros</h4>';
-
-    const predTP = prediction.thirdPlace;
-    const realTP = real.thirdPlace || [];
-    const realTPSet = new Set(realTP.slice(0, 8));
-
-    let html = '<div class="third-place-list">';
-    predTP.forEach((team, idx) => {
-      const isQualified = idx < 8;
-      const isCorrect = realTPSet.has(team);
-      html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin:2px 0;">';
-      html += '<span class="tp-rank" style="font-weight:700;color:#666;width:24px;">' + (idx + 1) + '</span>';
-      html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
-      html += '<span class="team-name" style="flex:1;">' + escapeHtml(String(team)) + '</span>';
-      if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓ +1 pt</span>';
-      html += '</div>';
-    });
-    html += '</div>';
-
-    tpDiv.innerHTML += html;
-    predDiv.appendChild(tpDiv);
-  }
-
-  // === ELIMINATORIAS CON BANDERAS ===
-  if (prediction.knockout && prediction.knockout.matches) {
-    const koDiv = document.createElement('div');
-    koDiv.className = 'prediction-knockout-section';
-    koDiv.innerHTML = '<h4>🏆 Eliminatorias</h4>';
-
-    const rounds = [
-      { key: 'round32', name: 'Dieciseisavos de Final' },
-      { key: 'round16', name: 'Octavos de Final' },
-      { key: 'quarterfinals', name: 'Cuartos de Final' },
-      { key: 'semifinals', name: 'Semifinales' },
-      { key: 'thirdPlace', name: 'Tercer Puesto' },
-      { key: 'final', name: 'Final' }
-    ];
-
-    const roundPointsMap = {
-      round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-      finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
-    };
-
-    rounds.forEach(round => {
-      const matches = prediction.knockout.matches[round.key] || [];
-      const realMatches = real.knockout?.matches?.[round.key] || [];
-
-      if (!matches.length) return;
-
-      const roundDiv = document.createElement('div');
-      roundDiv.className = 'prediction-round';
-      roundDiv.innerHTML = '<h5 style="color:#1a1a2e;margin:12px 0 6px;font-size:15px;">' + round.name + '</h5>';
-
-      matches.forEach(match => {
-        const realMatch = realMatches.find(m => m.match === match.match);
-        const isCorrect = realMatch && realMatch.winner && match.winner === realMatch.winner;
-
-        const matchDiv = document.createElement('div');
-        matchDiv.className = 'prediction-ko-match ' + (isCorrect ? 'correct' : '');
-        matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
-
-        let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
-
-        // Equipo 1
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-        html += '<span class="team-flag ' + getTeamFlagClass(match.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team1 || '?') + '</span>';
-        html += '</div>';
-
-        html += '<span style="color:#888;font-weight:700;">vs</span>';
-
-        // Equipo 2
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team2 || '?') + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(match.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '</div>';
-
-        html += '</div>';
-
-        // Ganador
-        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-        html += 'Ganador: <strong><span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;text-align:center"></span>' + escapeHtml(match.winner || '?') + '</strong>';
-        if (isCorrect) {
-          const pts = roundPointsMap[round.key] || 0;
-          html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">✓ +' + pts + ' pts</span>';
-        }
-        html += '</div>';
-
-        matchDiv.innerHTML = html;
-        roundDiv.appendChild(matchDiv);
-      });
-
-      koDiv.appendChild(roundDiv);
-    });
-
-    predDiv.appendChild(koDiv);
-  }
-
-  viewer.appendChild(predDiv);
-  modal.style.display = 'flex';
-}
-
 // ---- TABS ----
 function initTabs() {
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2085,9 +1652,8 @@ async function loadRealResultsFromBackend() {
 }
 
 // --- 2. MODIFICAR loadLeaderboard para guardar realResults ---
-const _originalLoadLeaderboard = loadLeaderboard;
 
-loadLeaderboard = async function(forceReload = false) {
+async function loadLeaderboard(forceReload = false) {
   try {
     const cacheBuster = forceReload ? '?_=' + Date.now() : '';
     const resp = await fetch(APPS_SCRIPT_URL + cacheBuster, {
@@ -2106,12 +1672,10 @@ loadLeaderboard = async function(forceReload = false) {
     console.warn('Could not load leaderboard:', e);
     return { players: [] };
   }
-};
+}
 
 // --- 3. MODIFICAR renderLeaderboard para usar scores del backend ---
-const _originalRenderLeaderboard = renderLeaderboard;
-
-renderLeaderboard = function() {
+function renderLeaderboard() {
   const container = document.getElementById('leaderboardContent');
   if (!container) return;
 
@@ -2153,12 +1717,11 @@ renderLeaderboard = function() {
     msg.textContent = 'El torneo aún no ha comenzado. Las puntuaciones se calcularán cuando haya resultados reales. Haz clic en cualquier participante para ver su predicción.';
     container.appendChild(msg);
   }
-};
+}
 
 // --- 4. MODIFICAR showPlayerPrediction para mostrar desglose del backend ---
-const _originalShowPlayerPrediction = showPlayerPrediction;
 
-showPlayerPrediction = function(entry) {
+function showPlayerPrediction(entry){
   const modal = document.getElementById('predictionModal');
   const title = document.getElementById('predictionModalTitle');
   const viewer = document.getElementById('predictionViewer');
@@ -2448,7 +2011,7 @@ showPlayerPrediction = function(entry) {
   }
 
   modal.style.display = 'flex';
-};
+}
 
 // Helper para crear secciones colapsables
 function createCollapsibleSection(title, id) {
