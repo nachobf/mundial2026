@@ -1,7 +1,7 @@
 /* ============================================================
  2026 FIFA World Cup Prediction Game - app.js
  ============================================================ */
-
+const LOCAL_STORAGE_VERSION = '103'; // Incrementar en cada deploy con cambios visuales/estructurales
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8M51mQ860o7z8T9RkpOlcyS_vSwO6uP-9JIMGdC8BxcQgQ4zw9gStg6cFDHNNMsOH/exec';
@@ -1586,19 +1586,30 @@ function escapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-// ---- INIT ----
+const LOCAL_STORAGE_VERSION_KEY = 'wc2026_version';
+
 async function init() {
   showLoading('Cargando datos del Mundial 2026...');
+  
+  // Forzar recarga si hay nueva versión
+  try {
+    const savedVersion = localStorage.getItem(LOCAL_STORAGE_VERSION_KEY);
+    if (savedVersion && savedVersion !== LOCAL_STORAGE_VERSION) {
+      console.log('Nueva versión detectada. Limpiando y recargando...');
+      localStorage.clear(); // Limpia TODO el localStorage
+      localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
+      location.reload(); // Recarga la página para aplicar cambios
+      return; // Detener ejecución
+    }
+    // Si es primera visita o versión actual, guardar versión
+    localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
+  } catch (e) {
+    console.warn('Error con localStorage:', e);
+  }
+  
   const loaded = await loadData();
   if (!loaded) { hideLoading(); return; }
   await loadLeaderboard();
-  try {
-    const savedVersion = localStorage.getItem(LOCAL_STORAGE_VERSION_KEY);
-    if (savedVersion !== LOCAL_STORAGE_VERSION) {
-      clearLocalPrediction();
-      localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
-    }
-  } catch (e) {}
   restoreLocalPrediction();
   renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
   updateCountdowns();
