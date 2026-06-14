@@ -2262,7 +2262,7 @@ showPlayerPrediction = function(entry) {
         div.className = 'scoring-detail-item';
         div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;';
 
-        let html = '<span style="color:#4a90d9;font-weight:700;flex-shrink:0;">+' + (Number(item.points) || 0) + ' pts</span>';
+        let html = '';
 
         if (type === 'eliminatoria' && item.team) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
