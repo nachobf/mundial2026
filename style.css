@@ -1145,3 +1145,39 @@ body {
     border-radius: 16px;
   }
 }
+
+
+/* Secciones colapsables en modal de predicciones */
+.collapsible-section {
+  margin: 16px 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.collapsible-header:hover {
+  background: #e8e8e8;
+}
+
+.collapsible-header .arrow {
+  font-size: 18px;
+  transition: transform 0.2s;
+  color: #666;
+}
+
+.collapsible-content {
+  display: none;
+  padding: 12px 16px;
+  background: #fff;
+}
