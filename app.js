@@ -1782,7 +1782,7 @@ function showPlayerPrediction(entry){
   if (hasRealResults) {
     scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>' + score + ' puntos</strong></p>';
   } else {
-    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>Pendiente</strong> (el torneo aún no ha comenzado)</p>';
+    scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>En curso</strong> (el torneo está en progreso)</p>';
   }
   viewer.appendChild(scoreDiv);
 
