@@ -2262,7 +2262,7 @@ showPlayerPrediction = function(entry) {
         div.className = 'scoring-detail-item';
         div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;flex-wrap:wrap;';
 
-        let html = '';
+        let html = '<span style="color:#4a90d9;font-weight:700;flex-shrink:0;">+' + (Number(item.points) || 0) + ' pts</span>';
 
         if (type === 'eliminatoria' && item.team) {
           html += '<span class="team-flag ' + getTeamFlagClass(item.team) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
@@ -2536,7 +2536,7 @@ showPlayerPrediction = function(entry) {
 
         html += '</div>';
 
-        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
+        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
         html += 'Ganador: <strong>' + escapeHtml(displayTeamName(match.winner || '?')) + '</strong>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
         if (isCorrect) {
