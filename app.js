@@ -127,7 +127,7 @@ const DISPLAY_NAME_ES = {
 };
 
 function displayTeamName(name) {
-  if (!name) return name;
+  if (!name || name==='?') return name;
   return DISPLAY_NAME_ES[name] || name;
 }
 
@@ -2336,7 +2336,7 @@ showPlayerPrediction = function(entry) {
         html += '<div class="team-row ' + (isCorrect ? 'correct' : '') + '" style="display:flex;align-items:center;gap:6px;padding:3px 0;">';
         html += '<span class="pos-badge">' + posName + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
-        html += '<span class="team-name">' + escapeHtml(String(team)) + '</span>';
+        html += '<span class="team-name">' + escapeHtml(displayTeamName(String(team))) + '</span>';
         if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓</span>';
         html += '</div>';
       });
@@ -2413,7 +2413,7 @@ showPlayerPrediction = function(entry) {
         // LOCAL
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
         html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t1) + '</span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t1)) + '</span>';
         html += '</div>';
 
         // Score (SIN MODIFICAR - tal cual está en la BD)
@@ -2425,7 +2425,7 @@ showPlayerPrediction = function(entry) {
 
         // VISITANTE
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(t2) + '</span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t2)) + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
 
@@ -2473,7 +2473,7 @@ showPlayerPrediction = function(entry) {
       html += '<div class="tp-row ' + (isCorrect ? 'correct' : '') + ' ' + (isQualified ? 'qualified' : 'eliminated') + '" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin:2px 0;">';
       html += '<span class="tp-rank" style="font-weight:700;color:#666;width:24px;">' + (idx + 1) + '</span>';
       html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
-      html += '<span class="team-name" style="flex:1;">' + escapeHtml(String(team)) + '</span>';
+      html += '<span class="team-name" style="flex:1;">' + escapeHtml(displayTeamName(String(team))) + '</span>';
       if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓ +1 pt</span>';
       html += '</div>';
     });
@@ -2525,20 +2525,20 @@ showPlayerPrediction = function(entry) {
 
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
         html += '<span class="team-flag ' + getTeamFlagClass(match.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team1 || '?') + '</span>';
+        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(match.team1 || '?')) + '</span>';
         html += '</div>';
 
         html += '<span style="color:#888;font-weight:700;">vs</span>';
 
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(match.team2 || '?') + '</span>';
+        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(match.team2 || '?')) + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
 
         html += '</div>';
 
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-        html += 'Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
+        html += 'Ganador: <strong>' + scapeHtml(displayTeamName(match.winner || '?')) + '</strong>';
         html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
         if (isCorrect) {
           const pts = roundPointsMap[round.key] || 0;
