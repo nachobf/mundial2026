@@ -590,13 +590,10 @@ body {
 
 /* Scoring Details */
 .scoring-details { margin-top: 16px; }
-.scoring-detail-section { margin-bottom: 16px; }
+.scoring-detail-section { margin-bottom: 8px; }
 .scoring-detail-section h4 {
   font-size: 14px;
-  color: #1a1a2e;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #eee;
+  color: #4a90d9;
 }
 .scoring-detail-list { }
 .scoring-detail-item {
