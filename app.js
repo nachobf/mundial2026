@@ -1908,8 +1908,7 @@ if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
 
         // Ganador
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
-        html += 'Ganador: <strong>' + escapeHtml(match.winner || '?') + '</strong>';
-        html += '<span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span>';
+        html += 'Ganador: <strong><span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;text-align:center"></span>' + escapeHtml(match.winner || '?') + '</strong>';
         if (isCorrect) {
           const pts = roundPointsMap[round.key] || 0;
           html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">✓ +' + pts + ' pts</span>';
@@ -2439,11 +2438,11 @@ showPlayerPrediction = function(entry) {
           html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;">';
           html += '<span style="color:#888;">Real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
           if (exact) {
-            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
+            html += ' <span style="color:#2e7d32;font-weight:700;background:#ff6b6b;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
           } else if (quinielaOk) {
             html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
           } else {
-            html += ' <span style="color:#999;background:#f0f0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
+            html += ' <span style="color:#ff6b6b;font-weight:700;background:#fff0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
           }
           html += '</div>';
         }
