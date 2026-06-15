@@ -16,12 +16,6 @@ No hay premios millonarios ni contratos con clubes de primera. Solo el prestigio
 * **Quiniela 1X2**: 3 partidos sorteados de la fase de grupos (uno de España de regalo) para ganar puntos extra.
 * **Mejores terceros**: los 12 terceros se ordenan automáticamente según los criterios FIFA (puntos, diferencia de goles, goles a favor). Los 8 primeros avanzan.
 * **Eliminatorias**: completa todo el cuadro hasta coronar al campeón del mundo.
-* **Premios individuales**:
-  * 🥇 Máximo Goleador
-  * 🎯 Máximo Asistente
-  * 🧤 Guante de Oro
-  * ⚽ Equipo Más Goleador
-  * 🥅 Equipo Más Goleado
 * **Clasificación**: consulta quién lidera la quiniela y quién tendrá que esperar al próximo Mundial.
 
 ## Sistema de puntuación
@@ -37,8 +31,6 @@ No hay premios millonarios ni contratos con clubes de primera. Solo el prestigio
 | Mejor tercero clasificado (cada uno del top 8) | 1 |
 | Resultado exacto (marcador) | 5 |
 | Quiniela 1X2 (cada partido acertado) | 1 |
-
-> Acertar el 4º de grupo suma 5 puntos. En el 1X2 puntúa tanto el acierto del ganador como el del empate.
 
 ### Eliminatorias
 
@@ -75,7 +67,7 @@ Si dos o más selecciones de un mismo grupo empatan a puntos al término de la f
 2. **Mayor diferencia de goles** en los partidos entre los equipos implicados.
 3. **Más goles marcados** en los partidos entre los equipos implicados.
 
-Si tras aplicar estos criterios persiste el empate, se recurre al **ranking FIFA** como desempate final.
+Si tras aplicar estos criterios persiste el empate, se recurre al **ranking FIFA** como desempate final (no se ha implementado el criterio de Fair Play).
 
 ## Criterios de desempate para los mejores terceros
 
@@ -85,14 +77,15 @@ Los 12 terceros de grupo se ordenan automáticamente según:
 2. **Mayor diferencia de goles**.
 3. **Más goles marcados**.
 
-En caso de empate total, se aplica el **ranking FIFA** como desempate final. Los 8 primeros se clasifican para la fase de eliminatorias.
+En caso de empate total, se aplica el **ranking FIFA** como desempate final (no se ha implementado el criterio de Fair Play). 
+Los 8 primeros se clasifican para la fase de eliminatorias.
 
 ## ¿Quién ganará?
 
-Eso está por ver. Algunos se guiarán por estadísticas, otros por intuición y alguno seguro que elegirá los resultados por simpatía.
+Eso está por ver. Algunxs se guiarán por estadísticas, otrxs por intuición y algunx seguro que elegirá los resultados por simpatía.
 
 Sea cual sea tu estrategia, recuerda enviar tu pronóstico antes de que empiece el torneo.
 
 ---
 
-*Organizado para disfrutar juntos del Mundial 2026. Que gane el mejor... o el que tenga más suerte.*
+*Organizado para disfrutar juntxs del Mundial 2026. Que gane el o la mejor... o quien tenga más suerte.*
