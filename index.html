@@ -3,8 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>La Porra del Mundial 2026</title>
+  
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  
+  <script>
+    (function() {
+      var DEPLOY_VERSION = '14';
+      var saved = localStorage.getItem('wc_deploy_v');
+      
+      if (saved !== DEPLOY_VERSION) {
+        localStorage.setItem('wc_deploy_v', DEPLOY_VERSION);
+        try { sessionStorage.clear(); } catch(e) {}
+        
+        if (!window.location.search.includes('nocache=')) {
+          window.location.href = window.location.href.split('?')[0] + '?nocache=' + Date.now();
+        }
+      } else if (window.location.search.includes('nocache=')) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+    })();
+  </script>
+  
+  <!-- SIN query strings, GitHub Pages no las soporta -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js"></script>
+  
+  <!-- Desregistrar SW para forzar actualización PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      });
+    }
+  </script>
+  
+  <title>La Porra del Mundial 2026</title>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a1a2e">
@@ -15,49 +50,6 @@
   <!-- Favicons para todos los dispositivos -->
   <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
-  <!-- Anti-caché agresivo -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-    
-  <!-- Script de control de versión: CORREGIDO -->
-  <script>
-    (function() {
-      var DEPLOY_VERSION = '14';
-      var saved = localStorage.getItem('wc_deploy_v');
-      
-      if (saved !== DEPLOY_VERSION) {
-        localStorage.setItem('wc_deploy_v', DEPLOY_VERSION);
-        
-        try { sessionStorage.clear(); } catch(e) {}
-        
-        // Solo recargar si NO estamos ya con ?nocache (evita loop infinito)
-        if (!window.location.search.includes('nocache=')) {
-          window.location.href = window.location.href.split('?')[0] + '?nocache=' + Date.now();
-          // NO return aquí - deja que el navegador aborte el parseo naturalmente
-        }
-      } else if (window.location.search.includes('nocache=')) {
-        // Versión ya actualizada: limpiar URL
-        history.replaceState(null, '', window.location.pathname);
-      }
-    })();
-  </script>
-  
-  <!-- Carga de recursos con versión dinámica para forzar refresh -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=14">
-  <script src="app.js?v=14"></script>
-  
-  <!-- Si tienes service worker, desregistrarlo temporalmente -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        registrations.forEach(function(registration) {
-          registration.unregister();
-        });
-      });
-    }
-  </script>
 </head>
 <body>
   <div class="app-container">
