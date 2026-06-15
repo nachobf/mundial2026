@@ -3,7 +3,7 @@ const CACHE_NAME = 'porra-mundial-2026-v15'; // <-- CAMBIA ESTO EN CADA DEPLOY
 const URLS_TO_CACHE = [
   '/mundial2026/',
   '/mundial2026/index.html',
-  '/mundial2026/styles.css',
+  '/mundial2026/style.css',
   '/mundial2026/app.js',
   '/mundial2026/third_place_table.js',
   '/mundial2026/results-empty.js',
