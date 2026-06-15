@@ -1507,6 +1507,7 @@ function initTabs() {
       if (tabId === 'ranking') renderLeaderboard();
     });
   });
+ renderLeaderboard();
 }
 
 // ---- SUBMIT / RESET ----
