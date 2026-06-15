@@ -9,7 +9,7 @@
   
   <script>
     (function() {
-      var DEPLOY_VERSION = '14';
+      var DEPLOY_VERSION = '15'; //CAMBIAR PARA ACTUALIZAR
       var saved = localStorage.getItem('wc_deploy_v');
       
       if (saved !== DEPLOY_VERSION) {
@@ -27,10 +27,10 @@
   
   <!-- SIN query strings, GitHub Pages no las soporta -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
-  <link rel="stylesheet" href="style.css?v=14">
-  <script src="app.js?v=14"></script>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js"></script>
   
-  <!-- Desregistrar SW para forzar actualización PWA -->
+  <!-- Desregistrar SW para forzar actualización PWA 
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -38,7 +38,7 @@
       });
     }
   </script>
-  
+  -->
   <title>La Porra del Mundial 2026</title>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
