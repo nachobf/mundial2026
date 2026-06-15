@@ -159,7 +159,7 @@ body {
 .pos-3 .position-badge { background: #cd7f32; color: white; }
 .group-team .team-name { flex: 1; }
 .group-team .team-stats { font-size: 12px; color: #666; margin-left: auto; }
-.group-team.eliminated { opacity: 0.5; text-decoration: line-through; }
+.group-team.eliminated { opacity: 0.3;}
 .group-team.qualified-third { background: #e8f5e9; }
 .group-card-hint {
   text-align: center;
