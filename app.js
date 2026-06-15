@@ -309,7 +309,6 @@ function calculateThirdPlaceForPlayer(player) {
 
 // Eliminado el modal de arrastrar. Ahora es solo informativo.
 function openBestThirdsModal() {
-  // Ya no hace nada. Los terceros se calculan solos.
   return;
 }
 
@@ -362,7 +361,7 @@ function renderBestThirds() {
 
   const hint = document.createElement('div');
   hint.className = 'best-thirds-hint';
-  hint.textContent = 'Calculado automáticamente por criterios FIFA';
+  hint.textContent = 'Calculado mediante los siguientes criterios: 1) Puntos, 2) Diferencia de goles, 3) Goles a favor, 4) Fair play y 5) Ranking FIFA';
   card.appendChild(hint);
 
   container.appendChild(card);
