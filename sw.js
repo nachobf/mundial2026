@@ -1,4 +1,4 @@
-const CACHE_NAME = 'porra-mundial-2026-v1';
+const CACHE_NAME = 'porra-mundial-2026-v14';
 const URLS_TO_CACHE = [
   '/mundial2026/',
   '/mundial2026/index.html',
