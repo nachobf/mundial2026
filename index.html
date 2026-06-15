@@ -19,43 +19,45 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
-  <!-- Script de control de versión: DEBE ser inline, no en archivo externo -->
+    
+  <!-- Script de control de versión: CORREGIDO -->
   <script>
     (function() {
-      // INCREMENTA ESTO EN CADA DEPLOY CON CAMBIOS
-      var DEPLOY_VERSION = '108';
-      
+      var DEPLOY_VERSION = '14';
       var saved = localStorage.getItem('wc_deploy_v');
-      var needsReload = false;
       
       if (saved !== DEPLOY_VERSION) {
-        // Primera vez con nueva versión: guardar y forzar recarga limpia
         localStorage.setItem('wc_deploy_v', DEPLOY_VERSION);
         
-        // Limpiar todo caché posible
-        try {
-          sessionStorage.clear();
-          // No limpiar localStorage completo para no perder otras cosas
-        } catch(e) {}
+        try { sessionStorage.clear(); } catch(e) {}
         
-        // Forzar recarga desde servidor (no caché)
-        if (!window.location.href.includes('?nocache=')) {
+        // Solo recargar si NO estamos ya con ?nocache (evita loop infinito)
+        if (!window.location.search.includes('nocache=')) {
           window.location.href = window.location.href.split('?')[0] + '?nocache=' + Date.now();
-          return; // Detener ejecución
+          // NO return aquí - deja que el navegador aborte el parseo naturalmente
         }
-      }
-      
-      // Si llegamos aquí, versión coincide o ya recargamos
-      // Limpiar URL fea si existe
-      if (window.location.href.includes('?nocache=')) {
+      } else if (window.location.search.includes('nocache=')) {
+        // Versión ya actualizada: limpiar URL
         history.replaceState(null, '', window.location.pathname);
       }
     })();
   </script>
   
+  <!-- Carga de recursos con versión dinámica para forzar refresh -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
   <link rel="stylesheet" href="styles.css?v=14">
   <script src="app.js?v=14"></script>
+  
+  <!-- Si tienes service worker, desregistrarlo temporalmente -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(registration) {
+          registration.unregister();
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <div class="app-container">
