@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>La Porra del Mundial 2026</title>
-  <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
@@ -16,10 +15,47 @@
   <!-- Favicons para todos los dispositivos -->
   <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
-  <!-- Caché -->
+  <!-- Anti-caché agresivo -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  
+  <!-- Script de control de versión: DEBE ser inline, no en archivo externo -->
+  <script>
+    (function() {
+      // INCREMENTA ESTO EN CADA DEPLOY CON CAMBIOS
+      var DEPLOY_VERSION = '108';
+      
+      var saved = localStorage.getItem('wc_deploy_v');
+      var needsReload = false;
+      
+      if (saved !== DEPLOY_VERSION) {
+        // Primera vez con nueva versión: guardar y forzar recarga limpia
+        localStorage.setItem('wc_deploy_v', DEPLOY_VERSION);
+        
+        // Limpiar todo caché posible
+        try {
+          sessionStorage.clear();
+          // No limpiar localStorage completo para no perder otras cosas
+        } catch(e) {}
+        
+        // Forzar recarga desde servidor (no caché)
+        if (!window.location.href.includes('?nocache=')) {
+          window.location.href = window.location.href.split('?')[0] + '?nocache=' + Date.now();
+          return; // Detener ejecución
+        }
+      }
+      
+      // Si llegamos aquí, versión coincide o ya recargamos
+      // Limpiar URL fea si existe
+      if (window.location.href.includes('?nocache=')) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+    })();
+  </script>
+  
+  <link rel="stylesheet" href="styles.css?v=14">
+  <script src="app.js?v=14"></script>
 </head>
 <body>
   <div class="app-container">
@@ -231,6 +267,5 @@
 
   <script src="third_place_table.js"></script>
   <script src="results-empty.js"></script>
-  <script>document.write('<script src="app.js?t=' + Date.now() + '"><\/script>');</script>
 </body>
 </html>
