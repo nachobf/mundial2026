@@ -5,8 +5,6 @@ const URLS_TO_CACHE = [
   '/mundial2026/index.html',
   '/mundial2026/style.css',
   '/mundial2026/app.js',
-  '/mundial2026/third_place_table.js',
-  '/mundial2026/results-empty.js',
   '/mundial2026/manifest.json',
   '/mundial2026/icon-192.png',
   '/mundial2026/icon-512.png'
