@@ -1678,7 +1678,8 @@ async function loadLeaderboard(forceReload = false) {
 
     const lastUpdateEl = document.getElementById('last-update');
     if (lastUpdateEl && data.lastUpdated) {
-      lastUpdateEl.textContent = '🕐 Actualizado: ' + data.lastUpdated;
+      const lastUpdated = data.lastUpdated || 'Sin actualizar';
+      lastUpdateEl.textContent = '🕐 Actualización ' + String(lastUpdated) ;
     } else if (lastUpdateEl) {
       lastUpdateEl.textContent = '';
     }
