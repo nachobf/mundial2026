@@ -1662,6 +1662,35 @@ async function loadRealResultsFromBackend() {
 
 // --- 2. MODIFICAR loadLeaderboard para guardar realResults ---
 
+// --- Obtener fecha del último commit del JSON ---
+async function getWorldCupJsonLastModified() {
+  try {
+    const resp = await fetch('https://api.github.com/repos/openfootball/worldcup.json/commits?path=2026/worldcup.json&page=1&per_page=1', {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    const commits = await resp.json();
+    if (commits && commits.length > 0 && commits[0].commit) {
+      const dateStr = commits[0].commit.committer.date; // ISO string: "2026-06-16T22:56:05Z"
+      const date = new Date(dateStr);
+      const pad = (n) => String(n).padStart(2, '0');
+      const h = pad(date.getHours());
+      const m = pad(date.getMinutes());
+      const s = pad(date.getSeconds());
+      const d = pad(date.getDate());
+      const mo = pad(date.getMonth() + 1);
+      const y = date.getFullYear();
+      return `${h}:${m}:${s} ${y}/${mo}/${d}`;
+    }
+    return 'Desconocido';
+  } catch (e) {
+    console.warn('Error obteniendo fecha del commit:', e);
+    return 'Desconocido';
+  }
+}
+
+// --- Modificar loadLeaderboard para no usar lastUpdated del backend ---
 async function loadLeaderboard(forceReload = false) {
   try {
     const cacheBuster = forceReload ? '?_=' + Date.now() : '';
@@ -1676,12 +1705,11 @@ async function loadLeaderboard(forceReload = false) {
       window.REAL_RESULTS = data.realResults;
     }
 
+    // Obtener fecha del JSON directamente de GitHub
+    const lastModified = await getWorldCupJsonLastModified();
     const lastUpdateEl = document.getElementById('last-update');
-    if (lastUpdateEl && data.lastUpdated) {
-      const lastUpdated = data.lastUpdated || 'Sin actualizar';
-      lastUpdateEl.textContent = '🕐 Actualización ' + String(lastUpdated) ;
-    } else if (lastUpdateEl) {
-      lastUpdateEl.textContent = '';
+    if (lastUpdateEl) {
+      lastUpdateEl.textContent = '🕐 Actualizado: ' + lastModified;
     }
 
     return data;
