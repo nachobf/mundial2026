@@ -1675,9 +1675,21 @@ async function loadLeaderboard(forceReload = false) {
     if (data.realResults) {
       window.REAL_RESULTS = data.realResults;
     }
+
+    //Añadir fecha last update
     const lastUpdateEl = document.getElementById('last-update');
-    if (lastUpdateEl && data.lastUpdated) {      
-      lastUpdateEl.textContent = '🕐 Actualizado: ' + data.lastUpdated;
+    if (lastUpdateEl data.lastUpdated) {
+      const rawDate = data.lastUpdated;
+      const date = new Date(rawDate);      
+      const pad = function(n) { return String(n).padStart(2, '0'); };
+      const hora = pad(date.getHours());
+      const min = pad(date.getMinutes());
+      const seg = pad(date.getSeconds());
+      const anio = date.getFullYear();
+      const mes = pad(date.getMonth() + 1);
+      const dia = pad(date.getDate());
+      const formateada = hora + ':' + min + ':' + seg + ' ' + anio + '/' + mes + '/' + dia;
+      lastUpdateEl.textContent = '🕐 Actualizado: ' + formateada;
     } else if (lastUpdateEl) {
       lastUpdateEl.textContent = '';
     }
