@@ -1676,8 +1676,8 @@ async function loadLeaderboard(forceReload = false) {
       window.REAL_RESULTS = data.realResults;
     }
     const lastUpdateEl = document.getElementById('last-update');
-    if (lastUpdateEl && data.realResults && data.realResults.lastUpdate) {
-      lastUpdateEl.textContent = '🕐 Actualizado: ' + data.realResults.lastUpdate.fechaLocal;
+    if (lastUpdateEl && data.lastUpdate) {
+      lastUpdateEl.textContent = '🕐 Actualizado: ' + data.lastUpdate.fechaLocal;
     } else if (lastUpdateEl) {
       lastUpdateEl.textContent = '';
     }
