@@ -1678,7 +1678,7 @@ async function loadLeaderboard(forceReload = false) {
 
     //Añadir fecha last update
     const lastUpdateEl = document.getElementById('last-update');
-    if (lastUpdateEl data.lastUpdated) {
+    if (lastUpdateEl && data.lastUpdated) {
       const rawDate = data.lastUpdated;
       const date = new Date(rawDate);      
       const pad = function(n) { return String(n).padStart(2, '0'); };
