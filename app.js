@@ -1664,15 +1664,25 @@ async function loadRealResultsFromBackend() {
 
 // --- Obtener fecha del último commit del JSON ---
 async function getWorldCupJsonLastModified() {
+  // Cache por 5 minutos
+  const CACHE_KEY = 'wc2026_lastModified';
+  const CACHE_TIME = 5 * 60 * 1000; // 5 minutos
+  
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) {
+    const { value, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp < CACHE_TIME) {
+      return value;
+    }
+  }
+  
   try {
     const resp = await fetch('https://api.github.com/repos/openfootball/worldcup.json/commits?path=2026/worldcup.json&page=1&per_page=1', {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json'
-      }
+      headers: { 'Accept': 'application/vnd.github.v3+json' }
     });
     const commits = await resp.json();
     if (commits && commits.length > 0 && commits[0].commit) {
-      const dateStr = commits[0].commit.committer.date; // ISO string: "2026-06-16T22:56:05Z"
+      const dateStr = commits[0].commit.committer.date;
       const date = new Date(dateStr);
       const pad = (n) => String(n).padStart(2, '0');
       const h = pad(date.getHours());
@@ -1681,13 +1691,16 @@ async function getWorldCupJsonLastModified() {
       const d = pad(date.getDate());
       const mo = pad(date.getMonth() + 1);
       const y = date.getFullYear();
-      return `${h}:${m}:${s} ${y}/${mo}/${d}`;
+      const formatted = `${h}:${m}:${s} ${y}/${mo}/${d}`;
+      
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ value: formatted, timestamp: Date.now() }));
+      return formatted;
     }
-    return 'Desconocido';
   } catch (e) {
     console.warn('Error obteniendo fecha del commit:', e);
-    return 'Desconocido';
   }
+  
+  return cached ? JSON.parse(cached).value : 'Desconocido';
 }
 
 // --- Modificar loadLeaderboard para no usar lastUpdated del backend ---
