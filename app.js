@@ -869,11 +869,29 @@ function getGroupMatchList(group) {
   return matches;
 }
 
-function formatMatchDate(match) {
+function formatMatchDateTime(match) {
   if (!match.date) return '';
-  const date = new Date(match.date + 'T00:00:00');
+  
+  // Crear fecha combinando date + time
+  const dateStr = match.time ? `${match.date}T${match.time}` : `${match.date}T00:00:00`;
+  const date = new Date(dateStr);
+  
   if (Number.isNaN(date.getTime())) return match.date;
-  return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '').toUpperCase();
+  
+  // Formato: "17 JUN · 21:00" o "17 JUN"
+  const day = String(date.getDate()).padStart(2, '0');
+  const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const month = monthNames[date.getMonth()];
+  
+  let result = `${day} ${month}`;
+  
+  if (match.time) {
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    result += ` · ${h}:${m}`;
+  }
+  
+  return result;
 }
 
 function getMatchdayNumber(match, fallback) {
@@ -1071,7 +1089,7 @@ function renderQuiniela1x2() {
     panel.appendChild(groupHeader);
     matchesByGroup[g].forEach(m => {
       const result = state.groupMatchResults[m.key] || { team1Goals: '', team2Goals: '' };
-      const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
+      const dateLabel = formatMatchDateTime(m);
       const row = document.createElement('div');
       row.className = 'quiniela1x2-row match-container';
       row.dataset.key = m.key;
@@ -1147,7 +1165,7 @@ function openGroupResultsModal(group) {
   
   matches.forEach((m, idx) => {
     const result = state.groupMatchResults[m.key] || { team1Goals: '', team2Goals: '' };
-    const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
+    const dateLabel = formatMatchDateTime(m);
     const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, idx) : '';
     
     const infoRow = document.createElement('div');
@@ -1876,7 +1894,7 @@ function showPlayerPrediction(entry){
       let html = '';
 
       // Info línea: fecha · jornada · lugar · GRUPO
-      const dateLabel = m.date ? formatMatchDate({ date: m.date, time: m.time }) : '';
+      const dateLabel = formatMatchDateTime(m);
       const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
       const groundLabel = m.ground || '';
       let infoParts = [];
