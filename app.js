@@ -872,26 +872,42 @@ function getGroupMatchList(group) {
 function formatMatchDateTime(match) {
   if (!match.date) return '';
   
-  // Crear fecha combinando date + time
-  const dateStr = match.time ? `${match.date}T${match.time}` : `${match.date}T00:00:00`;
-  const date = new Date(dateStr);
-  
-  if (Number.isNaN(date.getTime())) return match.date;
-  
-  // Formato: "17 JUN · 21:00" o "17 JUN"
-  const day = String(date.getDate()).padStart(2, '0');
-  const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-  const month = monthNames[date.getMonth()];
-  
-  let result = `${day} ${month}`;
+  // Parsear time: "13:00 UTC-6"
+  let hour = 0, minute = 0, utcOffset = 0;
   
   if (match.time) {
-    const h = String(date.getHours()).padStart(2, '0');
-    const m = String(date.getMinutes()).padStart(2, '0');
-    result += ` · ${h}:${m}`;
+    const timeMatch = match.time.match(/^(\d{2}):(\d{2})\s+UTC([+-]\d+)$/);
+    if (timeMatch) {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+      utcOffset = parseInt(timeMatch[3], 10);
+    }
   }
   
-  return result;
+  // Crear fecha en UTC
+  const [anio, mes, dia] = match.date.split('-').map(Number);
+  const utcHour = hour - utcOffset;
+  const utcDate = new Date(Date.UTC(anio, mes - 1, dia, utcHour, minute));
+  
+  if (Number.isNaN(utcDate.getTime())) return match.date;
+  
+  // Formatear directamente a CEST con Intl
+  const formatter = new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Madrid'
+  });
+  
+  const parts = formatter.formatToParts(utcDate);
+  const day = parts.find(p => p.type === 'day').value;
+  const month = parts.find(p => p.type === 'month').value.toUpperCase().replace('.', '');
+  const h = parts.find(p => p.type === 'hour').value;
+  const m = parts.find(p => p.type === 'minute').value;
+  
+  return `${day} ${month} · ${h}:${m}`;
 }
 
 function getMatchdayNumber(match, fallback) {
