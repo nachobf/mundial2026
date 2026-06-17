@@ -1722,7 +1722,7 @@ async function loadLeaderboard(forceReload = false) {
     const lastModified = await getWorldCupJsonLastModified();
     const lastUpdateEl = document.getElementById('last-update');
     if (lastUpdateEl) {
-      lastUpdateEl.innerHTML = '<a href="https://github.com/openfootball/worldcup.json/commits/master/2026/worldcup.json" target="_blank">🕐 Actualizado: '+ lastModified +'</a>.';
+      lastUpdateEl.innerHTML = '<a style="text-decoration:unset;color: #666; font-style: italic;" href="https://github.com/openfootball/worldcup.json/commits/master/2026/worldcup.json" target="_blank">🕐 Actualizado: '+ lastModified +'</a>';
     }
 
     return data;
