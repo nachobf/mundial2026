@@ -1648,7 +1648,7 @@ async function init() {
   setInterval(updateCountdowns, 1000);
   initTabs();
   hideLoading();
-  if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu posición en el ranking.', true);
+  if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu predicción y puntos en el ranking.', true);
 }
 
 // ---- EVENT LISTENERS ----
@@ -1780,23 +1780,18 @@ function renderLeaderboard() {
   }
 
   const hasRealResults = data.hasRealResults || false;
+
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
-  leaderboard.forEach(entry => {
-    // Asegurar que score es número
-    const score = Number(entry.score) || 0;
-    const rank = Number(entry.rank) || 1;
-    const isShared = Boolean(entry.isShared);
-    const name = String(entry.name || 'Anónimo');
-
+  leaderboard.forEach((entry, index) => {
     const row = document.createElement('div');
-    row.className = 'leaderboard-row' + (rank <= 3 ? ' top-' + rank : '');
+    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
 
-    const rankDisplay = isShared ? rank + 'º*' : rank + 'º';
+    const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
+    const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
 
-    row.innerHTML = 
-      '<span class="leaderboard-rank">' + escapeHtml(rankDisplay) + '</span>' +
+    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
       '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
       '<span class="leaderboard-score">' + score + ' pts</span>';
 
