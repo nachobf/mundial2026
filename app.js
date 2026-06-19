@@ -1780,23 +1780,23 @@ function renderLeaderboard() {
   }
 
   const hasRealResults = data.hasRealResults || false;
-
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
   leaderboard.forEach(entry => {
-    const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
-    const rank = entry.rank || (entry.index + 1);
-    const isShared = entry.isShared || false;
-    const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+    // Asegurar que score es número
+    const score = Number(entry.score) || 0;
+    const rank = Number(entry.rank) || 1;
+    const isShared = Boolean(entry.isShared);
+    const name = String(entry.name || 'Anónimo');
 
-    // === CSS: top-1, top-2, top-3 según el rank real (no la posición en array) ===
     const row = document.createElement('div');
     row.className = 'leaderboard-row' + (rank <= 3 ? ' top-' + rank : '');
 
     const rankDisplay = isShared ? rank + 'º*' : rank + 'º';
 
-    row.innerHTML = '<span class="leaderboard-rank">' + rankDisplay + '</span>' +
+    row.innerHTML = 
+      '<span class="leaderboard-rank">' + escapeHtml(rankDisplay) + '</span>' +
       '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
       '<span class="leaderboard-score">' + score + ' pts</span>';
 
