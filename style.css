@@ -531,9 +531,24 @@ body {
   font-size: 15px;
 }
 .leaderboard-row:hover { background: #e3f2fd; transform: translateX(4px); }
-.leaderboard-row.top-1 { background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%); border: 2px solid #e6c200; }
-.leaderboard-row.top-2 { background: linear-gradient(135deg, #c0c0c0 0%, #d4d4d4 100%); border: 2px solid #a0a0a0; }
-.leaderboard-row.top-3 { background: linear-gradient(135deg, #cd7f32 0%, #daa520 100%); border: 2px solid #b87333; }
+.leaderboard-row.top-1 {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA000 100%);
+  border-left: 4px solid #FFD700;
+  font-weight: 700;
+}
+
+.leaderboard-row.top-2 {
+  background: linear-gradient(135deg, #C0C0C0 0%, #9E9E9E 100%);
+  border-left: 4px solid #C0C0C0;
+  font-weight: 700;
+}
+
+.leaderboard-row.top-3 {
+  background: linear-gradient(135deg, #CD7F32 0%, #A0522D 100%);
+  border-left: 4px solid #CD7F32;
+  font-weight: 700;
+}
+
 .leaderboard-rank {
   width: 32px; height: 32px;
   border-radius: 50%;

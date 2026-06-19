@@ -837,7 +837,7 @@ async function loadData() {
     return true;
   } catch(e) {
     console.error('Failed to load tournament data:', e);
-    showToast('No hay manera de cargar los datos del Mundial. Revisa la conexion.', true);
+    showToast('No hay manera de cargar los datos del Mundial. Revisa la conexión.', true);
     return false;
   }
 }
@@ -1648,7 +1648,7 @@ async function init() {
   setInterval(updateCountdowns, 1000);
   initTabs();
   hideLoading();
-  if (isSubmissionClosed()) showToast('Las predicciones están cerradas. Revisa tu predicción y puntos en el ranking.', true);
+  if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu posición en el ranking.', true);
 }
 
 // ---- EVENT LISTENERS ----
@@ -1784,14 +1784,19 @@ function renderLeaderboard() {
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
-  leaderboard.forEach((entry, index) => {
-    const row = document.createElement('div');
-    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
-
+  leaderboard.forEach(entry => {
     const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
+    const rank = entry.rank || (entry.index + 1);
+    const isShared = entry.isShared || false;
     const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
 
-    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+    // === CSS: top-1, top-2, top-3 según el rank real (no la posición en array) ===
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row' + (rank <= 3 ? ' top-' + rank : '');
+
+    const rankDisplay = isShared ? rank + 'º*' : rank + 'º';
+
+    row.innerHTML = '<span class="leaderboard-rank">' + rankDisplay + '</span>' +
       '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
       '<span class="leaderboard-score">' + score + ' pts</span>';
 
