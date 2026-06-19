@@ -1772,32 +1772,67 @@ function renderLeaderboard() {
   if (!container) return;
 
   const data = window.__leaderboardData || { players: [] };
-  const leaderboard = data.players || [];
+  const players = data.players || [];
 
-  if (!leaderboard.length) {
+  if (!players.length) {
     container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
     return;
   }
 
   const hasRealResults = data.hasRealResults || false;
-
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
-  leaderboard.forEach((entry, index) => {
-    const row = document.createElement('div');
-    row.className = 'leaderboard-row' + (index < 3 ? ' top-' + (index + 1) : '');
+  // Si no hay resultados reales: lista simple sin puntuación
+  if (!hasRealResults) {
+    players.forEach(entry => {
+      const name = String(entry.name || 'Anónimo');
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row';
+      row.innerHTML = 
+        '<span class="leaderboard-rank">•</span>' +
+        '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
+        '<span class="leaderboard-score">-</span>';
+      row.addEventListener('click', () => showPlayerPrediction(entry));
+      table.appendChild(row);
+    });
+  } else {
+    // Hay resultados reales: calcular rank con posiciones compartidas
+    let currentRank = 1;
+    let previousScore = null;
+    let playersAtRank = 0;
 
-    const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
-    const name = (entry.name != null) ? String(entry.name) : 'Anonimo';
+    players.forEach((entry, index) => {
+      const score = Number(entry.score) || 0;
 
-    row.innerHTML = '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
-      '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
-      '<span class="leaderboard-score">' + score + ' pts</span>';
+      // Calcular rank compartido
+      if (previousScore !== null && score !== previousScore) {
+        currentRank += playersAtRank;
+        playersAtRank = 0;
+      }
+      playersAtRank++;
+      previousScore = score;
 
-    row.addEventListener('click', () => showPlayerPrediction(entry));
-    table.appendChild(row);
-  });
+      const rank = currentRank;
+      const isShared = playersAtRank > 1 || 
+        (index < players.length - 1 && Number(players[index + 1]?.score) === score);
+
+      const name = String(entry.name || 'Anónimo');
+
+      const row = document.createElement('div');
+      row.className = 'leaderboard-row' + (rank <= 3 ? ' top-' + rank : '');
+
+      const rankDisplay = isShared ? rank + 'º*' : rank + 'º';
+
+      row.innerHTML = 
+        '<span class="leaderboard-rank">' + escapeHtml(rankDisplay) + '</span>' +
+        '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
+        '<span class="leaderboard-score">' + score + ' pts</span>';
+
+      row.addEventListener('click', () => showPlayerPrediction(entry));
+      table.appendChild(row);
+    });
+  }
 
   container.innerHTML = '';
   container.appendChild(table);
