@@ -2307,50 +2307,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ============================================================
-// MODO OSCURO / CLARO
-// ============================================================
-
-const THEME_KEY = 'wc2026_theme';
-
-function initTheme() {
-  const savedTheme = localStorage.getItem(THEME_KEY);
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-  } else if (prefersDark) {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    updateThemeIcon('dark');
-  }
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem(THEME_KEY, next);
-  updateThemeIcon(next);
-}
-
-function updateThemeIcon(theme) {
-  const btn = document.getElementById('themeToggle');
-  if (btn) {
-    btn.querySelector('.theme-icon').textContent = theme === 'dark' ? '🌙' : '☀️';
-  }
-}
-
-// Inicializar tema
-document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
-  
-  const toggleBtn = document.getElementById('themeToggle');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', toggleTheme);
-  }
-});
-
 window.initReloadButton = initReloadButton;
 window.loadRealResultsFromBackend = loadRealResultsFromBackend;
