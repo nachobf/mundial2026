@@ -10,6 +10,7 @@ const ENTRY_ID = 'entry.1802893754';
 
 const DEADLINE = new Date('2026-06-11T18:30:00Z');
 const KICKOFF = new Date('2026-06-11T19:00:00Z');
+const END_WC = new Date('2026-07-19T21:00:00Z')
 
 function isSubmissionClosed() {
   return new Date() > DEADLINE;
@@ -49,9 +50,12 @@ function updateCountdowns() {
     betEl.classList.toggle('countdown-finished', diff <= 0);
   }
   const kickEl = document.getElementById('cdKick');
-  if (kickEl) {
+  const textkick = document.getElementById('textKick');
+  if (kickEl && textkick) {
     const diff = KICKOFF.getTime() - now;
-    kickEl.textContent = diff > 0 ? formatCountdown(diff) : '¡Ya rueda el balón!';
+    const diffEnd = END_WC.getTime() - now;
+    kickEl.textContent = diff > 0 ? formatCountdown(diff) : formatCountdown(diffEnd);
+    textkick.textContent = diff > 0 ? 'Inicio del mundial' : 'Final del mundial';
     kickEl.classList.toggle('countdown-finished', diff <= 0);
   }
 }
