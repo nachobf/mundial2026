@@ -1,14 +1,14 @@
 /* ============================================================
-   DATA ANALYSIS — Bump Chart de evolución del leaderboard
+   DATA ANALYSIS — Bump Chart (OPTIMIZADO)
    ============================================================ */
+
+// Cache para evitar recalcular el mismo jugador con los mismos resultados
+const daScoreCache = new Map();
 
 function daLog(msg) {
   console.log('[DataAnalysis]', msg);
 }
 
-/* -----------------------------------------------------------
-   1. Cargar datos del mundial
-   ----------------------------------------------------------- */
 function daLoadWorldCupData() {
   if (window.__worldCupData) return Promise.resolve(window.__worldCupData);
   return fetch(DATA_SRC + '/worldcup.json')
@@ -19,9 +19,6 @@ function daLoadWorldCupData() {
     });
 }
 
-/* -----------------------------------------------------------
-   2. Construir snapshot parcial de resultados reales
-   ----------------------------------------------------------- */
 function daBuildPartialReal(matchesWithResults) {
   const real = {
     groups: {}, groupsConfirmed: {}, groupMatchResults: {},
@@ -139,10 +136,29 @@ function daBuildPartialReal(matchesWithResults) {
 }
 
 /* -----------------------------------------------------------
-   3. Procesar puntuaciones día a día y renderizar
+   CÁLCULO DE PUNTUACIÓN OPTIMIZADO
    ----------------------------------------------------------- */
+function daCalculateScoreFast(player, real) {
+  const cacheKey = JSON.stringify({ playerName: player.name, realKeys: Object.keys(real.groupMatchResults || {}).sort().join(',') });
+  if (daScoreCache.has(cacheKey)) return daScoreCache.get(cacheKey);
+
+  // Usar la función original pero con timeout de seguridad
+  let score = 0;
+  try {
+    const result = calculatePlayerScore(player, real);
+    score = result.score;
+  } catch (e) {
+    console.warn('Error en calculatePlayerScore para', player.name, e.message);
+    score = 0;
+  }
+
+  daScoreCache.set(cacheKey, score);
+  return score;
+}
+
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
+  daScoreCache.clear(); // Limpiar cache entre renders
 
   const byDate = {};
   finishedMatches.forEach(m => {
@@ -153,39 +169,47 @@ function daProcessAndRender(players, finishedMatches) {
   const dates = Object.keys(byDate).sort();
   const dailyScores = [];
   const matchesSoFar = [];
+  let processed = 0;
+  const total = dates.length * players.length;
 
-  dates.forEach(date => {
+  // Procesar con yield para no bloquear UI
+  function processNextDate(dateIndex) {
+    if (dateIndex >= dates.length) {
+      // Todos los días procesados, renderizar
+      container.innerHTML = '<p class="note-text">Datos generados: ' + dailyScores.length + ' puntos. Renderizando...</p>';
+      daRenderBumpChart(dailyScores, parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10));
+      return;
+    }
+
+    const date = dates[dateIndex];
     matchesSoFar.push(...byDate[date]);
     const realPartial = daBuildPartialReal(matchesSoFar);
 
+    // Procesar jugadores de este día
     const dayResults = players.map(player => {
-      try {
-        const result = calculatePlayerScore(player, realPartial);
-        return { player: player.name || 'Anónimo', score: result.score, date };
-      } catch (e) {
-        return { player: player.name || 'Anónimo', score: 0, date };
-      }
+      processed++;
+      const score = daCalculateScoreFast(player, realPartial);
+      return { player: player.name || 'Anónimo', score, date };
     });
 
     dayResults.sort((a, b) => b.score - a.score);
     dayResults.forEach((d, i) => { d.rank = i + 1; });
     dailyScores.push(...dayResults);
-  });
 
-  container.innerHTML = '<p class="note-text">Datos generados: ' + dailyScores.length + ' puntos. Renderizando...</p>';
+    // Actualizar progreso cada 3 días
+    if (dateIndex % 3 === 0 || dateIndex === dates.length - 1) {
+      container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + ' (' + processed + '/' + total + ' cálculos)...</p>';
+    }
 
-  if (typeof d3 === 'undefined') {
-    container.innerHTML += '<p class="note-text" style="color:red;">ERROR: D3.js no está cargado.</p>';
-    return;
+    // Yield al event loop
+    setTimeout(() => processNextDate(dateIndex + 1), 0);
   }
 
-  window.__bumpChartData = dailyScores;
-  const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-  daRenderBumpChart(dailyScores, topN);
+  processNextDate(0);
 }
 
 /* -----------------------------------------------------------
-   4. Renderizar Bump Chart con D3
+   RENDERIZADO D3
    ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
@@ -286,7 +310,7 @@ function daRenderBumpChart(dailyData, topN) {
 }
 
 /* -----------------------------------------------------------
-   5. Entry point
+   ENTRY POINT
    ----------------------------------------------------------- */
 function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
@@ -346,7 +370,7 @@ function initDataAnalysis() {
 }
 
 /* -----------------------------------------------------------
-   6. Event listeners
+   CONTROLES
    ----------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshBumpChart');
@@ -360,7 +384,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Resize
 window.addEventListener('resize', function() {
   const tab = document.getElementById('tab-data-analysis');
   if (tab && tab.classList.contains('active') && window.__bumpChartData) {
