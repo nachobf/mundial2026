@@ -424,27 +424,62 @@ function daRenderBumpChart(dailyData, topN) {
    ----------------------------------------------------------- */
 function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
-  if (!container) return;
-
-  if (!window.LOADED) {
-    container.innerHTML = '<p class="note-text">Esperando a que termine la carga inicial de la app...</p>';
+  if (!container) {
+    console.error('[DataAnalysis] No existe #bumpChartContainer');
     return;
   }
 
-  container.innerHTML = '<p class="note-text">Calculando evolución del ranking...</p>';
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
 
-  daProcessDailyScores().then(dailyData => {
-    if (!dailyData || dailyData.length === 0) {
-      container.innerHTML = '<p class="note-text">Aún no hay resultados reales suficientes para generar el gráfico. El torneo debe haber comenzado y el JSON de openfootball debe incluir marcadores finales.</p>';
+  // Si no tenemos los datos del mundial, los cargamos ahora
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  // Si no tenemos el leaderboard, lo cargamos ahora
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo. Revisa la conexión.</p>';
       return;
     }
-    window.__bumpChartData = dailyData;
-    const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-    daRenderBumpChart(dailyData, topN);
+
+    container.innerHTML = '<p class="note-text">Datos cargados. Procesando jugadores...</p>';
+
+    const players = (lbData?.players || []).map(p => {
+      let parsed = p;
+      if (typeof p.json === 'string') {
+        try { parsed = JSON.parse(p.json); } catch(e) {}
+      }
+      return { name: p.name || 'Anónimo', ...parsed };
+    }).filter(p => p.groups && Object.keys(p.groups).length > 0);
+
+    container.innerHTML = '<p class="note-text">Jugadores con predicción: ' + players.length + '</p>';
+
+    if (players.length === 0) {
+      container.innerHTML += '<p class="note-text">Ningún jugador tiene grupos. Ve primero a la pestaña Ranking para cargar datos, o aún no hay predicciones enviadas.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    container.innerHTML += '<p class="note-text">Partidos finalizados en JSON: ' + finished.length + '</p>';
+
+    if (finished.length === 0) {
+      container.innerHTML += '<p class="note-text">El torneo aún no ha empezado o el JSON no tiene resultados. El chart aparecerá cuando haya partidos jugados.</p>';
+      return;
+    }
+
+    daProcessAndRender(players, finished);
+
   }).catch(err => {
-    daLog('Error fatal en initDataAnalysis: ' + err.message);
-    console.error(err);
-    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error al generar el gráfico. Revisa la consola para detalles.</p>';
+    console.error('[DataAnalysis] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error al cargar datos. Revisa la consola.</p>';
   });
 }
 
