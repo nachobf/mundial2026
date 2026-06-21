@@ -424,54 +424,51 @@ function daRenderBumpChart(dailyData, topN) {
    ----------------------------------------------------------- */
 function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
-  if (!container) {
-    console.error('[DataAnalysis] No existe #bumpChartContainer');
-    return;
-  }
+  if (!container) return;
 
   container.innerHTML = '<p class="note-text">Cargando datos...</p>';
 
-  // Si no tenemos los datos del mundial, los cargamos ahora
   const wcPromise = window.__worldCupData 
     ? Promise.resolve(window.__worldCupData) 
     : daLoadWorldCupData();
 
-  // Si no tenemos el leaderboard, lo cargamos ahora
   const lbPromise = window.__leaderboardData && window.__leaderboardData.players
     ? Promise.resolve(window.__leaderboardData)
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
     if (!wcData || !wcData.matches) {
-      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo. Revisa la conexión.</p>';
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
     }
 
-    container.innerHTML = '<p class="note-text">Datos cargados. Procesando jugadores...</p>';
-
-    const players = (lbData?.players || []).map(p => {
-      let parsed = p;
-      if (typeof p.json === 'string') {
-        try { parsed = JSON.parse(p.json); } catch(e) {}
-      }
-      return { name: p.name || 'Anónimo', ...parsed };
-    }).filter(p => p.groups && Object.keys(p.groups).length > 0);
-
-    container.innerHTML = '<p class="note-text">Jugadores con predicción: ' + players.length + '</p>';
+    const rawPlayers = lbData?.players || [];
+    
+    // Cada jugador tiene: name, score, details, prediction: {...}
+    // donde prediction contiene groups, groupMatchResults, knockout, etc.
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
 
     if (players.length === 0) {
-      container.innerHTML += '<p class="note-text">Ningún jugador tiene grupos. Ve primero a la pestaña Ranking para cargar datos, o aún no hay predicciones enviadas.</p>';
+      container.innerHTML = '<p class="note-text">No se encontraron predicciones válidas.</p>';
       return;
     }
+
+    container.innerHTML = '<p class="note-text">Jugadores: ' + players.length + '. Procesando...</p>';
 
     const finished = (wcData.matches || []).filter(m =>
       m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
     );
 
-    container.innerHTML += '<p class="note-text">Partidos finalizados en JSON: ' + finished.length + '</p>';
-
     if (finished.length === 0) {
-      container.innerHTML += '<p class="note-text">El torneo aún no ha empezado o el JSON no tiene resultados. El chart aparecerá cuando haya partidos jugados.</p>';
+      container.innerHTML += '<p class="note-text">El torneo aún no ha empezado.</p>';
       return;
     }
 
@@ -479,7 +476,7 @@ function initDataAnalysis() {
 
   }).catch(err => {
     console.error('[DataAnalysis] Error:', err);
-    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error al cargar datos. Revisa la consola.</p>';
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
   });
 }
 
