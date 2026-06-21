@@ -2,12 +2,14 @@
    DATA ANALYSIS — Bump Chart de evolución del leaderboard
    ============================================================ */
 
-if (window.__dataAnalysisLoaded) {
-  console.log('data-analysis.js ya estaba cargado. Ignorando carga duplicada.');
-} else {
-window.__dataAnalysisLoaded = true;
+function daLog(msg) {
+  console.log('[DataAnalysis]', msg);
+}
 
-async function loadWorldCupDataForAnalysis() {
+/* -----------------------------------------------------------
+   1. Cargar datos del mundial (cacheado en window)
+   ----------------------------------------------------------- */
+async function daLoadWorldCupData() {
   if (window.__worldCupData) return window.__worldCupData;
   try {
     const resp = await fetch(DATA_SRC + '/worldcup.json');
@@ -15,12 +17,15 @@ async function loadWorldCupDataForAnalysis() {
     window.__worldCupData = data;
     return data;
   } catch (e) {
-    console.error('Error cargando datos WC:', e);
+    daLog('Error cargando WC data: ' + e.message);
     return null;
   }
 }
 
-function buildPartialRealResults(matchesWithResults) {
+/* -----------------------------------------------------------
+   2. Construir snapshot parcial de resultados reales
+   ----------------------------------------------------------- */
+function daBuildPartialReal(matchesWithResults) {
   const real = {
     groups: {},
     groupsConfirmed: {},
@@ -30,12 +35,15 @@ function buildPartialRealResults(matchesWithResults) {
     knockout: { matches: { round32: [], round16: [], quarterfinals: [], semifinals: [], thirdPlace: [], final: [] } }
   };
 
-  GROUP_NAMES.forEach(group => {
+  if (!matchesWithResults || matchesWithResults.length === 0) return real;
+
+  const gNames = (typeof GROUP_NAMES !== 'undefined' && GROUP_NAMES.length) ? GROUP_NAMES : Object.keys(TEAMS_BY_GROUP || {}).sort();
+  const tByGroup = (typeof TEAMS_BY_GROUP !== 'undefined') ? TEAMS_BY_GROUP : {};
+
+  gNames.forEach(group => {
     real.groups[group] = [];
     real.groupsConfirmed[group] = false;
   });
-
-  if (!matchesWithResults || matchesWithResults.length === 0) return real;
 
   const groupStats = {};
   const groupMatchesProcessed = {};
@@ -43,11 +51,11 @@ function buildPartialRealResults(matchesWithResults) {
   matchesWithResults.forEach(m => {
     if (!m.group || !m.group.startsWith('Group ')) return;
     const group = m.group.replace('Group ', '');
-    if (!GROUP_NAMES.includes(group)) return;
+    if (!gNames.includes(group)) return;
 
     if (!groupStats[group]) {
       groupStats[group] = {};
-      const teams = (TEAMS_BY_GROUP[group] || []).map(t => t.name);
+      const teams = (tByGroup[group] || []).map(t => t.name);
       teams.forEach(t => { groupStats[group][t] = { team: t, pts: 0, gf: 0, ga: 0, gd: 0, played: 0, wins: 0, draws: 0, losses: 0 }; });
     }
     if (!groupMatchesProcessed[group]) groupMatchesProcessed[group] = [];
@@ -55,17 +63,14 @@ function buildPartialRealResults(matchesWithResults) {
 
     const g1 = parseInt(m.score.ft[0], 10);
     const g2 = parseInt(m.score.ft[1], 10);
-    const t1 = translateTeamName(m.team1);
-    const t2 = translateTeamName(m.team2);
+    const t1 = (typeof translateTeamName === 'function') ? translateTeamName(m.team1) : m.team1;
+    const t2 = (typeof translateTeamName === 'function') ? translateTeamName(m.team2) : m.team2;
 
     if (!groupStats[group][t1] || !groupStats[group][t2]) return;
 
-    groupStats[group][t1].played++;
-    groupStats[group][t2].played++;
-    groupStats[group][t1].gf += g1;
-    groupStats[group][t1].ga += g2;
-    groupStats[group][t2].gf += g2;
-    groupStats[group][t2].ga += g1;
+    groupStats[group][t1].played++; groupStats[group][t2].played++;
+    groupStats[group][t1].gf += g1; groupStats[group][t1].ga += g2;
+    groupStats[group][t2].gf += g2; groupStats[group][t2].ga += g1;
 
     if (g1 > g2) {
       groupStats[group][t1].pts += 3; groupStats[group][t1].wins++; groupStats[group][t2].losses++;
@@ -84,24 +89,22 @@ function buildPartialRealResults(matchesWithResults) {
       if (b.pts !== a.pts) return b.pts - a.pts;
       if (b.gd !== a.gd) return b.gd - a.gd;
       if (b.gf !== a.gf) return b.gf - a.gf;
-      return getTeamFifaRank(a.team) - getTeamFifaRank(b.team);
+      return (typeof getTeamFifaRank === 'function' ? getTeamFifaRank(a.team) : 999) -
+             (typeof getTeamFifaRank === 'function' ? getTeamFifaRank(b.team) : 999);
     });
     real.groups[group] = standings.map(s => s.team);
     real.groupsConfirmed[group] = true;
 
     (groupMatchesProcessed[group] || []).forEach(m => {
-      const t1 = translateTeamName(m.team1);
-      const t2 = translateTeamName(m.team2);
-      const key = groupMatchKey(t1, t2);
-      real.groupMatchResults[key] = {
-        team1Goals: parseInt(m.score.ft[0], 10),
-        team2Goals: parseInt(m.score.ft[1], 10)
-      };
+      const t1 = (typeof translateTeamName === 'function') ? translateTeamName(m.team1) : m.team1;
+      const t2 = (typeof translateTeamName === 'function') ? translateTeamName(m.team2) : m.team2;
+      const key = (typeof groupMatchKey === 'function') ? groupMatchKey(t1, t2) : [t1, t2].sort().join('__');
+      real.groupMatchResults[key] = { team1Goals: parseInt(m.score.ft[0], 10), team2Goals: parseInt(m.score.ft[1], 10) };
     });
   });
 
   const candidates = [];
-  GROUP_NAMES.forEach(group => {
+  gNames.forEach(group => {
     if (!real.groups[group] || real.groups[group].length < 3) return;
     const third = real.groups[group][2];
     const stats = groupStats[group] && groupStats[group][third];
@@ -113,100 +116,132 @@ function buildPartialRealResults(matchesWithResults) {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.gd !== a.gd) return b.gd - a.gd;
     if (b.gf !== a.gf) return b.gf - a.gf;
-    return getTeamFifaRank(a.team) - getTeamFifaRank(b.team);
+    return (typeof getTeamFifaRank === 'function' ? getTeamFifaRank(a.team) : 999) -
+           (typeof getTeamFifaRank === 'function' ? getTeamFifaRank(b.team) : 999);
   });
 
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
   const roundMap = {
-    'Round of 32': 'round32',
-    'Round of 16': 'round16',
-    'Quarter-final': 'quarterfinals',
-    'Semi-final': 'semifinals',
-    'Match for third place': 'thirdPlace',
-    'Final': 'final'
+    'Round of 32': 'round32', 'Round of 16': 'round16',
+    'Quarter-final': 'quarterfinals', 'Semi-final': 'semifinals',
+    'Match for third place': 'thirdPlace', 'Final': 'final'
   };
 
   matchesWithResults.forEach(m => {
     const roundName = roundMap[m.round];
     if (!roundName) return;
-    const t1Raw = m.team1;
-    const t2Raw = m.team2;
+    const t1Raw = m.team1, t2Raw = m.team2;
     const isPlaceholder = /^[WL]\d+$/.test(t1Raw) || /^[WL]\d+$/.test(t2Raw) || /^\d+[A-Z]$/.test(t1Raw) || /^\d+[A-Z]$/.test(t2Raw);
     if (isPlaceholder) return;
 
     const g1 = parseInt(m.score.ft[0], 10);
     const g2 = parseInt(m.score.ft[1], 10);
-    const t1 = translateTeamName(t1Raw);
-    const t2 = translateTeamName(t2Raw);
+    const t1 = (typeof translateTeamName === 'function') ? translateTeamName(t1Raw) : t1Raw;
+    const t2 = (typeof translateTeamName === 'function') ? translateTeamName(t2Raw) : t2Raw;
     const winner = g1 > g2 ? t1 : t2;
 
-    real.knockout.matches[roundName].push({
-      match: m.num,
-      team1: t1,
-      team2: t2,
-      winner: winner
-    });
+    real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
   });
 
   return real;
 }
 
-async function processDailyScores() {
-  const wcData = await loadWorldCupDataForAnalysis();
-  if (!wcData || !wcData.matches) return [];
+/* -----------------------------------------------------------
+   3. Calcular puntuaciones día a día
+   ----------------------------------------------------------- */
+async function daProcessDailyScores() {
+  const wcData = await daLoadWorldCupData();
+  if (!wcData || !wcData.matches) {
+    daLog('No hay datos WC o no tiene .matches');
+    return [];
+  }
 
-  const players = (window.__leaderboardData?.players || []).map(p => {
-    let parsed = {};
-    if (p.json) { try { parsed = JSON.parse(p.json); } catch (e) {} }
+  const lbData = window.__leaderboardData;
+  if (!lbData || !lbData.players || !lbData.players.length) {
+    daLog('No hay leaderboardData o está vacío');
+    return [];
+  }
+
+  const players = lbData.players.map(p => {
+    let parsed = p;
+    if (typeof p.json === 'string') {
+      try { parsed = JSON.parse(p.json); } catch(e) {}
+    }
     return { name: p.name || 'Anónimo', ...parsed };
   }).filter(p => p.groups && Object.keys(p.groups).length > 0);
 
-  if (players.length === 0) return [];
+  daLog('Jugadores con predicción válida: ' + players.length);
 
-  const finishedMatches = wcData.matches.filter(m =>
+  if (players.length === 0) {
+    daLog('Ningún jugador tiene groups poblado. Revisa la estructura de __leaderboardData.players');
+    return [];
+  }
+
+  const finished = (wcData.matches || []).filter(m =>
     m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
   );
 
-  if (finishedMatches.length === 0) return [];
+  daLog('Partidos finalizados en JSON: ' + finished.length);
+
+  if (finished.length === 0) {
+    daLog('El JSON no tiene partidos con score.ft. El chart no puede generarse hasta que haya resultados reales.');
+    return [];
+  }
 
   const byDate = {};
-  finishedMatches.forEach(m => {
+  finished.forEach(m => {
     if (!byDate[m.date]) byDate[m.date] = [];
     byDate[m.date].push(m);
   });
 
   const dates = Object.keys(byDate).sort();
+  daLog('Fechas con partidos: ' + dates.join(', '));
+
   const dailyScores = [];
   const matchesSoFar = [];
 
   dates.forEach(date => {
     matchesSoFar.push(...byDate[date]);
-    const realPartial = buildPartialRealResults(matchesSoFar);
+    const realPartial = daBuildPartialReal(matchesSoFar);
 
     const dayResults = players.map(player => {
       try {
         const result = calculatePlayerScore(player, realPartial);
         return { player: player.name || 'Anónimo', score: result.score, date };
       } catch (e) {
+        daLog('Error score para ' + player.name + ': ' + e.message);
         return { player: player.name || 'Anónimo', score: 0, date };
       }
     });
 
     dayResults.sort((a, b) => b.score - a.score);
-    dayResults.forEach((d, i) => {
-      d.rank = i + 1;
-      dailyScores.push(d);
-    });
+    dayResults.forEach((d, i) => { d.rank = i + 1; });
+    dailyScores.push(...dayResults);
   });
 
+  daLog('Total puntos de datos generados: ' + dailyScores.length);
   return dailyScores;
 }
 
-function renderBumpChart(dailyData, topN) {
+/* -----------------------------------------------------------
+   4. Renderizar Bump Chart con D3
+   ----------------------------------------------------------- */
+function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
+  if (!container) return;
   container.innerHTML = '';
+
+  if (!dailyData || dailyData.length === 0) {
+    container.innerHTML = '<p class="note-text">No hay datos para mostrar.</p>';
+    return;
+  }
+
+  if (typeof d3 === 'undefined') {
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: D3.js no está cargado. Revisa el &lt;script&gt; en index.html.</p>';
+    return;
+  }
 
   const dates = [...new Set(dailyData.map(d => d.date))].sort();
   const lastDate = dates[dates.length - 1];
@@ -214,8 +249,11 @@ function renderBumpChart(dailyData, topN) {
   const topPlayers = new Set(lastRanks.slice(0, topN).map(d => d.player));
   const filteredData = dailyData.filter(d => topPlayers.has(d.player));
 
+  daLog('Renderizando chart: ' + topPlayers.size + ' jugadores, ' + dates.length + ' días, ' + filteredData.length + ' puntos');
+
   const margin = { top: 30, right: 150, bottom: 60, left: 50 };
-  const width = container.clientWidth - margin.left - margin.right;
+  const containerWidth = container.clientWidth || 800;
+  const width = Math.max(containerWidth - margin.left - margin.right, 300);
   const height = 520 - margin.top - margin.bottom;
 
   const svg = d3.select('#bumpChartContainer')
@@ -230,13 +268,13 @@ function renderBumpChart(dailyData, topN) {
     .range([0, width])
     .padding(0.3);
 
-  const maxRank = d3.max(filteredData, d => d.rank);
+  const maxRank = d3.max(filteredData, d => d.rank) || 1;
   const y = d3.scaleLinear()
     .domain([1, maxRank])
     .range([0, height]);
 
-  const players = [...new Set(filteredData.map(d => d.player))];
-  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(players);
+  const playersList = [...new Set(filteredData.map(d => d.player))];
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(playersList);
 
   const line = d3.line()
     .x(d => x(d.date))
@@ -245,6 +283,7 @@ function renderBumpChart(dailyData, topN) {
 
   const nested = d3.group(filteredData, d => d.player);
 
+  // Grid horizontal
   svg.selectAll('.grid-line')
     .data(y.ticks(maxRank))
     .enter()
@@ -255,6 +294,7 @@ function renderBumpChart(dailyData, topN) {
     .attr('stroke', '#f0f0f0')
     .attr('stroke-dasharray', '3,3');
 
+  // Líneas
   svg.selectAll('.bump-line')
     .data(Array.from(nested))
     .enter()
@@ -268,6 +308,7 @@ function renderBumpChart(dailyData, topN) {
     .attr('stroke-linejoin', 'round')
     .attr('stroke-linecap', 'round');
 
+  // Puntos
   const points = svg.selectAll('.bump-point')
     .data(filteredData)
     .enter()
@@ -282,9 +323,10 @@ function renderBumpChart(dailyData, topN) {
 
   points.transition()
     .duration(700)
-    .delay((d, i) => i * 12)
+    .delay((d, i) => i * 10)
     .attr('r', 5);
 
+  // Eje X
   const xAxis = svg.append('g')
     .attr('transform', `translate(0,${height})`)
     .call(d3.axisBottom(x).tickFormat(d => {
@@ -302,12 +344,14 @@ function renderBumpChart(dailyData, topN) {
   xAxis.select('.domain').attr('stroke', '#ddd');
   xAxis.selectAll('.tick line').attr('stroke', '#eee');
 
+  // Eje Y
   const yAxis = svg.append('g')
     .call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
   yAxis.selectAll('text').style('font-size', '11px').style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
   yAxis.selectAll('.tick line').attr('stroke', '#eee');
 
+  // Labels finales
   const lastPoints = filteredData.filter(d => d.date === lastDate);
   svg.selectAll('.bump-label')
     .data(lastPoints)
@@ -322,6 +366,7 @@ function renderBumpChart(dailyData, topN) {
     .attr('font-size', '12px')
     .attr('font-weight', '600');
 
+  // Tooltip
   const tooltip = d3.select('body').append('div')
     .attr('class', 'bump-tooltip')
     .style('opacity', 0)
@@ -356,12 +401,13 @@ function renderBumpChart(dailyData, topN) {
     .on('mousemove', function(event) {
       tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
     })
-    .on('mouseout', function(event, d) {
+    .on('mouseout', function() {
       d3.select(this).transition().duration(150).attr('r', 5).attr('stroke-width', 2);
       svg.selectAll('.bump-line').attr('stroke-opacity', 0.85).attr('stroke-width', 2.5);
       tooltip.transition().duration(200).style('opacity', 0);
     });
 
+  // Título eje Y
   svg.append('text')
     .attr('transform', 'rotate(-90)')
     .attr('y', 0 - margin.left + 12)
@@ -373,67 +419,61 @@ function renderBumpChart(dailyData, topN) {
     .text('Posición en el ranking');
 }
 
-async function initDataAnalysis() {
+/* -----------------------------------------------------------
+   5. Entry point
+   ----------------------------------------------------------- */
+function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
   if (!container) return;
 
-  if (!LOADED || !window.__worldCupData) {
-    container.innerHTML = '<p class="note-text">Esperando a que se carguen los datos del torneo...</p>';
+  if (!window.LOADED) {
+    container.innerHTML = '<p class="note-text">Esperando a que termine la carga inicial de la app...</p>';
     return;
   }
 
   container.innerHTML = '<p class="note-text">Calculando evolución del ranking...</p>';
 
-  try {
-    const dailyData = await processDailyScores();
-    if (dailyData.length === 0) {
-      container.innerHTML = '<p class="note-text">Aún no hay resultados reales suficientes para generar el gráfico.</p>';
+  daProcessDailyScores().then(dailyData => {
+    if (!dailyData || dailyData.length === 0) {
+      container.innerHTML = '<p class="note-text">Aún no hay resultados reales suficientes para generar el gráfico. El torneo debe haber comenzado y el JSON de openfootball debe incluir marcadores finales.</p>';
       return;
     }
     window.__bumpChartData = dailyData;
     const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-    renderBumpChart(dailyData, topN);
-  } catch (err) {
-    console.error('Error en Data Analysis:', err);
-    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error al generar el gráfico. Revisa la consola para más detalles.</p>';
-  }
-}
-
-function setupDataAnalysisControls() {
-  const refreshBtn = document.getElementById('btnRefreshBumpChart');
-  const topSelect = document.getElementById('bumpChartTopN');
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      if (window.__bumpChartData) {
-        const topN = parseInt(topSelect?.value || '10', 10);
-        renderBumpChart(window.__bumpChartData, topN);
-      } else {
-        initDataAnalysis();
-      }
-    });
-  }
-
-  if (topSelect) {
-    topSelect.addEventListener('change', () => {
-      if (window.__bumpChartData) {
-        renderBumpChart(window.__bumpChartData, parseInt(topSelect.value, 10));
-      }
-    });
-  }
-
-  window.addEventListener('resize', () => {
-    clearTimeout(window.bumpChartResizeTimer);
-    window.bumpChartResizeTimer = setTimeout(() => {
-      const tab = document.getElementById('tab-data-analysis');
-      if (tab && tab.classList.contains('active') && window.__bumpChartData) {
-        const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-        renderBumpChart(window.__bumpChartData, topN);
-      }
-    }, 300);
+    daRenderBumpChart(dailyData, topN);
+  }).catch(err => {
+    daLog('Error fatal en initDataAnalysis: ' + err.message);
+    console.error(err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error al generar el gráfico. Revisa la consola para detalles.</p>';
   });
 }
 
-document.addEventListener('DOMContentLoaded', setupDataAnalysisControls);
+function daRefreshChart() {
+  if (window.__bumpChartData) {
+    const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+    daRenderBumpChart(window.__bumpChartData, topN);
+  } else {
+    initDataAnalysis();
+  }
+}
 
-} // cierre del bloque de protección contra doble carga
+/* -----------------------------------------------------------
+   6. Event listeners
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshBumpChart');
+  const topSelect = document.getElementById('bumpChartTopN');
+  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshChart);
+  if (topSelect) topSelect.addEventListener('change', daRefreshChart);
+});
+
+// Resize
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && window.__bumpChartData) {
+    clearTimeout(window.__bumpChartResizeTimer);
+    window.__bumpChartResizeTimer = setTimeout(function() {
+      daRenderBumpChart(window.__bumpChartData, parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10));
+    }, 300);
+  }
+});
