@@ -1,5 +1,5 @@
 /* ============================================================
-   DATA ANALYSIS — Bump Chart (CON CÁLCULO PROPIO DE PUNTUACIÓN)
+   DATA ANALYSIS — Bump Chart (CON LÓGICA DE FASE DE GRUPOS CONDICIONAL)
    ============================================================ */
 
 function daLog(msg) {
@@ -17,24 +17,30 @@ function daLoadWorldCupData() {
 }
 
 /* -----------------------------------------------------------
-   CÁLCULO MANUAL DE PUNTUACIÓN (sin depender de calculatePlayerScore)
+   CÁLCULO MANUAL DE PUNTUACIÓN
+   - Grupos: solo si faseGruposTerminada
+   - Resultados exactos/1X2: siempre
+   - Mejores terceros: solo si faseGruposTerminada
+   - Eliminatorias: siempre que haya resultados
    ----------------------------------------------------------- */
-function daCalculateScore(player, real) {
+function daCalculateScore(player, real, faseGruposTerminada) {
   let score = 0;
 
-  // 1. Posiciones de grupo (1º-4º = 5 pts cada uno)
-  const groupNames = Object.keys(real.groups || {});
-  groupNames.forEach(group => {
-    const realOrder = real.groups[group] || [];
-    const predOrder = player.groups?.[group] || [];
-    for (let i = 0; i < 4; i++) {
-      if (predOrder[i] && realOrder[i] && predOrder[i] === realOrder[i]) {
-        score += 5;
+  // 1. Posiciones de grupo (1º-4º = 5 pts cada uno) — SOLO si fase completa
+  if (faseGruposTerminada) {
+    const groupNames = Object.keys(real.groups || {});
+    groupNames.forEach(group => {
+      const realOrder = real.groups[group] || [];
+      const predOrder = player.groups?.[group] || [];
+      for (let i = 0; i < 4; i++) {
+        if (predOrder[i] && realOrder[i] && predOrder[i] === realOrder[i]) {
+          score += 5;
+        }
       }
-    }
-  });
+    });
+  }
 
-  // 2. Resultados exactos y 1X2
+  // 2. Resultados exactos y 1X2 — SIEMPRE
   const predResults = player.groupMatchResults || {};
   const realResults = real.groupMatchResults || {};
   
@@ -63,14 +69,16 @@ function daCalculateScore(player, real) {
     }
   });
 
-  // 3. Mejores terceros (1 pt cada uno acertado en top 8)
-  const realTP = new Set((real.thirdPlace || []).slice(0, 8));
-  const predTP = player.thirdPlace || [];
-  predTP.forEach(team => {
-    if (realTP.has(team)) score += 1;
-  });
+  // 3. Mejores terceros (1 pt cada uno acertado en top 8) — SOLO si fase completa
+  if (faseGruposTerminada) {
+    const realTP = new Set((real.thirdPlace || []).slice(0, 8));
+    const predTP = player.thirdPlace || [];
+    predTP.forEach(team => {
+      if (realTP.has(team)) score += 1;
+    });
+  }
 
-  // 4. Eliminatorias
+  // 4. Eliminatorias — SIEMPRE que haya resultados
   const roundPoints = {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
     finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
@@ -84,12 +92,10 @@ function daCalculateScore(player, real) {
     const matches = real.knockout?.matches?.[round] || [];
     matches.forEach(m => {
       if (m.winner) {
-        // El ganador avanza, el perdedor se queda en esta ronda
         const loser = m.winner === m.team1 ? m.team2 : m.team1;
         if (loser && !teamRoundReal[loser]) {
           teamRoundReal[loser] = round;
         }
-        // Para la final, el ganador es campeón
         if (round === 'final') {
           teamRoundReal[m.winner] = 'champion';
         } else if (round === 'thirdPlace') {
@@ -99,28 +105,26 @@ function daCalculateScore(player, real) {
     });
   });
 
-  // Para semifinales, los perdedores son 3º/4º puesto
+  // Semifinales: perdedores
   const sfMatches = real.knockout?.matches?.semifinals || [];
   if (sfMatches.length === 2) {
     const sf1 = sfMatches[0], sf2 = sfMatches[1];
     if (sf1?.winner && sf2?.winner) {
       const loser1 = sf1.winner === sf1.team1 ? sf1.team2 : sf1.team1;
       const loser2 = sf2.winner === sf2.team1 ? sf2.team2 : sf2.team1;
-      // El ganador del 3º puesto es 3º, el perdedor es 4º
       const tpMatch = real.knockout?.matches?.thirdPlace?.[0];
       if (tpMatch?.winner) {
         teamRoundReal[tpMatch.winner] = 'thirdPlace';
         const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
         if (fourth) teamRoundReal[fourth] = 'fourthPlace';
       } else {
-        // Si no hay 3º puesto aún, ambos semifinalistas son semifinals
-        if (loser1) teamRoundReal[loser1] = 'semifinals';
-        if (loser2) teamRoundReal[loser2] = 'semifinals';
+        if (loser1 && !teamRoundReal[loser1]) teamRoundReal[loser1] = 'semifinals';
+        if (loser2 && !teamRoundReal[loser2]) teamRoundReal[loser2] = 'semifinals';
       }
     }
   }
 
-  // Para cuartos, los perdedores son quarterfinals
+  // Cuartos: perdedores
   const qfMatches = real.knockout?.matches?.quarterfinals || [];
   qfMatches.forEach(m => {
     if (m?.winner) {
@@ -129,7 +133,7 @@ function daCalculateScore(player, real) {
     }
   });
 
-  // Para octavos, los perdedores son round16
+  // Octavos: perdedores
   const r16Matches = real.knockout?.matches?.round16 || [];
   r16Matches.forEach(m => {
     if (m?.winner) {
@@ -138,7 +142,7 @@ function daCalculateScore(player, real) {
     }
   });
 
-  // Para dieciseisavos, los perdedores son round32
+  // Dieciseisavos: perdedores
   const r32Matches = real.knockout?.matches?.round32 || [];
   r32Matches.forEach(m => {
     if (m?.winner) {
@@ -149,9 +153,8 @@ function daCalculateScore(player, real) {
 
   // Ahora calcular para la predicción del jugador
   const teamRoundPred = {};
-  
-  // Construir predicción de knockout del jugador
   const predKO = player.knockout?.matches || {};
+  
   koRounds.forEach(round => {
     const matches = predKO[round] || [];
     matches.forEach(m => {
@@ -299,6 +302,7 @@ function daBuildPartialReal(matchesWithResults) {
     });
   });
 
+  // Calcular mejores terceros
   const candidates = [];
   gNames.forEach(group => {
     if (!real.groups[group] || real.groups[group].length < 3) return;
@@ -319,6 +323,7 @@ function daBuildPartialReal(matchesWithResults) {
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
+  // Eliminatorias
   const roundMap = {
     'Round of 32': 'round32', 'Round of 16': 'round16',
     'Quarter-final': 'quarterfinals', 'Semi-final': 'semifinals',
@@ -350,6 +355,10 @@ function daBuildPartialReal(matchesWithResults) {
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
 
+  // Contar partidos de grupo para saber si la fase está completa
+  const groupMatchesFinished = finishedMatches.filter(m => m.group && m.group.startsWith('Group ')).length;
+  const TOTAL_GROUP_MATCHES = 72; // 12 grupos × 6 partidos
+
   const byDate = {};
   finishedMatches.forEach(m => {
     if (!byDate[m.date]) byDate[m.date] = [];
@@ -374,9 +383,13 @@ function daProcessAndRender(players, finishedMatches) {
     matchesSoFar.push(...byDate[date]);
     const realPartial = daBuildPartialReal(matchesSoFar);
 
+    // ¿La fase de grupos está terminada en este snapshot?
+    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
+
     const dayResults = players.map(player => {
       processed++;
-      const score = daCalculateScore(player, realPartial);
+      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
       return { player: player.name || 'Anónimo', score, date };
     });
 
@@ -385,7 +398,9 @@ function daProcessAndRender(players, finishedMatches) {
     dailyScores.push(...dayResults);
 
     if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
-      container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + ' (' + processed + '/' + total + ' cálculos)...</p>';
+      container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + 
+        ' (' + processed + '/' + total + ' cálculos)' + 
+        (faseGruposTerminada ? ' — Fase de grupos COMPLETA' : '') + '</p>';
     }
 
     setTimeout(() => processNextDate(dateIndex + 1), 10);
