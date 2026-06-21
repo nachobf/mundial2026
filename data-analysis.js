@@ -2,6 +2,11 @@
    DATA ANALYSIS — Bump Chart de evolución del leaderboard
    ============================================================ */
 
+if (window.__dataAnalysisLoaded) {
+  console.log('data-analysis.js ya estaba cargado. Ignorando carga duplicada.');
+} else {
+window.__dataAnalysisLoaded = true;
+
 async function loadWorldCupDataForAnalysis() {
   if (window.__worldCupData) return window.__worldCupData;
   try {
@@ -15,11 +20,6 @@ async function loadWorldCupDataForAnalysis() {
   }
 }
 
-/* -----------------------------------------------------------
-   Construye un objeto 'real' parcial compatible con
-   calculatePlayerScore() usando solo partidos jugados hasta
-   una fecha determinada.
-   ----------------------------------------------------------- */
 function buildPartialRealResults(matchesWithResults) {
   const real = {
     groups: {},
@@ -30,17 +30,13 @@ function buildPartialRealResults(matchesWithResults) {
     knockout: { matches: { round32: [], round16: [], quarterfinals: [], semifinals: [], thirdPlace: [], final: [] } }
   };
 
-  // Inicializar grupos vacíos (sin puntuación hasta que haya partidos)
   GROUP_NAMES.forEach(group => {
     real.groups[group] = [];
     real.groupsConfirmed[group] = false;
   });
 
-  if (!matchesWithResults || matchesWithResults.length === 0) {
-    return real;
-  }
+  if (!matchesWithResults || matchesWithResults.length === 0) return real;
 
-  // --- FASE DE GRUPOS ---
   const groupStats = {};
   const groupMatchesProcessed = {};
 
@@ -52,9 +48,7 @@ function buildPartialRealResults(matchesWithResults) {
     if (!groupStats[group]) {
       groupStats[group] = {};
       const teams = (TEAMS_BY_GROUP[group] || []).map(t => t.name);
-      teams.forEach(t => {
-        groupStats[group][t] = { team: t, pts: 0, gf: 0, ga: 0, gd: 0, played: 0, wins: 0, draws: 0, losses: 0 };
-      });
+      teams.forEach(t => { groupStats[group][t] = { team: t, pts: 0, gf: 0, ga: 0, gd: 0, played: 0, wins: 0, draws: 0, losses: 0 }; });
     }
     if (!groupMatchesProcessed[group]) groupMatchesProcessed[group] = [];
     groupMatchesProcessed[group].push(m);
@@ -106,7 +100,6 @@ function buildPartialRealResults(matchesWithResults) {
     });
   });
 
-  // --- MEJORES TERCEROS ---
   const candidates = [];
   GROUP_NAMES.forEach(group => {
     if (!real.groups[group] || real.groups[group].length < 3) return;
@@ -126,7 +119,6 @@ function buildPartialRealResults(matchesWithResults) {
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
-  // --- ELIMINATORIAS ---
   const roundMap = {
     'Round of 32': 'round32',
     'Round of 16': 'round16',
@@ -161,10 +153,6 @@ function buildPartialRealResults(matchesWithResults) {
   return real;
 }
 
-/* -----------------------------------------------------------
-   Calcula puntuaciones de todos los jugadores para cada día
-   en el que haya partidos finalizados.
-   ----------------------------------------------------------- */
 async function processDailyScores() {
   const wcData = await loadWorldCupDataForAnalysis();
   if (!wcData || !wcData.matches) return [];
@@ -216,9 +204,6 @@ async function processDailyScores() {
   return dailyScores;
 }
 
-/* -----------------------------------------------------------
-   Renderizado del Bump Chart con D3.js
-   ----------------------------------------------------------- */
 function renderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
   container.innerHTML = '';
@@ -260,7 +245,6 @@ function renderBumpChart(dailyData, topN) {
 
   const nested = d3.group(filteredData, d => d.player);
 
-  // Grid horizontal
   svg.selectAll('.grid-line')
     .data(y.ticks(maxRank))
     .enter()
@@ -271,7 +255,6 @@ function renderBumpChart(dailyData, topN) {
     .attr('stroke', '#f0f0f0')
     .attr('stroke-dasharray', '3,3');
 
-  // Líneas
   svg.selectAll('.bump-line')
     .data(Array.from(nested))
     .enter()
@@ -285,7 +268,6 @@ function renderBumpChart(dailyData, topN) {
     .attr('stroke-linejoin', 'round')
     .attr('stroke-linecap', 'round');
 
-  // Puntos
   const points = svg.selectAll('.bump-point')
     .data(filteredData)
     .enter()
@@ -303,7 +285,6 @@ function renderBumpChart(dailyData, topN) {
     .delay((d, i) => i * 12)
     .attr('r', 5);
 
-  // Eje X
   const xAxis = svg.append('g')
     .attr('transform', `translate(0,${height})`)
     .call(d3.axisBottom(x).tickFormat(d => {
@@ -321,14 +302,12 @@ function renderBumpChart(dailyData, topN) {
   xAxis.select('.domain').attr('stroke', '#ddd');
   xAxis.selectAll('.tick line').attr('stroke', '#eee');
 
-  // Eje Y
   const yAxis = svg.append('g')
     .call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
   yAxis.selectAll('text').style('font-size', '11px').style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
   yAxis.selectAll('.tick line').attr('stroke', '#eee');
 
-  // Labels finales
   const lastPoints = filteredData.filter(d => d.date === lastDate);
   svg.selectAll('.bump-label')
     .data(lastPoints)
@@ -343,7 +322,6 @@ function renderBumpChart(dailyData, topN) {
     .attr('font-size', '12px')
     .attr('font-weight', '600');
 
-  // Tooltip
   const tooltip = d3.select('body').append('div')
     .attr('class', 'bump-tooltip')
     .style('opacity', 0)
@@ -384,7 +362,6 @@ function renderBumpChart(dailyData, topN) {
       tooltip.transition().duration(200).style('opacity', 0);
     });
 
-  // Título eje Y
   svg.append('text')
     .attr('transform', 'rotate(-90)')
     .attr('y', 0 - margin.left + 12)
@@ -396,9 +373,6 @@ function renderBumpChart(dailyData, topN) {
     .text('Posición en el ranking');
 }
 
-/* -----------------------------------------------------------
-   Entry point — se ejecuta al abrir la pestaña
-   ----------------------------------------------------------- */
 async function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
   if (!container) return;
@@ -425,8 +399,7 @@ async function initDataAnalysis() {
   }
 }
 
-// Controles
-document.addEventListener('DOMContentLoaded', () => {
+function setupDataAnalysisControls() {
   const refreshBtn = document.getElementById('btnRefreshBumpChart');
   const topSelect = document.getElementById('bumpChartTopN');
 
@@ -448,17 +421,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-});
 
-// Redibujar al cambiar tamaño de ventana
-let bumpChartResizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(bumpChartResizeTimer);
-  bumpChartResizeTimer = setTimeout(() => {
-    const tab = document.getElementById('tab-data-analysis');
-    if (tab && tab.classList.contains('active') && window.__bumpChartData) {
-      const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-      renderBumpChart(window.__bumpChartData, topN);
-    }
-  }, 300);
-});
+  window.addEventListener('resize', () => {
+    clearTimeout(window.bumpChartResizeTimer);
+    window.bumpChartResizeTimer = setTimeout(() => {
+      const tab = document.getElementById('tab-data-analysis');
+      if (tab && tab.classList.contains('active') && window.__bumpChartData) {
+        const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+        renderBumpChart(window.__bumpChartData, topN);
+      }
+    }, 300);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setupDataAnalysisControls);
+
+} // cierre del bloque de protección contra doble carga
