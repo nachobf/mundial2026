@@ -735,6 +735,7 @@ async function loadData() {
   try {
     const resp = await fetch(DATA_SRC + '/worldcup.json');
     const data = await resp.json();
+    window.__worldCupData = data;
     TEAMS_BY_GROUP = {};
     const seen = {}, done = {};
     data.matches.forEach(m => {
@@ -1543,9 +1544,10 @@ function initTabs() {
       btn.classList.add('active');
       document.getElementById('tab-' + tabId).classList.add('active');
       if (tabId === 'ranking') renderLeaderboard();
+      if (tabId === 'data-analysis' && typeof initDataAnalysis === 'function') initDataAnalysis();
     });
   });
- renderLeaderboard();
+  renderLeaderboard();
 }
 
 // ---- SUBMIT / RESET ----
