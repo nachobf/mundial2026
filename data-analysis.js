@@ -424,81 +424,165 @@ function daRenderBumpChart(dailyData, topN) {
   const topPlayers = new Set(lastRanks.slice(0, topN).map(d => d.player));
   const filteredData = dailyData.filter(d => topPlayers.has(d.player));
 
-  const margin = { top: 30, right: 150, bottom: 60, left: 50 };
+  const isMobile = window.innerWidth <= 768;
+  const minWidthPerDate = isMobile ? 70 : 100;
+  const calculatedWidth = Math.max(dates.length * minWidthPerDate, container.clientWidth || 800);
+  
+  const margin = { top: 30, right: isMobile ? 80 : 150, bottom: 60, left: 50 };
   const containerWidth = container.clientWidth || 800;
-  const width = Math.max(containerWidth - margin.left - margin.right, 300);
-  const height = 520 - margin.top - margin.bottom;
+  const width = Math.max(calculatedWidth - margin.left - margin.right, 300);
+  const height = isMobile ? 400 : 520;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  container.style.overflow = isMobile ? 'auto' : 'hidden';
+  container.style.webkitOverflowScrolling = 'touch';
 
   const svg = d3.select('#bumpChartContainer')
     .append('svg')
     .attr('width', width + margin.left + margin.right)
-    .attr('height', height + margin.top + margin.bottom)
+    .attr('height', height)
+    .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height}`)
+    .attr('preserveAspectRatio', 'xMinYMin meet')
+    .style('min-width', (width + margin.left + margin.right) + 'px')
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
   const x = d3.scalePoint().domain(dates).range([0, width]).padding(0.3);
   const maxRank = d3.max(filteredData, d => d.rank) || 1;
-  const y = d3.scaleLinear().domain([1, maxRank]).range([0, height]);
+  const y = d3.scaleLinear().domain([1, maxRank]).range([0, innerHeight]);
 
   const playersList = [...new Set(filteredData.map(d => d.player))];
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(playersList);
   const line = d3.line().x(d => x(d.date)).y(d => y(d.rank)).curve(d3.curveMonotoneX);
   const nested = d3.group(filteredData, d => d.player);
 
+  // Grid horizontal
   svg.selectAll('.grid-line').data(y.ticks(maxRank)).enter().append('line')
     .attr('class', 'grid-line').attr('x1', 0).attr('x2', width)
     .attr('y1', d => y(d)).attr('y2', d => y(d))
     .attr('stroke', '#f0f0f0').attr('stroke-dasharray', '3,3');
 
-  svg.selectAll('.bump-line').data(Array.from(nested)).enter().append('path')
+  // Líneas (guardar referencia para el hover de labels)
+  const lines = svg.selectAll('.bump-line').data(Array.from(nested)).enter().append('path')
     .attr('class', 'bump-line').attr('d', ([, values]) => line(values))
     .attr('fill', 'none').attr('stroke', ([player]) => color(player))
-    .attr('stroke-width', 2.5).attr('stroke-opacity', 0.85)
-    .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+    .attr('stroke-width', isMobile ? 2 : 2.5).attr('stroke-opacity', 0.85)
+    .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+    .attr('data-player', ([player]) => player); // guardar player para selección
 
+  // Puntos (guardar referencia para el hover de labels)
   const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
     .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
-    .attr('r', 0).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2);
+    .attr('r', 0).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
+    .attr('data-player', d => d.player); // guardar player para selección
 
-  points.transition().duration(700).delay((d, i) => i * 10).attr('r', 5);
+  points.transition().duration(700).delay((d, i) => i * 10).attr('r', isMobile ? 4 : 5);
 
-  const xAxis = svg.append('g').attr('transform', `translate(0,${height})`)
-    .call(d3.axisBottom(x).tickFormat(d => new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })));
-  xAxis.selectAll('text').style('text-anchor', 'end').attr('dx', '-.8em').attr('dy', '.15em').attr('transform', 'rotate(-35)').style('font-size', '11px').style('fill', '#666');
+  // Eje X
+  const xAxis = svg.append('g').attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).tickFormat(d => {
+      const date = new Date(d + 'T00:00:00');
+      return isMobile 
+        ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })
+        : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    }));
+  
+  xAxis.selectAll('text')
+    .style('text-anchor', 'end')
+    .attr('dx', '-.8em')
+    .attr('dy', '.15em')
+    .attr('transform', 'rotate(-35)')
+    .style('font-size', isMobile ? '9px' : '11px')
+    .style('fill', '#666');
   xAxis.select('.domain').attr('stroke', '#ddd');
 
-  const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
-  yAxis.selectAll('text').style('font-size', '11px').style('fill', '#666');
+  // Eje Y
+  const yAxis = svg.append('g')
+    .call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
+  yAxis.selectAll('text')
+    .style('font-size', isMobile ? '10px' : '11px')
+    .style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
 
-  const lastPoints = filteredData.filter(d => d.date === lastDate);
-  svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
-    .attr('class', 'bump-label').attr('x', width + 10).attr('y', d => y(d.rank)).attr('dy', '0.35em')
-    .text(d => `${d.rank}. ${d.player}`).attr('fill', d => color(d.player)).attr('font-size', '12px').attr('font-weight', '600');
-
+  // Tooltip
   const tooltip = d3.select('body').append('div').attr('class', 'bump-tooltip')
     .style('opacity', 0).style('position', 'absolute').style('background', 'rgba(26,26,46,0.95)').style('color', '#fff')
     .style('padding', '10px 14px').style('border-radius', '10px').style('font-size', '13px')
     .style('pointer-events', 'none').style('z-index', '10000').style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
-  points.on('mouseover', function(event, d) {
-    d3.select(this).transition().duration(150).attr('r', 8).attr('stroke-width', 3);
+  // Función para resaltar línea y mostrar tooltip
+  function highlightPlayer(playerName, event) {
+    // Resaltar línea
     svg.selectAll('.bump-line').attr('stroke-opacity', 0.12);
-    svg.selectAll('.bump-line').filter(([player]) => player === d.player).attr('stroke-opacity', 1).attr('stroke-width', 4);
-    const dateObj = new Date(d.date + 'T00:00:00');
+    svg.selectAll('.bump-line').filter(([p]) => p === playerName)
+      .attr('stroke-opacity', 1).attr('stroke-width', isMobile ? 3 : 4);
+    
+    // Resaltar puntos
+    svg.selectAll('.bump-point').attr('r', isMobile ? 4 : 5).attr('stroke-width', 2);
+    svg.selectAll('.bump-point').filter(d => d.player === playerName)
+      .attr('r', isMobile ? 6 : 8).attr('stroke-width', 3);
+
+    // Encontrar datos del último día
+    const lastDayData = filteredData.find(d => d.player === playerName && d.date === lastDate);
+    if (!lastDayData) return;
+
+    // Mostrar tooltip
+    const dateObj = new Date(lastDayData.date + 'T00:00:00');
     tooltip.transition().duration(150).style('opacity', 1);
-    tooltip.html(`<div style="font-weight:700;margin-bottom:4px;">${d.player}</div><div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div><div style="margin-top:6px;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">#${d.rank}</span><span style="color:#7FD8FF;font-weight:600;">${d.score} pts</span></div>`);
+    tooltip.html(`
+      <div style="font-weight:700;margin-bottom:4px;">${lastDayData.player}</div>
+      <div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;font-weight:700;">#${lastDayData.rank}</span>
+        <span style="color:#7FD8FF;font-weight:600;">${lastDayData.score} pts</span>
+      </div>
+    `);
+
+    if (event) {
+      tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+    }
+  }
+
+  function resetHighlight() {
+    svg.selectAll('.bump-line').attr('stroke-opacity', 0.85).attr('stroke-width', isMobile ? 2 : 2.5);
+    svg.selectAll('.bump-point').attr('r', isMobile ? 4 : 5).attr('stroke-width', 2);
+    tooltip.transition().duration(200).style('opacity', 0);
+  }
+
+  // Hover en puntos
+  points.on('mouseover', function(event, d) {
+    highlightPlayer(d.player, event);
   }).on('mousemove', function(event) {
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
-  }).on('mouseout', function() {
-    d3.select(this).transition().duration(150).attr('r', 5).attr('stroke-width', 2);
-    svg.selectAll('.bump-line').attr('stroke-opacity', 0.85).attr('stroke-width', 2.5);
-    tooltip.transition().duration(200).style('opacity', 0);
-  });
+  }).on('mouseout', resetHighlight);
 
+  // Labels finales con hover
+  const lastPoints = filteredData.filter(d => d.date === lastDate);
+  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
+  
+  const labels = svg.selectAll('.bump-label').data(labelsToShow).enter().append('text')
+    .attr('class', 'bump-label')
+    .attr('x', width + (isMobile ? 5 : 10))
+    .attr('y', d => y(d.rank))
+    .attr('dy', '0.35em')
+    .text(d => isMobile ? d.player.substring(0, 8) : `${d.rank}. ${d.player}`)
+    .attr('fill', d => color(d.player))
+    .attr('font-size', isMobile ? '10px' : '12px')
+    .attr('font-weight', '600')
+    .style('cursor', 'pointer') // indicar que es clickable
+    .style('pointer-events', 'all'); // permitir eventos de mouse
+
+  // Hover en labels
+  labels.on('mouseenter', function(event, d) {
+    highlightPlayer(d.player, event);
+  }).on('mousemove', function(event) {
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }).on('mouseleave', resetHighlight);
+
+  // Título eje Y
   svg.append('text').attr('transform', 'rotate(-90)').attr('y', 0 - margin.left + 12)
-    .attr('x', 0 - (height / 2)).attr('dy', '1em').style('text-anchor', 'middle')
-    .style('font-size', '12px').style('fill', '#888').text('Posición en el ranking');
+    .attr('x', 0 - (innerHeight / 2)).attr('dy', '1em').style('text-anchor', 'middle')
+    .style('font-size', '12px').style('fill', '#888').text('Posición');
 }
 
 /* -----------------------------------------------------------

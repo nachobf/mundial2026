@@ -1201,10 +1201,6 @@ body {
    DATA ANALYSIS — Bump Chart styles
    ============================================================ */
 
-#bumpChartContainer {
-  overflow: hidden;
-}
-
 .bump-line {
   transition: stroke-opacity 0.2s ease, stroke-width 0.2s ease;
 }
@@ -1225,12 +1221,37 @@ body {
   backdrop-filter: blur(4px);
 }
 
-/* Responsive */
+
+/* Bump Chart Responsive */
+#bumpChartContainer {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+#bumpChartContainer svg {
+  display: block;
+  max-width: none; /* Importante: no limitar ancho en móvil */
+}
+
 @media (max-width: 768px) {
   #bumpChartContainer {
     height: 420px !important;
+    padding: 8px;
   }
+  
   .bump-label {
     font-size: 10px !important;
   }
+  
+  .bump-tooltip {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+}
+
+/* Asegurar que el contenedor padre no corte el SVG */
+#tab-data-analysis .section {
+  overflow: visible;
+  padding: 12px;
 }
