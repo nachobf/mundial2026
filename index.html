@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
-  
   <script>
     (function() {
       var DEPLOY_VERSION = '106'; //CAMBIAR PARA ACTUALIZAR
@@ -24,12 +23,12 @@
       }
     })();
   </script>
-  
+  <script src="https://d3js.org/d3.v7.min.js"></script>
   <!-- SIN query strings, GitHub Pages no las soporta -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css">
   <link rel="stylesheet" href="style.css">
   <script src="app.js"></script>
-  
+  <script src="data-analysis.js"></script>
   <!-- Desregistrar SW para forzar actualización PWA 
   <script>
     if ('serviceWorker' in navigator) {
@@ -285,6 +284,6 @@
   </div>
 
   <script src="third_place_table.js"></script>
-  <script src="data-analysis.js"></script>
+  
 </body>
 </html>
