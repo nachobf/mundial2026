@@ -1,9 +1,6 @@
 /* ============================================================
-   DATA ANALYSIS — Bump Chart (OPTIMIZADO)
+   DATA ANALYSIS — Bump Chart (CON CÁLCULO PROPIO DE PUNTUACIÓN)
    ============================================================ */
-
-// Cache para evitar recalcular el mismo jugador con los mismos resultados
-const daScoreCache = new Map();
 
 function daLog(msg) {
   console.log('[DataAnalysis]', msg);
@@ -19,6 +16,218 @@ function daLoadWorldCupData() {
     });
 }
 
+/* -----------------------------------------------------------
+   CÁLCULO MANUAL DE PUNTUACIÓN (sin depender de calculatePlayerScore)
+   ----------------------------------------------------------- */
+function daCalculateScore(player, real) {
+  let score = 0;
+
+  // 1. Posiciones de grupo (1º-4º = 5 pts cada uno)
+  const groupNames = Object.keys(real.groups || {});
+  groupNames.forEach(group => {
+    const realOrder = real.groups[group] || [];
+    const predOrder = player.groups?.[group] || [];
+    for (let i = 0; i < 4; i++) {
+      if (predOrder[i] && realOrder[i] && predOrder[i] === realOrder[i]) {
+        score += 5;
+      }
+    }
+  });
+
+  // 2. Resultados exactos y 1X2
+  const predResults = player.groupMatchResults || {};
+  const realResults = real.groupMatchResults || {};
+  
+  Object.keys(realResults).forEach(key => {
+    const pred = predResults[key];
+    const realResult = realResults[key];
+    if (!pred || pred.team1Goals === '' || pred.team2Goals === '') return;
+    
+    const pG1 = Number(pred.team1Goals);
+    const pG2 = Number(pred.team2Goals);
+    const rG1 = Number(realResult.team1Goals);
+    const rG2 = Number(realResult.team2Goals);
+    
+    if (isNaN(pG1) || isNaN(pG2) || isNaN(rG1) || isNaN(rG2)) return;
+    
+    // Resultado exacto: 5 pts
+    if (pG1 === rG1 && pG2 === rG2) {
+      score += 5;
+    }
+    
+    // 1X2: 1 pt
+    const p1x2 = pG1 > pG2 ? '1' : pG1 < pG2 ? '2' : 'X';
+    const r1x2 = rG1 > rG2 ? '1' : rG1 < rG2 ? '2' : 'X';
+    if (p1x2 === r1x2) {
+      score += 1;
+    }
+  });
+
+  // 3. Mejores terceros (1 pt cada uno acertado en top 8)
+  const realTP = new Set((real.thirdPlace || []).slice(0, 8));
+  const predTP = player.thirdPlace || [];
+  predTP.forEach(team => {
+    if (realTP.has(team)) score += 1;
+  });
+
+  // 4. Eliminatorias
+  const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+
+  // Construir mapa de equipo -> ronda alcanzada en los resultados reales
+  const teamRoundReal = {};
+  const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
+  
+  koRounds.forEach(round => {
+    const matches = real.knockout?.matches?.[round] || [];
+    matches.forEach(m => {
+      if (m.winner) {
+        // El ganador avanza, el perdedor se queda en esta ronda
+        const loser = m.winner === m.team1 ? m.team2 : m.team1;
+        if (loser && !teamRoundReal[loser]) {
+          teamRoundReal[loser] = round;
+        }
+        // Para la final, el ganador es campeón
+        if (round === 'final') {
+          teamRoundReal[m.winner] = 'champion';
+        } else if (round === 'thirdPlace') {
+          teamRoundReal[m.winner] = 'thirdPlace';
+        }
+      }
+    });
+  });
+
+  // Para semifinales, los perdedores son 3º/4º puesto
+  const sfMatches = real.knockout?.matches?.semifinals || [];
+  if (sfMatches.length === 2) {
+    const sf1 = sfMatches[0], sf2 = sfMatches[1];
+    if (sf1?.winner && sf2?.winner) {
+      const loser1 = sf1.winner === sf1.team1 ? sf1.team2 : sf1.team1;
+      const loser2 = sf2.winner === sf2.team1 ? sf2.team2 : sf2.team1;
+      // El ganador del 3º puesto es 3º, el perdedor es 4º
+      const tpMatch = real.knockout?.matches?.thirdPlace?.[0];
+      if (tpMatch?.winner) {
+        teamRoundReal[tpMatch.winner] = 'thirdPlace';
+        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
+        if (fourth) teamRoundReal[fourth] = 'fourthPlace';
+      } else {
+        // Si no hay 3º puesto aún, ambos semifinalistas son semifinals
+        if (loser1) teamRoundReal[loser1] = 'semifinals';
+        if (loser2) teamRoundReal[loser2] = 'semifinals';
+      }
+    }
+  }
+
+  // Para cuartos, los perdedores son quarterfinals
+  const qfMatches = real.knockout?.matches?.quarterfinals || [];
+  qfMatches.forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'quarterfinals';
+    }
+  });
+
+  // Para octavos, los perdedores son round16
+  const r16Matches = real.knockout?.matches?.round16 || [];
+  r16Matches.forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'round16';
+    }
+  });
+
+  // Para dieciseisavos, los perdedores son round32
+  const r32Matches = real.knockout?.matches?.round32 || [];
+  r32Matches.forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'round32';
+    }
+  });
+
+  // Ahora calcular para la predicción del jugador
+  const teamRoundPred = {};
+  
+  // Construir predicción de knockout del jugador
+  const predKO = player.knockout?.matches || {};
+  koRounds.forEach(round => {
+    const matches = predKO[round] || [];
+    matches.forEach(m => {
+      if (m?.winner) {
+        const loser = m.winner === m.team1 ? m.team2 : m.team1;
+        if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = round;
+        if (round === 'final') teamRoundPred[m.winner] = 'champion';
+        if (round === 'thirdPlace') teamRoundPred[m.winner] = 'thirdPlace';
+      }
+    });
+  });
+
+  // Semifinales predichas
+  const predSF = predKO.semifinals || [];
+  if (predSF.length === 2) {
+    const sf1 = predSF[0], sf2 = predSF[1];
+    if (sf1?.winner && sf2?.winner) {
+      const loser1 = sf1.winner === sf1.team1 ? sf1.team2 : sf1.team1;
+      const loser2 = sf2.winner === sf2.team1 ? sf2.team2 : sf2.team1;
+      const tpMatch = predKO.thirdPlace?.[0];
+      if (tpMatch?.winner) {
+        teamRoundPred[tpMatch.winner] = 'thirdPlace';
+        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
+        if (fourth) teamRoundPred[fourth] = 'fourthPlace';
+      } else {
+        if (loser1 && !teamRoundPred[loser1]) teamRoundPred[loser1] = 'semifinals';
+        if (loser2 && !teamRoundPred[loser2]) teamRoundPred[loser2] = 'semifinals';
+      }
+    }
+  }
+
+  // Cuartos predichos
+  (predKO.quarterfinals || []).forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'quarterfinals';
+    }
+  });
+
+  // Octavos predichos
+  (predKO.round16 || []).forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'round16';
+    }
+  });
+
+  // Dieciseisavos predichos
+  (predKO.round32 || []).forEach(m => {
+    if (m?.winner) {
+      const loser = m.winner === m.team1 ? m.team2 : m.team1;
+      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'round32';
+    }
+  });
+
+  // Comparar y sumar puntos
+  const allTeams = new Set([
+    ...Object.keys(teamRoundReal),
+    ...Object.keys(teamRoundPred)
+  ]);
+
+  allTeams.forEach(team => {
+    const predRound = teamRoundPred[team];
+    const realRound = teamRoundReal[team];
+    if (predRound && realRound && predRound === realRound) {
+      const pts = roundPoints[predRound] || 0;
+      score += pts;
+    }
+  });
+
+  return score;
+}
+
+/* -----------------------------------------------------------
+   CONSTRUIR RESULTADOS REALES PARCIALES
+   ----------------------------------------------------------- */
 function daBuildPartialReal(matchesWithResults) {
   const real = {
     groups: {}, groupsConfirmed: {}, groupMatchResults: {},
@@ -136,29 +345,10 @@ function daBuildPartialReal(matchesWithResults) {
 }
 
 /* -----------------------------------------------------------
-   CÁLCULO DE PUNTUACIÓN OPTIMIZADO
+   PROCESAMIENTO Y RENDERIZADO
    ----------------------------------------------------------- */
-function daCalculateScoreFast(player, real) {
-  const cacheKey = JSON.stringify({ playerName: player.name, realKeys: Object.keys(real.groupMatchResults || {}).sort().join(',') });
-  if (daScoreCache.has(cacheKey)) return daScoreCache.get(cacheKey);
-
-  // Usar la función original pero con timeout de seguridad
-  let score = 0;
-  try {
-    const result = calculatePlayerScore(player, real);
-    score = result.score;
-  } catch (e) {
-    console.warn('Error en calculatePlayerScore para', player.name, e.message);
-    score = 0;
-  }
-
-  daScoreCache.set(cacheKey, score);
-  return score;
-}
-
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
-  daScoreCache.clear(); // Limpiar cache entre renders
 
   const byDate = {};
   finishedMatches.forEach(m => {
@@ -172,11 +362,10 @@ function daProcessAndRender(players, finishedMatches) {
   let processed = 0;
   const total = dates.length * players.length;
 
-  // Procesar con yield para no bloquear UI
   function processNextDate(dateIndex) {
     if (dateIndex >= dates.length) {
-      // Todos los días procesados, renderizar
       container.innerHTML = '<p class="note-text">Datos generados: ' + dailyScores.length + ' puntos. Renderizando...</p>';
+      window.__bumpChartData = dailyScores;
       daRenderBumpChart(dailyScores, parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10));
       return;
     }
@@ -185,10 +374,9 @@ function daProcessAndRender(players, finishedMatches) {
     matchesSoFar.push(...byDate[date]);
     const realPartial = daBuildPartialReal(matchesSoFar);
 
-    // Procesar jugadores de este día
     const dayResults = players.map(player => {
       processed++;
-      const score = daCalculateScoreFast(player, realPartial);
+      const score = daCalculateScore(player, realPartial);
       return { player: player.name || 'Anónimo', score, date };
     });
 
@@ -196,21 +384,16 @@ function daProcessAndRender(players, finishedMatches) {
     dayResults.forEach((d, i) => { d.rank = i + 1; });
     dailyScores.push(...dayResults);
 
-    // Actualizar progreso cada 3 días
-    if (dateIndex % 3 === 0 || dateIndex === dates.length - 1) {
+    if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
       container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + ' (' + processed + '/' + total + ' cálculos)...</p>';
     }
 
-    // Yield al event loop
-    setTimeout(() => processNextDate(dateIndex + 1), 0);
+    setTimeout(() => processNextDate(dateIndex + 1), 10);
   }
 
   processNextDate(0);
 }
 
-/* -----------------------------------------------------------
-   RENDERIZADO D3
-   ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
   container.innerHTML = '';
@@ -247,27 +430,23 @@ function daRenderBumpChart(dailyData, topN) {
   const line = d3.line().x(d => x(d.date)).y(d => y(d.rank)).curve(d3.curveMonotoneX);
   const nested = d3.group(filteredData, d => d.player);
 
-  // Grid
   svg.selectAll('.grid-line').data(y.ticks(maxRank)).enter().append('line')
     .attr('class', 'grid-line').attr('x1', 0).attr('x2', width)
     .attr('y1', d => y(d)).attr('y2', d => y(d))
     .attr('stroke', '#f0f0f0').attr('stroke-dasharray', '3,3');
 
-  // Lines
   svg.selectAll('.bump-line').data(Array.from(nested)).enter().append('path')
     .attr('class', 'bump-line').attr('d', ([, values]) => line(values))
     .attr('fill', 'none').attr('stroke', ([player]) => color(player))
     .attr('stroke-width', 2.5).attr('stroke-opacity', 0.85)
     .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
 
-  // Points
   const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
     .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
     .attr('r', 0).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2);
 
   points.transition().duration(700).delay((d, i) => i * 10).attr('r', 5);
 
-  // Axes
   const xAxis = svg.append('g').attr('transform', `translate(0,${height})`)
     .call(d3.axisBottom(x).tickFormat(d => new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })));
   xAxis.selectAll('text').style('text-anchor', 'end').attr('dx', '-.8em').attr('dy', '.15em').attr('transform', 'rotate(-35)').style('font-size', '11px').style('fill', '#666');
@@ -277,13 +456,11 @@ function daRenderBumpChart(dailyData, topN) {
   yAxis.selectAll('text').style('font-size', '11px').style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
 
-  // Labels
   const lastPoints = filteredData.filter(d => d.date === lastDate);
   svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
     .attr('class', 'bump-label').attr('x', width + 10).attr('y', d => y(d.rank)).attr('dy', '0.35em')
     .text(d => `${d.rank}. ${d.player}`).attr('fill', d => color(d.player)).attr('font-size', '12px').attr('font-weight', '600');
 
-  // Tooltip
   const tooltip = d3.select('body').append('div').attr('class', 'bump-tooltip')
     .style('opacity', 0).style('position', 'absolute').style('background', 'rgba(26,26,46,0.95)').style('color', '#fff')
     .style('padding', '10px 14px').style('border-radius', '10px').style('font-size', '13px')
