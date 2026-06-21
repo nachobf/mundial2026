@@ -7,19 +7,16 @@ function daLog(msg) {
 }
 
 /* -----------------------------------------------------------
-   1. Cargar datos del mundial (cacheado en window)
+   1. Cargar datos del mundial
    ----------------------------------------------------------- */
-async function daLoadWorldCupData() {
-  if (window.__worldCupData) return window.__worldCupData;
-  try {
-    const resp = await fetch(DATA_SRC + '/worldcup.json');
-    const data = await resp.json();
-    window.__worldCupData = data;
-    return data;
-  } catch (e) {
-    daLog('Error cargando WC data: ' + e.message);
-    return null;
-  }
+function daLoadWorldCupData() {
+  if (window.__worldCupData) return Promise.resolve(window.__worldCupData);
+  return fetch(DATA_SRC + '/worldcup.json')
+    .then(r => r.json())
+    .then(data => {
+      window.__worldCupData = data;
+      return data;
+    });
 }
 
 /* -----------------------------------------------------------
@@ -27,23 +24,16 @@ async function daLoadWorldCupData() {
    ----------------------------------------------------------- */
 function daBuildPartialReal(matchesWithResults) {
   const real = {
-    groups: {},
-    groupsConfirmed: {},
-    groupMatchResults: {},
-    thirdPlace: [],
-    thirdPlaceConfirmed: false,
+    groups: {}, groupsConfirmed: {}, groupMatchResults: {},
+    thirdPlace: [], thirdPlaceConfirmed: false,
     knockout: { matches: { round32: [], round16: [], quarterfinals: [], semifinals: [], thirdPlace: [], final: [] } }
   };
-
-  if (!matchesWithResults || matchesWithResults.length === 0) return real;
 
   const gNames = (typeof GROUP_NAMES !== 'undefined' && GROUP_NAMES.length) ? GROUP_NAMES : Object.keys(TEAMS_BY_GROUP || {}).sort();
   const tByGroup = (typeof TEAMS_BY_GROUP !== 'undefined') ? TEAMS_BY_GROUP : {};
 
-  gNames.forEach(group => {
-    real.groups[group] = [];
-    real.groupsConfirmed[group] = false;
-  });
+  gNames.forEach(g => { real.groups[g] = []; real.groupsConfirmed[g] = false; });
+  if (!matchesWithResults || matchesWithResults.length === 0) return real;
 
   const groupStats = {};
   const groupMatchesProcessed = {};
@@ -149,56 +139,18 @@ function daBuildPartialReal(matchesWithResults) {
 }
 
 /* -----------------------------------------------------------
-   3. Calcular puntuaciones día a día
+   3. Procesar puntuaciones día a día y renderizar
    ----------------------------------------------------------- */
-async function daProcessDailyScores() {
-  const wcData = await daLoadWorldCupData();
-  if (!wcData || !wcData.matches) {
-    daLog('No hay datos WC o no tiene .matches');
-    return [];
-  }
-
-  const lbData = window.__leaderboardData;
-  if (!lbData || !lbData.players || !lbData.players.length) {
-    daLog('No hay leaderboardData o está vacío');
-    return [];
-  }
-
-  const players = lbData.players.map(p => {
-    let parsed = p;
-    if (typeof p.json === 'string') {
-      try { parsed = JSON.parse(p.json); } catch(e) {}
-    }
-    return { name: p.name || 'Anónimo', ...parsed };
-  }).filter(p => p.groups && Object.keys(p.groups).length > 0);
-
-  daLog('Jugadores con predicción válida: ' + players.length);
-
-  if (players.length === 0) {
-    daLog('Ningún jugador tiene groups poblado. Revisa la estructura de __leaderboardData.players');
-    return [];
-  }
-
-  const finished = (wcData.matches || []).filter(m =>
-    m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
-  );
-
-  daLog('Partidos finalizados en JSON: ' + finished.length);
-
-  if (finished.length === 0) {
-    daLog('El JSON no tiene partidos con score.ft. El chart no puede generarse hasta que haya resultados reales.');
-    return [];
-  }
+function daProcessAndRender(players, finishedMatches) {
+  const container = document.getElementById('bumpChartContainer');
 
   const byDate = {};
-  finished.forEach(m => {
+  finishedMatches.forEach(m => {
     if (!byDate[m.date]) byDate[m.date] = [];
     byDate[m.date].push(m);
   });
 
   const dates = Object.keys(byDate).sort();
-  daLog('Fechas con partidos: ' + dates.join(', '));
-
   const dailyScores = [];
   const matchesSoFar = [];
 
@@ -211,7 +163,6 @@ async function daProcessDailyScores() {
         const result = calculatePlayerScore(player, realPartial);
         return { player: player.name || 'Anónimo', score: result.score, date };
       } catch (e) {
-        daLog('Error score para ' + player.name + ': ' + e.message);
         return { player: player.name || 'Anónimo', score: 0, date };
       }
     });
@@ -221,8 +172,16 @@ async function daProcessDailyScores() {
     dailyScores.push(...dayResults);
   });
 
-  daLog('Total puntos de datos generados: ' + dailyScores.length);
-  return dailyScores;
+  container.innerHTML = '<p class="note-text">Datos generados: ' + dailyScores.length + ' puntos. Renderizando...</p>';
+
+  if (typeof d3 === 'undefined') {
+    container.innerHTML += '<p class="note-text" style="color:red;">ERROR: D3.js no está cargado.</p>';
+    return;
+  }
+
+  window.__bumpChartData = dailyScores;
+  const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+  daRenderBumpChart(dailyScores, topN);
 }
 
 /* -----------------------------------------------------------
@@ -230,26 +189,18 @@ async function daProcessDailyScores() {
    ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
-  if (!container) return;
   container.innerHTML = '';
 
-  if (!dailyData || dailyData.length === 0) {
-    container.innerHTML = '<p class="note-text">No hay datos para mostrar.</p>';
-    return;
-  }
-
-  if (typeof d3 === 'undefined') {
-    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: D3.js no está cargado. Revisa el &lt;script&gt; en index.html.</p>';
-    return;
-  }
-
   const dates = [...new Set(dailyData.map(d => d.date))].sort();
+  if (dates.length === 0) {
+    container.innerHTML = '<p class="note-text">No hay fechas para mostrar.</p>';
+    return;
+  }
+
   const lastDate = dates[dates.length - 1];
   const lastRanks = dailyData.filter(d => d.date === lastDate).sort((a, b) => a.rank - b.rank);
   const topPlayers = new Set(lastRanks.slice(0, topN).map(d => d.player));
   const filteredData = dailyData.filter(d => topPlayers.has(d.player));
-
-  daLog('Renderizando chart: ' + topPlayers.size + ' jugadores, ' + dates.length + ' días, ' + filteredData.length + ' puntos');
 
   const margin = { top: 30, right: 150, bottom: 60, left: 50 };
   const containerWidth = container.clientWidth || 800;
@@ -263,160 +214,75 @@ function daRenderBumpChart(dailyData, topN) {
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-  const x = d3.scalePoint()
-    .domain(dates)
-    .range([0, width])
-    .padding(0.3);
-
+  const x = d3.scalePoint().domain(dates).range([0, width]).padding(0.3);
   const maxRank = d3.max(filteredData, d => d.rank) || 1;
-  const y = d3.scaleLinear()
-    .domain([1, maxRank])
-    .range([0, height]);
+  const y = d3.scaleLinear().domain([1, maxRank]).range([0, height]);
 
   const playersList = [...new Set(filteredData.map(d => d.player))];
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(playersList);
-
-  const line = d3.line()
-    .x(d => x(d.date))
-    .y(d => y(d.rank))
-    .curve(d3.curveMonotoneX);
-
+  const line = d3.line().x(d => x(d.date)).y(d => y(d.rank)).curve(d3.curveMonotoneX);
   const nested = d3.group(filteredData, d => d.player);
 
-  // Grid horizontal
-  svg.selectAll('.grid-line')
-    .data(y.ticks(maxRank))
-    .enter()
-    .append('line')
-    .attr('class', 'grid-line')
-    .attr('x1', 0).attr('x2', width)
+  // Grid
+  svg.selectAll('.grid-line').data(y.ticks(maxRank)).enter().append('line')
+    .attr('class', 'grid-line').attr('x1', 0).attr('x2', width)
     .attr('y1', d => y(d)).attr('y2', d => y(d))
-    .attr('stroke', '#f0f0f0')
-    .attr('stroke-dasharray', '3,3');
+    .attr('stroke', '#f0f0f0').attr('stroke-dasharray', '3,3');
 
-  // Líneas
-  svg.selectAll('.bump-line')
-    .data(Array.from(nested))
-    .enter()
-    .append('path')
-    .attr('class', 'bump-line')
-    .attr('d', ([, values]) => line(values))
-    .attr('fill', 'none')
-    .attr('stroke', ([player]) => color(player))
-    .attr('stroke-width', 2.5)
-    .attr('stroke-opacity', 0.85)
-    .attr('stroke-linejoin', 'round')
-    .attr('stroke-linecap', 'round');
+  // Lines
+  svg.selectAll('.bump-line').data(Array.from(nested)).enter().append('path')
+    .attr('class', 'bump-line').attr('d', ([, values]) => line(values))
+    .attr('fill', 'none').attr('stroke', ([player]) => color(player))
+    .attr('stroke-width', 2.5).attr('stroke-opacity', 0.85)
+    .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
 
-  // Puntos
-  const points = svg.selectAll('.bump-point')
-    .data(filteredData)
-    .enter()
-    .append('circle')
-    .attr('class', 'bump-point')
-    .attr('cx', d => x(d.date))
-    .attr('cy', d => y(d.rank))
-    .attr('r', 0)
-    .attr('fill', d => color(d.player))
-    .attr('stroke', '#fff')
-    .attr('stroke-width', 2);
+  // Points
+  const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
+    .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
+    .attr('r', 0).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2);
 
-  points.transition()
-    .duration(700)
-    .delay((d, i) => i * 10)
-    .attr('r', 5);
+  points.transition().duration(700).delay((d, i) => i * 10).attr('r', 5);
 
-  // Eje X
-  const xAxis = svg.append('g')
-    .attr('transform', `translate(0,${height})`)
-    .call(d3.axisBottom(x).tickFormat(d => {
-      const date = new Date(d + 'T00:00:00');
-      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-    }));
-
-  xAxis.selectAll('text')
-    .style('text-anchor', 'end')
-    .attr('dx', '-.8em')
-    .attr('dy', '.15em')
-    .attr('transform', 'rotate(-35)')
-    .style('font-size', '11px')
-    .style('fill', '#666');
+  // Axes
+  const xAxis = svg.append('g').attr('transform', `translate(0,${height})`)
+    .call(d3.axisBottom(x).tickFormat(d => new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })));
+  xAxis.selectAll('text').style('text-anchor', 'end').attr('dx', '-.8em').attr('dy', '.15em').attr('transform', 'rotate(-35)').style('font-size', '11px').style('fill', '#666');
   xAxis.select('.domain').attr('stroke', '#ddd');
-  xAxis.selectAll('.tick line').attr('stroke', '#eee');
 
-  // Eje Y
-  const yAxis = svg.append('g')
-    .call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
+  const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(maxRank).tickFormat(d => '#' + d));
   yAxis.selectAll('text').style('font-size', '11px').style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
-  yAxis.selectAll('.tick line').attr('stroke', '#eee');
 
-  // Labels finales
+  // Labels
   const lastPoints = filteredData.filter(d => d.date === lastDate);
-  svg.selectAll('.bump-label')
-    .data(lastPoints)
-    .enter()
-    .append('text')
-    .attr('class', 'bump-label')
-    .attr('x', width + 10)
-    .attr('y', d => y(d.rank))
-    .attr('dy', '0.35em')
-    .text(d => `${d.rank}. ${d.player}`)
-    .attr('fill', d => color(d.player))
-    .attr('font-size', '12px')
-    .attr('font-weight', '600');
+  svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
+    .attr('class', 'bump-label').attr('x', width + 10).attr('y', d => y(d.rank)).attr('dy', '0.35em')
+    .text(d => `${d.rank}. ${d.player}`).attr('fill', d => color(d.player)).attr('font-size', '12px').attr('font-weight', '600');
 
   // Tooltip
-  const tooltip = d3.select('body').append('div')
-    .attr('class', 'bump-tooltip')
-    .style('opacity', 0)
-    .style('position', 'absolute')
-    .style('background', 'rgba(26, 26, 46, 0.95)')
-    .style('color', '#fff')
-    .style('padding', '10px 14px')
-    .style('border-radius', '10px')
-    .style('font-size', '13px')
-    .style('pointer-events', 'none')
-    .style('z-index', '10000')
-    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
+  const tooltip = d3.select('body').append('div').attr('class', 'bump-tooltip')
+    .style('opacity', 0).style('position', 'absolute').style('background', 'rgba(26,26,46,0.95)').style('color', '#fff')
+    .style('padding', '10px 14px').style('border-radius', '10px').style('font-size', '13px')
+    .style('pointer-events', 'none').style('z-index', '10000').style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
-  points
-    .on('mouseover', function(event, d) {
-      d3.select(this).transition().duration(150).attr('r', 8).attr('stroke-width', 3);
-      svg.selectAll('.bump-line').attr('stroke-opacity', 0.12);
-      svg.selectAll('.bump-line').filter(([player]) => player === d.player)
-        .attr('stroke-opacity', 1).attr('stroke-width', 4);
+  points.on('mouseover', function(event, d) {
+    d3.select(this).transition().duration(150).attr('r', 8).attr('stroke-width', 3);
+    svg.selectAll('.bump-line').attr('stroke-opacity', 0.12);
+    svg.selectAll('.bump-line').filter(([player]) => player === d.player).attr('stroke-opacity', 1).attr('stroke-width', 4);
+    const dateObj = new Date(d.date + 'T00:00:00');
+    tooltip.transition().duration(150).style('opacity', 1);
+    tooltip.html(`<div style="font-weight:700;margin-bottom:4px;">${d.player}</div><div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div><div style="margin-top:6px;display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">#${d.rank}</span><span style="color:#7FD8FF;font-weight:600;">${d.score} pts</span></div>`);
+  }).on('mousemove', function(event) {
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }).on('mouseout', function() {
+    d3.select(this).transition().duration(150).attr('r', 5).attr('stroke-width', 2);
+    svg.selectAll('.bump-line').attr('stroke-opacity', 0.85).attr('stroke-width', 2.5);
+    tooltip.transition().duration(200).style('opacity', 0);
+  });
 
-      const dateObj = new Date(d.date + 'T00:00:00');
-      tooltip.transition().duration(150).style('opacity', 1);
-      tooltip.html(`
-        <div style="font-weight:700;margin-bottom:4px;">${d.player}</div>
-        <div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;font-weight:700;">#${d.rank}</span>
-          <span style="color:#7FD8FF;font-weight:600;">${d.score} pts</span>
-        </div>
-      `);
-    })
-    .on('mousemove', function(event) {
-      tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
-    })
-    .on('mouseout', function() {
-      d3.select(this).transition().duration(150).attr('r', 5).attr('stroke-width', 2);
-      svg.selectAll('.bump-line').attr('stroke-opacity', 0.85).attr('stroke-width', 2.5);
-      tooltip.transition().duration(200).style('opacity', 0);
-    });
-
-  // Título eje Y
-  svg.append('text')
-    .attr('transform', 'rotate(-90)')
-    .attr('y', 0 - margin.left + 12)
-    .attr('x', 0 - (height / 2))
-    .attr('dy', '1em')
-    .style('text-anchor', 'middle')
-    .style('font-size', '12px')
-    .style('fill', '#888')
-    .text('Posición en el ranking');
+  svg.append('text').attr('transform', 'rotate(-90)').attr('y', 0 - margin.left + 12)
+    .attr('x', 0 - (height / 2)).attr('dy', '1em').style('text-anchor', 'middle')
+    .style('font-size', '12px').style('fill', '#888').text('Posición en el ranking');
 }
 
 /* -----------------------------------------------------------
@@ -424,7 +290,10 @@ function daRenderBumpChart(dailyData, topN) {
    ----------------------------------------------------------- */
 function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
-  if (!container) return;
+  if (!container) {
+    console.error('[DataAnalysis] No existe #bumpChartContainer');
+    return;
+  }
 
   container.innerHTML = '<p class="note-text">Cargando datos...</p>';
 
@@ -444,8 +313,6 @@ function initDataAnalysis() {
 
     const rawPlayers = lbData?.players || [];
     
-    // Cada jugador tiene: name, score, details, prediction: {...}
-    // donde prediction contiene groups, groupMatchResults, knockout, etc.
     const players = rawPlayers.map(p => {
       const pred = p.prediction || p;
       return { 
@@ -457,18 +324,16 @@ function initDataAnalysis() {
     });
 
     if (players.length === 0) {
-      container.innerHTML = '<p class="note-text">No se encontraron predicciones válidas.</p>';
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
       return;
     }
-
-    container.innerHTML = '<p class="note-text">Jugadores: ' + players.length + '. Procesando...</p>';
 
     const finished = (wcData.matches || []).filter(m =>
       m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
     );
 
     if (finished.length === 0) {
-      container.innerHTML += '<p class="note-text">El torneo aún no ha empezado.</p>';
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
       return;
     }
 
@@ -480,23 +345,19 @@ function initDataAnalysis() {
   });
 }
 
-function daRefreshChart() {
-  if (window.__bumpChartData) {
-    const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-    daRenderBumpChart(window.__bumpChartData, topN);
-  } else {
-    initDataAnalysis();
-  }
-}
-
 /* -----------------------------------------------------------
    6. Event listeners
    ----------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshBumpChart');
   const topSelect = document.getElementById('bumpChartTopN');
-  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshChart);
-  if (topSelect) topSelect.addEventListener('change', daRefreshChart);
+  if (refreshBtn) refreshBtn.addEventListener('click', function() {
+    if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect?.value || '10', 10));
+    else initDataAnalysis();
+  });
+  if (topSelect) topSelect.addEventListener('change', function() {
+    if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect.value, 10));
+  });
 });
 
 // Resize
