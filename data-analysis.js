@@ -355,17 +355,37 @@ function daBuildPartialReal(matchesWithResults) {
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
 
-  // Contar partidos de grupo para saber si la fase está completa
-  const groupMatchesFinished = finishedMatches.filter(m => m.group && m.group.startsWith('Group ')).length;
-  const TOTAL_GROUP_MATCHES = 72; // 12 grupos × 6 partidos
+  const TOTAL_GROUP_MATCHES = 72;
 
+  // Agrupar TODOS los partidos finalizados por fecha
   const byDate = {};
   finishedMatches.forEach(m => {
     if (!byDate[m.date]) byDate[m.date] = [];
     byDate[m.date].push(m);
   });
 
-  const dates = Object.keys(byDate).sort();
+  // Obtener fechas únicas ordenadas
+  const uniqueDates = Object.keys(byDate).sort();
+  
+  // ===== DETECTAR SI HAY PARTIDOS DE HOY =====
+  const today = new Date().toISOString().split('T')[0]; // "2026-06-22"
+  const hasTodayMatches = uniqueDates.includes(today);
+  
+  // Si NO hay partidos de hoy en el JSON, pero hay partidos de ayer o antes,
+  // igual queremos mostrar una columna "hoy" con el estado actual
+  const dates = [...uniqueDates];
+  if (!hasTodayMatches && dates.length > 0) {
+    const lastDate = dates[dates.length - 1];
+    const lastDateObj = new Date(lastDate + 'T00:00:00');
+    const todayObj = new Date(today + 'T00:00:00');
+    
+    // Solo añadir "hoy" si realmente es después del último día con datos
+    if (todayObj > lastDateObj) {
+      dates.push(today);
+    }
+  }
+  // ===========================================
+
   const dailyScores = [];
   const matchesSoFar = [];
   let processed = 0;
@@ -380,10 +400,16 @@ function daProcessAndRender(players, finishedMatches) {
     }
 
     const date = dates[dateIndex];
-    matchesSoFar.push(...byDate[date]);
+    
+    // Añadir partidos de esta fecha (si existen en byDate)
+    if (byDate[date]) {
+      matchesSoFar.push(...byDate[date]);
+    }
+    // Si no hay partidos para esta fecha (ej. "hoy" sin datos), 
+    // matchesSoFar se mantiene igual (snapshot del estado actual)
+    
     const realPartial = daBuildPartialReal(matchesSoFar);
 
-    // ¿La fase de grupos está terminada en este snapshot?
     const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
     const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
 
@@ -398,9 +424,12 @@ function daProcessAndRender(players, finishedMatches) {
     dailyScores.push(...dayResults);
 
     if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
+      const isToday = date === today;
+      const hasData = !!byDate[date];
       container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + 
         ' (' + processed + '/' + total + ' cálculos)' + 
-        (faseGruposTerminada ? ' — Fase de grupos COMPLETA' : '') + '</p>';
+        (faseGruposTerminada ? ' — Fase de grupos COMPLETA' : '') +
+        (isToday ? (hasData ? ' — HOY' : ' — HOY (sin nuevos partidos)') : '') + '</p>';
     }
 
     setTimeout(() => processNextDate(dateIndex + 1), 10);
@@ -470,13 +499,11 @@ function daRenderBumpChart(dailyData, topN) {
     .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
     .attr('data-player', ([player]) => player); // guardar player para selección
 
-  // Puntos (guardar referencia para el hover de labels)
+  // Puntos — SIN animación, aparecen todos a la vez
   const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
     .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
-    .attr('r', 0).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
-    .attr('data-player', d => d.player); // guardar player para selección
-
-  points.transition().duration(700).delay((d, i) => i * 10).attr('r', isMobile ? 4 : 5);
+    .attr('r', isMobile ? 4 : 5).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
+    .attr('data-player', d => d.player);
 
   // Eje X
   const xAxis = svg.append('g').attr('transform', `translate(0,${innerHeight})`)
