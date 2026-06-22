@@ -1827,24 +1827,19 @@ function renderLeaderboard() {
     const dates = Object.keys(byDate).sort();
     if (dates.length < 2) return; // Necesitamos al menos 2 días para comparar
 
-    // Si ya tenemos __bumpChartData calculado, usarlo directamente
+    // Calcular ranks de ayer con la MISMA lógica compartida
     if (window.__bumpChartData && window.__bumpChartData.length > 0) {
       const bumpData = window.__bumpChartData;
       const allDates = [...new Set(bumpData.map(d => d.date))].sort();
       
       if (allDates.length >= 2) {
         const yesterday = allDates[allDates.length - 2];
-        const today = allDates[allDates.length - 1];
-        
-        // Ranking de ayer
         const yesterdayData = bumpData.filter(d => d.date === yesterday);
-        yesterdayData.forEach(d => {
-          previousDayRanks[d.player] = d.rank;
-        });
         
-        console.log('[Trend] Usando __bumpChartData. Ayer:', yesterday, 'Hoy:', today);
-        console.log('[Trend] Ranks ayer:', previousDayRanks);
-        return;
+        // Los ranks ya vienen calculados con posiciones compartidas del bump chart
+        yesterdayData.forEach(d => {
+          previousDayRanks[d.player] = d.rank; // ← rank compartido
+        });
       }
     }
 

@@ -352,44 +352,83 @@ function daBuildPartialReal(matchesWithResults) {
 /* -----------------------------------------------------------
    PROCESAMIENTO Y RENDERIZADO
    ----------------------------------------------------------- */
+   // ===== FUNCIÓN AUXILIAR: Calcular ranks con posiciones compartidas =====
+function calculateSharedRanks(scoresArray) {
+  // scoresArray: [{name, score}, ...] ya ordenado por score descendente
+  let currentRank = 1;
+  let previousScore = null;
+  let playersAtRank = 0;
+  const ranks = {};
+
+  scoresArray.forEach((entry, index) => {
+    const score = Number(entry.score) || 0;
+
+    if (previousScore !== null && score !== previousScore) {
+      currentRank += playersAtRank;
+      playersAtRank = 0;
+    }
+    playersAtRank++;
+    previousScore = score;
+
+    ranks[entry.name] = currentRank;
+  });
+
+  return ranks;
+}
+
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
 
   const TOTAL_GROUP_MATCHES = 72;
 
-  // Agrupar TODOS los partidos finalizados por fecha
   const byDate = {};
   finishedMatches.forEach(m => {
     if (!byDate[m.date]) byDate[m.date] = [];
     byDate[m.date].push(m);
   });
 
-  // Obtener fechas únicas ordenadas
   const uniqueDates = Object.keys(byDate).sort();
   
-  // ===== DETECTAR SI HAY PARTIDOS DE HOY =====
-  const today = new Date().toISOString().split('T')[0]; // "2026-06-22"
+  const today = new Date().toISOString().split('T')[0];
   const hasTodayMatches = uniqueDates.includes(today);
   
-  // Si NO hay partidos de hoy en el JSON, pero hay partidos de ayer o antes,
-  // igual queremos mostrar una columna "hoy" con el estado actual
   const dates = [...uniqueDates];
   if (!hasTodayMatches && dates.length > 0) {
     const lastDate = dates[dates.length - 1];
     const lastDateObj = new Date(lastDate + 'T00:00:00');
     const todayObj = new Date(today + 'T00:00:00');
     
-    // Solo añadir "hoy" si realmente es después del último día con datos
     if (todayObj > lastDateObj) {
       dates.push(today);
     }
   }
-  // ===========================================
 
   const dailyScores = [];
   const matchesSoFar = [];
   let processed = 0;
   const total = dates.length * players.length;
+
+  function calculateSharedRanks(scoresArray) {
+    let currentRank = 1;
+    let previousScore = null;
+    let playersAtRank = 0;
+    const ranks = {};
+
+    scoresArray.forEach((entry) => {
+      const score = Number(entry.score) || 0;
+
+      if (previousScore !== null && score !== previousScore) {
+        currentRank += playersAtRank;
+        playersAtRank = 0;
+      }
+      playersAtRank++;
+      previousScore = score;
+
+      ranks[entry.name] = currentRank;
+    });
+
+    return ranks;
+  }
 
   function processNextDate(dateIndex) {
     if (dateIndex >= dates.length) {
@@ -401,27 +440,33 @@ function daProcessAndRender(players, finishedMatches) {
 
     const date = dates[dateIndex];
     
-    // Añadir partidos de esta fecha (si existen en byDate)
     if (byDate[date]) {
       matchesSoFar.push(...byDate[date]);
     }
-    // Si no hay partidos para esta fecha (ej. "hoy" sin datos), 
-    // matchesSoFar se mantiene igual (snapshot del estado actual)
     
     const realPartial = daBuildPartialReal(matchesSoFar);
 
     const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
     const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
 
-    const dayResults = players.map(player => {
+    const dayScores = players.map(player => {
       processed++;
       const score = daCalculateScore(player, realPartial, faseGruposTerminada);
-      return { player: player.name || 'Anónimo', score, date };
+      return { name: player.name || 'Anónimo', score };
     });
 
-    dayResults.sort((a, b) => b.score - a.score);
-    dayResults.forEach((d, i) => { d.rank = i + 1; });
-    dailyScores.push(...dayResults);
+    dayScores.sort((a, b) => b.score - a.score);
+
+    const sharedRanks = calculateSharedRanks(dayScores);
+
+    dayScores.forEach(d => {
+      dailyScores.push({
+        player: d.name,
+        score: d.score,
+        date,
+        rank: sharedRanks[d.name]
+      });
+    });
 
     if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
       const isToday = date === today;
