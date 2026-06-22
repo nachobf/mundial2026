@@ -1684,16 +1684,6 @@ async function init() {
   hideLoading();
   if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu predicción y puntos en el ranking.', true);
 }
-  // =====================================
-  
-  restoreLocalPrediction();
-  renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
-  updateCountdowns();
-  setInterval(updateCountdowns, 1000);
-  initTabs();
-  hideLoading();
-  if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu predicción y puntos en el ranking.', true);
-}
 
 // ---- EVENT LISTENERS ----
 document.addEventListener('DOMContentLoaded', () => {
