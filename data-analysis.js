@@ -491,18 +491,19 @@ function daRenderBumpChart(dailyData, topN) {
     .attr('y1', d => y(d)).attr('y2', d => y(d))
     .attr('stroke', '#f0f0f0').attr('stroke-dasharray', '3,3');
 
-  // Líneas (guardar referencia para el hover de labels)
+  // Líneas
   const lines = svg.selectAll('.bump-line').data(Array.from(nested)).enter().append('path')
     .attr('class', 'bump-line').attr('d', ([, values]) => line(values))
     .attr('fill', 'none').attr('stroke', ([player]) => color(player))
     .attr('stroke-width', isMobile ? 2 : 2.5).attr('stroke-opacity', 0.85)
     .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
-    .attr('data-player', ([player]) => player); // guardar player para selección
+    .attr('data-player', ([player]) => player);
 
-  // Puntos — SIN animación, aparecen todos a la vez
+  // Puntos
   const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
     .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
-    .attr('r', isMobile ? 4 : 5).attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
+    .attr('r', isMobile ? 4 : 5)
+    .attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
     .attr('data-player', d => d.player);
 
   // Eje X
@@ -537,37 +538,29 @@ function daRenderBumpChart(dailyData, topN) {
     .style('padding', '10px 14px').style('border-radius', '10px').style('font-size', '13px')
     .style('pointer-events', 'none').style('z-index', '10000').style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
-  // Función para resaltar línea y mostrar tooltip
-  function highlightPlayer(playerName, event) {
-    // Resaltar línea
+  // ===== FUNCIÓN PARA MOSTRAR TOOLTIP CON DATOS DEL PUNTO =====
+  function showTooltip(event, pointData) {
+    const dateObj = new Date(pointData.date + 'T00:00:00');
+    tooltip.transition().duration(150).style('opacity', 1);
+    tooltip.html(`
+      <div style="font-weight:700;margin-bottom:4px;">${pointData.player}</div>
+      <div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;font-weight:700;">#${pointData.rank}</span>
+        <span style="color:#7FD8FF;font-weight:600;">${pointData.score} pts</span>
+      </div>
+    `);
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }
+
+  function highlightPlayer(playerName) {
     svg.selectAll('.bump-line').attr('stroke-opacity', 0.12);
     svg.selectAll('.bump-line').filter(([p]) => p === playerName)
       .attr('stroke-opacity', 1).attr('stroke-width', isMobile ? 3 : 4);
     
-    // Resaltar puntos
     svg.selectAll('.bump-point').attr('r', isMobile ? 4 : 5).attr('stroke-width', 2);
     svg.selectAll('.bump-point').filter(d => d.player === playerName)
       .attr('r', isMobile ? 6 : 8).attr('stroke-width', 3);
-
-    // Encontrar datos del último día
-    const lastDayData = filteredData.find(d => d.player === playerName && d.date === lastDate);
-    if (!lastDayData) return;
-
-    // Mostrar tooltip
-    const dateObj = new Date(lastDayData.date + 'T00:00:00');
-    tooltip.transition().duration(150).style('opacity', 1);
-    tooltip.html(`
-      <div style="font-weight:700;margin-bottom:4px;">${lastDayData.player}</div>
-      <div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
-      <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:18px;font-weight:700;">#${lastDayData.rank}</span>
-        <span style="color:#7FD8FF;font-weight:600;">${lastDayData.score} pts</span>
-      </div>
-    `);
-
-    if (event) {
-      tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
-    }
   }
 
   function resetHighlight() {
@@ -576,17 +569,19 @@ function daRenderBumpChart(dailyData, topN) {
     tooltip.transition().duration(200).style('opacity', 0);
   }
 
-  // Hover en puntos
+  // Hover en puntos — USA LOS DATOS DEL PUNTO (d), NO DEL ÚLTIMO DÍA
   points.on('mouseover', function(event, d) {
-    highlightPlayer(d.player, event);
+    highlightPlayer(d.player);
+    showTooltip(event, d); // ← d es el dato del punto específico (día X, jugador Y)
   }).on('mousemove', function(event) {
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
   }).on('mouseout', resetHighlight);
 
-  // Labels finales con hover
+  // Labels
   const lastPoints = filteredData.filter(d => d.date === lastDate);
+  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
   
-  const labels = svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
+  const labels = svg.selectAll('.bump-label').data(labelsToShow).enter().append('text')
     .attr('class', 'bump-label')
     .attr('x', width + (isMobile ? 5 : 10))
     .attr('y', d => y(d.rank))
@@ -595,12 +590,13 @@ function daRenderBumpChart(dailyData, topN) {
     .attr('fill', d => color(d.player))
     .attr('font-size', isMobile ? '10px' : '12px')
     .attr('font-weight', '600')
-    .style('cursor', 'pointer') // indicar que es clickable
-    .style('pointer-events', 'all'); // permitir eventos de mouse
+    .style('cursor', 'pointer')
+    .style('pointer-events', 'all');
 
-  // Hover en labels
+  // Hover en labels — muestra tooltip del ÚLTIMO DÍA (comportamiento actual, correcto)
   labels.on('mouseenter', function(event, d) {
-    highlightPlayer(d.player, event);
+    highlightPlayer(d.player);
+    showTooltip(event, d); // d es del último día porque labelsToShow filtra por lastDate
   }).on('mousemove', function(event) {
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
   }).on('mouseleave', resetHighlight);
