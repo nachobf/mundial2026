@@ -1629,25 +1629,40 @@ function escapeHtml(text) {
 async function init() {
   showLoading('Cargando datos del Mundial 2026...');
   
-  // Forzar recarga si hay nueva versión
-  try {
-    const savedVersion = localStorage.getItem(LOCAL_STORAGE_VERSION_KEY);
-    if (savedVersion && savedVersion !== LOCAL_STORAGE_VERSION) {
-      console.log('Nueva versión detectada. Limpiando y recargando...');
-      localStorage.clear(); // Limpia TODO el localStorage
-      localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
-      location.reload(); // Recarga la página para aplicar cambios
-      return; // Detener ejecución
-    }
-    // Si es primera visita o versión actual, guardar versión
-    localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
-  } catch (e) {
-    console.warn('Error con localStorage:', e);
-  }
+  // ... tu código de versión existente ...
   
   const loaded = await loadData();
   if (!loaded) { hideLoading(); return; }
   await loadLeaderboard();
+  
+  // ===== PRECÁLCULO DE TENDENCIAS =====
+  // Calcular __bumpChartData en background para que las tendencias estén listas
+  if (window.__worldCupData && window.__leaderboardData?.players?.length > 0) {
+    try {
+      const rawPlayers = window.__leaderboardData.players.map(p => {
+        let parsed = p.prediction || p;
+        if (typeof p.json === 'string') {
+          try { parsed = JSON.parse(p.json); } catch(e) {}
+        }
+        return { name: p.name || 'Anónimo', ...parsed };
+      }).filter(p => p.groups && Object.keys(p.groups).length > 0);
+
+      const finished = window.__worldCupData.matches.filter(m =>
+        m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+      );
+
+      if (rawPlayers.length > 0 && finished.length > 0) {
+        // Calcular en background sin bloquear UI
+        setTimeout(() => {
+          daProcessAndRender(rawPlayers, finished);
+        }, 100);
+      }
+    } catch (e) {
+      console.warn('Error precalculando tendencias:', e);
+    }
+  }
+  // =====================================
+  
   restoreLocalPrediction();
   renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
   updateCountdowns();
@@ -1790,55 +1805,86 @@ function renderLeaderboard() {
   table.className = 'leaderboard-table';
 
   // ===== CÁLCULO DE TENDENCIAS =====
-  // Calcular ranking "de ayer" para comparar
+  // Usar __bumpChartData si existe (ya calculado correctamente)
+  // o calcularlo al vuelo con la misma lógica que el bump chart
   let previousDayRanks = {};
   
-  if (hasRealResults && window.__worldCupData && window.__worldCupData.matches) {
+  async function calculateTrends() {
+    if (!hasRealResults || !window.__worldCupData) return;
+
     const finishedMatches = window.__worldCupData.matches.filter(m =>
       m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
     );
-    
-    if (finishedMatches.length > 0) {
-      // Agrupar por fecha
-      const byDate = {};
-      finishedMatches.forEach(m => {
-        if (!byDate[m.date]) byDate[m.date] = [];
-        byDate[m.date].push(m);
-      });
+
+    if (finishedMatches.length === 0) return;
+
+    const byDate = {};
+    finishedMatches.forEach(m => {
+      if (!byDate[m.date]) byDate[m.date] = [];
+      byDate[m.date].push(m);
+    });
+
+    const dates = Object.keys(byDate).sort();
+    if (dates.length < 2) return; // Necesitamos al menos 2 días para comparar
+
+    // Si ya tenemos __bumpChartData calculado, usarlo directamente
+    if (window.__bumpChartData && window.__bumpChartData.length > 0) {
+      const bumpData = window.__bumpChartData;
+      const allDates = [...new Set(bumpData.map(d => d.date))].sort();
       
-      const dates = Object.keys(byDate).sort();
-      
-      // Si hay al menos 2 días, calcular ranking del penúltimo día
-      if (dates.length >= 2) {
-        const previousDate = dates[dates.length - 2]; // Penúltimo día con partidos
-        const matchesUntilPrevious = [];
+      if (allDates.length >= 2) {
+        const yesterday = allDates[allDates.length - 2];
+        const today = allDates[allDates.length - 1];
         
-        for (let i = 0; i < dates.length - 1; i++) {
-          matchesUntilPrevious.push(...byDate[dates[i]]);
-        }
-        
-        const realPartial = daBuildPartialReal(matchesUntilPrevious);
-        const groupMatchesSoFar = matchesUntilPrevious.filter(m => m.group && m.group.startsWith('Group ')).length;
-        const faseGruposTerminada = groupMatchesSoFar >= 72;
-        
-        // Calcular puntuaciones de ayer para cada jugador
-        const yesterdayScores = players.map(p => {
-          let parsed = p.prediction || p;
-          if (typeof p.json === 'string') {
-            try { parsed = JSON.parse(p.json); } catch(e) {}
-          }
-          const player = { name: p.name || 'Anónimo', ...parsed };
-          const score = daCalculateScore(player, realPartial, faseGruposTerminada);
-          return { name: player.name, score };
+        // Ranking de ayer
+        const yesterdayData = bumpData.filter(d => d.date === yesterday);
+        yesterdayData.forEach(d => {
+          previousDayRanks[d.player] = d.rank;
         });
         
-        yesterdayScores.sort((a, b) => b.score - a.score);
-        yesterdayScores.forEach((d, i) => {
-          previousDayRanks[d.name] = i + 1;
-        });
+        console.log('[Trend] Usando __bumpChartData. Ayer:', yesterday, 'Hoy:', today);
+        console.log('[Trend] Ranks ayer:', previousDayRanks);
+        return;
       }
     }
+
+    // Fallback: calcular con la misma lógica del bump chart
+    const yesterday = dates[dates.length - 2];
+    const matchesUntilYesterday = [];
+    
+    for (let i = 0; i < dates.length - 1; i++) {
+      matchesUntilYesterday.push(...byDate[dates[i]]);
+    }
+    
+    const realPartial = daBuildPartialReal(matchesUntilYesterday);
+    const groupMatchesSoFar = matchesUntilYesterday.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= 72;
+    
+    const yesterdayScores = players.map(p => {
+      let parsed = p.prediction || p;
+      if (typeof p.json === 'string') {
+        try { parsed = JSON.parse(p.json); } catch(e) {}
+      }
+      const player = { name: p.name || 'Anónimo', ...parsed };
+      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
+      return { name: player.name, score };
+    });
+    
+    yesterdayScores.sort((a, b) => b.score - a.score);
+    yesterdayScores.forEach((d, i) => {
+      previousDayRanks[d.name] = i + 1;
+    });
+    
+    console.log('[Trend] Calculado fallback. Fecha ayer:', yesterday);
+    console.log('[Trend] Ranks ayer:', previousDayRanks);
   }
+
+  // Ejecutar cálculo de tendencias (sync si ya tenemos datos, async si no)
+  if (window.__bumpChartData) {
+    calculateTrends();
+  }
+  // Si no hay __bumpChartData, las tendencias se calcularán cuando se abra Data Analysis
+  // o podemos forzar el cálculo aquí, pero eso bloquearía la UI
   // =================================
 
   if (!hasRealResults) {
@@ -1877,12 +1923,16 @@ function renderLeaderboard() {
       // ===== FLECHA DE TENDENCIA =====
       let trendHtml = '';
       const yesterdayRank = previousDayRanks[name];
+      
       if (yesterdayRank && yesterdayRank !== rank) {
         if (rank < yesterdayRank) {
           trendHtml = '<span class="trend-arrow trend-up" title="Subió desde #' + yesterdayRank + '">▲</span>';
-        } else {
+        } else if (rank > yesterdayRank) {
           trendHtml = '<span class="trend-arrow trend-down" title="Bajó desde #' + yesterdayRank + '">▼</span>';
         }
+      } else if (yesterdayRank && yesterdayRank === rank) {
+        // Sin cambio, opcional: mostrar = o nada
+        // trendHtml = '<span class="trend-arrow trend-same" title="Sin cambio">=</span>';
       }
       // ================================
 
