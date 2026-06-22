@@ -1629,14 +1629,28 @@ function escapeHtml(text) {
 async function init() {
   showLoading('Cargando datos del Mundial 2026...');
   
-  // ... tu código de versión existente ...
+  // Forzar recarga si hay nueva versión
+  try {
+    const savedVersion = localStorage.getItem(LOCAL_STORAGE_VERSION_KEY);
+    if (savedVersion && savedVersion !== LOCAL_STORAGE_VERSION) {
+      console.log('Nueva versión detectada. Limpiando y recargando...');
+      localStorage.clear();
+      localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
+      location.reload();
+      return;
+    }
+    localStorage.setItem(LOCAL_STORAGE_VERSION_KEY, LOCAL_STORAGE_VERSION);
+  } catch (e) {
+    console.warn('Error con localStorage:', e);
+  }
   
   const loaded = await loadData();
   if (!loaded) { hideLoading(); return; }
   await loadLeaderboard();
   
-  // ===== PRECÁLCULO DE TENDENCIAS =====
-  // Calcular __bumpChartData en background para que las tendencias estén listas
+  // ===== PRECÁLCULO DE BUMP CHART PARA TENDENCIAS =====
+  // Calcular __bumpChartData inmediatamente para que las flechas de tendencia
+  // estén disponibles desde el primer render del leaderboard
   if (window.__worldCupData && window.__leaderboardData?.players?.length > 0) {
     try {
       const rawPlayers = window.__leaderboardData.players.map(p => {
@@ -1645,22 +1659,31 @@ async function init() {
           try { parsed = JSON.parse(p.json); } catch(e) {}
         }
         return { name: p.name || 'Anónimo', ...parsed };
-      }).filter(p => p.groups && Object.keys(p.groups).length > 0);
+      }).filter(p => p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0);
 
-      const finished = window.__worldCupData.matches.filter(m =>
+      const finished = (window.__worldCupData.matches || []).filter(m =>
         m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
       );
 
       if (rawPlayers.length > 0 && finished.length > 0) {
-        // Calcular en background sin bloquear UI
-        setTimeout(() => {
-          daProcessAndRender(rawPlayers, finished);
-        }, 100);
+        console.log('[Init] Precalculando bump chart para tendencias...');
+        // Calcular directamente sin setTimeout (bloqueará la UI momentáneamente)
+        daPrecalcularBumpChart(rawPlayers, finished);
       }
     } catch (e) {
-      console.warn('Error precalculando tendencias:', e);
+      console.warn('Error precalculando bump chart:', e);
     }
   }
+  // =====================================================
+  
+  restoreLocalPrediction();
+  renderGroups(); renderBestThirds(); renderThirdPlace(); renderKnockout(); renderQuiniela1x2();
+  updateCountdowns();
+  setInterval(updateCountdowns, 1000);
+  initTabs();
+  hideLoading();
+  if (isSubmissionClosed()) showToast('Predicciones cerradas. Revisa tu predicción y puntos en el ranking.', true);
+}
   // =====================================
   
   restoreLocalPrediction();

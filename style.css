@@ -412,8 +412,8 @@ body {
   cursor: pointer;
   transition: all 0.2s;
 }
-.confirm-btn { background: #4a90d9; color: white; }
-.confirm-btn:hover { background: #357abd; }
+.confirm-btn { background: #4CAF50; color: white; }
+.confirm-btn:hover { background: #45a049; }
 
 /* Group Results Modal */
 .group-results-table { margin-bottom: 20px; }

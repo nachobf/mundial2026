@@ -16,6 +16,86 @@ function daLoadWorldCupData() {
     });
 }
 
+function daPrecalcularBumpChart(players, finishedMatches) {
+  const TOTAL_GROUP_MATCHES = 72;
+
+  const byDate = {};
+  finishedMatches.forEach(m => {
+    if (!byDate[m.date]) byDate[m.date] = [];
+    byDate[m.date].push(m);
+  });
+
+  const uniqueDates = Object.keys(byDate).sort();
+  
+  const today = new Date().toISOString().split('T')[0];
+  const hasTodayMatches = uniqueDates.includes(today);
+  
+  const dates = [...uniqueDates];
+  if (!hasTodayMatches && dates.length > 0) {
+    const lastDate = dates[dates.length - 1];
+    const lastDateObj = new Date(lastDate + 'T00:00:00');
+    const todayObj = new Date(today + 'T00:00:00');
+    
+    if (todayObj > lastDateObj) {
+      dates.push(today);
+    }
+  }
+
+  const dailyScores = [];
+  const matchesSoFar = [];
+
+  dates.forEach(date => {
+    if (byDate[date]) {
+      matchesSoFar.push(...byDate[date]);
+    }
+    
+    const realPartial = daBuildPartialReal(matchesSoFar);
+    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
+
+    const dayScores = players.map(player => {
+      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
+      return { name: player.name || 'Anónimo', score };
+    });
+
+    dayScores.sort((a, b) => b.score - a.score);
+
+    // Rank secuencial para el bump chart
+    dayScores.forEach((d, i) => {
+      dailyScores.push({
+        player: d.name,
+        score: d.score,
+        date,
+        rank: i + 1,
+        sharedRank: null
+      });
+    });
+
+    // Rank compartido para tendencias
+    let currentRank = 1;
+    let previousScore = null;
+    let playersAtRank = 0;
+    
+    dayScores.forEach((entry) => {
+      const score = Number(entry.score) || 0;
+      if (previousScore !== null && score !== previousScore) {
+        currentRank += playersAtRank;
+        playersAtRank = 0;
+      }
+      playersAtRank++;
+      previousScore = score;
+      
+      const matchingEntry = dailyScores.find(d => d.player === entry.name && d.date === date);
+      if (matchingEntry) {
+        matchingEntry.sharedRank = currentRank;
+      }
+    });
+  });
+
+  window.__bumpChartData = dailyScores;
+  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos');
+}
+
 /* -----------------------------------------------------------
    CÁLCULO MANUAL DE PUNTUACIÓN
    - Grupos: solo si faseGruposTerminada
