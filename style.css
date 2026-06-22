@@ -1280,3 +1280,44 @@ body {
     margin-left: 4px;
   }
 }
+
+.da-collapsible-section { 
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.da-collapsible-header { 
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:16px 20px;
+  background:#f8f9fa;
+  cursor:pointer;
+  user-select:none;
+  transition: background 0.2s;
+}
+.da-collapsible-header:hover {
+  background:#e9ecef;
+}
+.da-collapsible-header h2 {
+  margin:0;
+  font-size:1.3rem;
+}
+.da-collapsible-header .arrow {
+  font-size:18px;
+  transition:transform 0.2s;
+  color:#666;
+  margin-left:12px;
+}
+.da-collapsible-header.active .arrow {
+  transform:rotate(90deg);
+}
+.da-collapsible-content {
+  display:none;
+  padding:16px 20px;
+  background:#fff;
+}
+.da-collapsible-content.active {
+  display:block;
+}

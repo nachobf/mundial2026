@@ -1544,10 +1544,38 @@ function initTabs() {
       btn.classList.add('active');
       document.getElementById('tab-' + tabId).classList.add('active');
       if (tabId === 'ranking') renderLeaderboard();
-      if (tabId === 'data-analysis' && typeof initDataAnalysis === 'function') initDataAnalysis();
     });
   });
   renderLeaderboard();
+}
+
+function toggleDataAnalysisSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const header = section.querySelector('.da-collapsible-header');
+  const content = section.querySelector('.da-collapsible-content');
+  const isOpening = !content.classList.contains('active');
+  
+  if (isOpening) {
+    content.classList.add('active');
+    content.style.display = 'block';
+    header.classList.add('active');
+    
+    if (sectionId === 'bumpChartSection') {
+      setTimeout(() => {
+        if (window.__bumpChartData && window.__bumpChartData.length > 0) {
+          const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+          if (typeof daRenderBumpChart === 'function') daRenderBumpChart(window.__bumpChartData, topN);
+        } else if (typeof initDataAnalysis === 'function') {
+          initDataAnalysis();
+        }
+      }, 50);
+    }
+  } else {
+    content.classList.remove('active');
+    content.style.display = 'none';
+    header.classList.remove('active');
+  }
 }
 
 // ---- SUBMIT / RESET ----
@@ -1666,7 +1694,6 @@ async function init() {
       );
 
       if (rawPlayers.length > 0 && finished.length > 0) {
-        console.log('[Init] Precalculando bump chart para tendencias...');
         // Calcular directamente sin setTimeout (bloqueará la UI momentáneamente)
         daPrecalcularBumpChart(rawPlayers, finished);
       }

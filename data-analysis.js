@@ -93,7 +93,6 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   });
 
   window.__bumpChartData = dailyScores;
-  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos');
 }
 
 /* -----------------------------------------------------------
@@ -739,6 +738,14 @@ function initDataAnalysis() {
   const container = document.getElementById('bumpChartContainer');
   if (!container) {
     console.error('[DataAnalysis] No existe #bumpChartContainer');
+    return;
+  }
+
+  // Si ya tenemos datos precalculados, renderizar directamente
+  if (window.__bumpChartData && window.__bumpChartData.length > 0) {
+    container.innerHTML = '<p class="note-text">Renderizando gráfico...</p>';
+    const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+    daRenderBumpChart(window.__bumpChartData, topN);
     return;
   }
 
