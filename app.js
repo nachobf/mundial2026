@@ -1805,81 +1805,24 @@ function renderLeaderboard() {
   table.className = 'leaderboard-table';
 
   // ===== CÁLCULO DE TENDENCIAS =====
-  // Usar __bumpChartData si existe (ya calculado correctamente)
-  // o calcularlo al vuelo con la misma lógica que el bump chart
-  let previousDayRanks = {};
+  let previousDaySharedRanks = {};
   
-  async function calculateTrends() {
-    if (!hasRealResults || !window.__worldCupData) return;
-
-    const finishedMatches = window.__worldCupData.matches.filter(m =>
-      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
-    );
-
-    if (finishedMatches.length === 0) return;
-
-    const byDate = {};
-    finishedMatches.forEach(m => {
-      if (!byDate[m.date]) byDate[m.date] = [];
-      byDate[m.date].push(m);
-    });
-
-    const dates = Object.keys(byDate).sort();
-    if (dates.length < 2) return; // Necesitamos al menos 2 días para comparar
-
-    // Calcular ranks de ayer con la MISMA lógica compartida
-    if (window.__bumpChartData && window.__bumpChartData.length > 0) {
-      const bumpData = window.__bumpChartData;
-      const allDates = [...new Set(bumpData.map(d => d.date))].sort();
+  if (hasRealResults && window.__bumpChartData && window.__bumpChartData.length > 0) {
+    const bumpData = window.__bumpChartData;
+    const allDates = [...new Set(bumpData.map(d => d.date))].sort();
+    
+    if (allDates.length >= 2) {
+      const yesterday = allDates[allDates.length - 2];
+      const yesterdayData = bumpData.filter(d => d.date === yesterday);
       
-      if (allDates.length >= 2) {
-        const yesterday = allDates[allDates.length - 2];
-        const yesterdayData = bumpData.filter(d => d.date === yesterday);
-        
-        // Los ranks ya vienen calculados con posiciones compartidas del bump chart
-        yesterdayData.forEach(d => {
-          previousDayRanks[d.player] = d.rank; // ← rank compartido
-        });
-      }
+      // Usar sharedRank (rank compartido) para comparar con el leaderboard
+      yesterdayData.forEach(d => {
+        if (d.sharedRank) {
+          previousDaySharedRanks[d.player] = d.sharedRank;
+        }
+      });
     }
-
-    // Fallback: calcular con la misma lógica del bump chart
-    const yesterday = dates[dates.length - 2];
-    const matchesUntilYesterday = [];
-    
-    for (let i = 0; i < dates.length - 1; i++) {
-      matchesUntilYesterday.push(...byDate[dates[i]]);
-    }
-    
-    const realPartial = daBuildPartialReal(matchesUntilYesterday);
-    const groupMatchesSoFar = matchesUntilYesterday.filter(m => m.group && m.group.startsWith('Group ')).length;
-    const faseGruposTerminada = groupMatchesSoFar >= 72;
-    
-    const yesterdayScores = players.map(p => {
-      let parsed = p.prediction || p;
-      if (typeof p.json === 'string') {
-        try { parsed = JSON.parse(p.json); } catch(e) {}
-      }
-      const player = { name: p.name || 'Anónimo', ...parsed };
-      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
-      return { name: player.name, score };
-    });
-    
-    yesterdayScores.sort((a, b) => b.score - a.score);
-    yesterdayScores.forEach((d, i) => {
-      previousDayRanks[d.name] = i + 1;
-    });
-    
-    console.log('[Trend] Calculado fallback. Fecha ayer:', yesterday);
-    console.log('[Trend] Ranks ayer:', previousDayRanks);
   }
-
-  // Ejecutar cálculo de tendencias (sync si ya tenemos datos, async si no)
-  if (window.__bumpChartData) {
-    calculateTrends();
-  }
-  // Si no hay __bumpChartData, las tendencias se calcularán cuando se abra Data Analysis
-  // o podemos forzar el cálculo aquí, pero eso bloquearía la UI
   // =================================
 
   if (!hasRealResults) {
@@ -1917,17 +1860,15 @@ function renderLeaderboard() {
 
       // ===== FLECHA DE TENDENCIA =====
       let trendHtml = '';
-      const yesterdayRank = previousDayRanks[name];
+      const yesterdaySharedRank = previousDaySharedRanks[name];
       
-      if (yesterdayRank && yesterdayRank !== rank) {
-        if (rank < yesterdayRank) {
-          trendHtml = '<span class="trend-arrow trend-up" title="Subió desde #' + yesterdayRank + '">▲</span>';
-        } else if (rank > yesterdayRank) {
-          trendHtml = '<span class="trend-arrow trend-down" title="Bajó desde #' + yesterdayRank + '">▼</span>';
+      // Comparar rank compartido de ayer vs rank compartido de hoy
+      if (yesterdaySharedRank && yesterdaySharedRank !== rank) {
+        if (rank < yesterdaySharedRank) {
+          trendHtml = '<span class="trend-arrow trend-up" title="Subió desde #' + yesterdaySharedRank + '">▲</span>';
+        } else if (rank > yesterdaySharedRank) {
+          trendHtml = '<span class="trend-arrow trend-down" title="Bajó desde #' + yesterdaySharedRank + '">▼</span>';
         }
-      } else if (yesterdayRank && yesterdayRank === rank) {
-        // Sin cambio, opcional: mostrar = o nada
-        // trendHtml = '<span class="trend-arrow trend-same" title="Sin cambio">=</span>';
       }
       // ================================
 

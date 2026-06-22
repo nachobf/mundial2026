@@ -408,28 +408,6 @@ function daProcessAndRender(players, finishedMatches) {
   let processed = 0;
   const total = dates.length * players.length;
 
-  function calculateSharedRanks(scoresArray) {
-    let currentRank = 1;
-    let previousScore = null;
-    let playersAtRank = 0;
-    const ranks = {};
-
-    scoresArray.forEach((entry) => {
-      const score = Number(entry.score) || 0;
-
-      if (previousScore !== null && score !== previousScore) {
-        currentRank += playersAtRank;
-        playersAtRank = 0;
-      }
-      playersAtRank++;
-      previousScore = score;
-
-      ranks[entry.name] = currentRank;
-    });
-
-    return ranks;
-  }
-
   function processNextDate(dateIndex) {
     if (dateIndex >= dates.length) {
       container.innerHTML = '<p class="note-text">Datos generados: ' + dailyScores.length + ' puntos. Renderizando...</p>';
@@ -457,15 +435,37 @@ function daProcessAndRender(players, finishedMatches) {
 
     dayScores.sort((a, b) => b.score - a.score);
 
-    const sharedRanks = calculateSharedRanks(dayScores);
-
-    dayScores.forEach(d => {
+    // ===== RANK SECUENCIAL para el bump chart (visual, no compartido) =====
+    // Esto evita que las líneas se superpongan visualmente
+    dayScores.forEach((d, i) => {
       dailyScores.push({
         player: d.name,
         score: d.score,
         date,
-        rank: sharedRanks[d.name]
+        rank: i + 1, // rank secuencial: 1, 2, 3, 4...
+        sharedRank: null // se calcula después
       });
+    });
+
+    // ===== RANK COMPARTIDO para las tendencias (misma lógica que leaderboard) =====
+    let currentRank = 1;
+    let previousScore = null;
+    let playersAtRank = 0;
+    
+    dayScores.forEach((entry, idx) => {
+      const score = Number(entry.score) || 0;
+      if (previousScore !== null && score !== previousScore) {
+        currentRank += playersAtRank;
+        playersAtRank = 0;
+      }
+      playersAtRank++;
+      previousScore = score;
+      
+      // Guardar el rank compartido en el último elemento del día
+      const matchingEntry = dailyScores.find(d => d.player === entry.name && d.date === date);
+      if (matchingEntry) {
+        matchingEntry.sharedRank = currentRank;
+      }
     });
 
     if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
