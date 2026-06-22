@@ -1789,7 +1789,58 @@ function renderLeaderboard() {
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
-  // Si no hay resultados reales: lista simple sin puntuación
+  // ===== CÁLCULO DE TENDENCIAS =====
+  // Calcular ranking "de ayer" para comparar
+  let previousDayRanks = {};
+  
+  if (hasRealResults && window.__worldCupData && window.__worldCupData.matches) {
+    const finishedMatches = window.__worldCupData.matches.filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+    
+    if (finishedMatches.length > 0) {
+      // Agrupar por fecha
+      const byDate = {};
+      finishedMatches.forEach(m => {
+        if (!byDate[m.date]) byDate[m.date] = [];
+        byDate[m.date].push(m);
+      });
+      
+      const dates = Object.keys(byDate).sort();
+      
+      // Si hay al menos 2 días, calcular ranking del penúltimo día
+      if (dates.length >= 2) {
+        const previousDate = dates[dates.length - 2]; // Penúltimo día con partidos
+        const matchesUntilPrevious = [];
+        
+        for (let i = 0; i < dates.length - 1; i++) {
+          matchesUntilPrevious.push(...byDate[dates[i]]);
+        }
+        
+        const realPartial = daBuildPartialReal(matchesUntilPrevious);
+        const groupMatchesSoFar = matchesUntilPrevious.filter(m => m.group && m.group.startsWith('Group ')).length;
+        const faseGruposTerminada = groupMatchesSoFar >= 72;
+        
+        // Calcular puntuaciones de ayer para cada jugador
+        const yesterdayScores = players.map(p => {
+          let parsed = p.prediction || p;
+          if (typeof p.json === 'string') {
+            try { parsed = JSON.parse(p.json); } catch(e) {}
+          }
+          const player = { name: p.name || 'Anónimo', ...parsed };
+          const score = daCalculateScore(player, realPartial, faseGruposTerminada);
+          return { name: player.name, score };
+        });
+        
+        yesterdayScores.sort((a, b) => b.score - a.score);
+        yesterdayScores.forEach((d, i) => {
+          previousDayRanks[d.name] = i + 1;
+        });
+      }
+    }
+  }
+  // =================================
+
   if (!hasRealResults) {
     players.forEach(entry => {
       const name = String(entry.name || 'Anónimo');
@@ -1803,7 +1854,6 @@ function renderLeaderboard() {
       table.appendChild(row);
     });
   } else {
-    // Hay resultados reales: calcular rank con posiciones compartidas
     let currentRank = 1;
     let previousScore = null;
     let playersAtRank = 0;
@@ -1811,7 +1861,6 @@ function renderLeaderboard() {
     players.forEach((entry, index) => {
       const score = Number(entry.score) || 0;
 
-      // Calcular rank compartido
       if (previousScore !== null && score !== previousScore) {
         currentRank += playersAtRank;
         playersAtRank = 0;
@@ -1825,14 +1874,26 @@ function renderLeaderboard() {
 
       const name = String(entry.name || 'Anónimo');
 
+      // ===== FLECHA DE TENDENCIA =====
+      let trendHtml = '';
+      const yesterdayRank = previousDayRanks[name];
+      if (yesterdayRank && yesterdayRank !== rank) {
+        if (rank < yesterdayRank) {
+          trendHtml = '<span class="trend-arrow trend-up" title="Subió desde #' + yesterdayRank + '">▲</span>';
+        } else {
+          trendHtml = '<span class="trend-arrow trend-down" title="Bajó desde #' + yesterdayRank + '">▼</span>';
+        }
+      }
+      // ================================
+
       const row = document.createElement('div');
       row.className = 'leaderboard-row' + (rank <= 3 ? ' top-' + rank : '');
 
-      const rankDisplay = isShared ? rank + '*' : rank ;
+      const rankDisplay = isShared ? rank + '*' : rank;
 
       row.innerHTML = 
         '<span class="leaderboard-rank">' + escapeHtml(rankDisplay) + '</span>' +
-        '<span class="leaderboard-name">' + escapeHtml(name) + '</span>' +
+        '<span class="leaderboard-name">' + escapeHtml(name) + ' ' + trendHtml + '</span>' +
         '<span class="leaderboard-score">' + score + ' pts</span>';
 
       row.addEventListener('click', () => showPlayerPrediction(entry));

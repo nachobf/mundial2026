@@ -1255,3 +1255,28 @@ body {
   overflow: visible;
   padding: 12px;
 }
+
+/* Flechas de tendencia en leaderboard */
+.trend-arrow {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.trend-up {
+  color: #4caf50; /* verde */
+}
+
+.trend-down {
+  color: #f44336; /* rojo */
+}
+
+/* En móvil, hacer las flechas más visibles */
+@media (max-width: 768px) {
+  .trend-arrow {
+    font-size: 14px;
+    margin-left: 4px;
+  }
+}
