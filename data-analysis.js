@@ -1,8 +1,8 @@
 /* ============================================================
-   DATA ANALYSIS — Bump Chart (CON SCROLL HORIZONTAL + TOGGLE FIT)
+   DATA ANALYSIS — Bump Chart (SCROLL HORIZONTAL + TOGGLE FIT)
    ============================================================ */
 
-let BUMP_CHART_FIT_MODE = false; // false = scroll horizontal (default), true = ajustar al ancho
+let BUMP_CHART_FIT_MODE = false;
 
 function daLog(msg) {
   console.log('[DataAnalysis]', msg);
@@ -18,28 +18,119 @@ function daLoadWorldCupData() {
     });
 }
 
+/* -----------------------------------------------------------
+   CONVERSIÓN DE FECHA/HORA A CEST (EUROPA CENTRAL)
+   ----------------------------------------------------------- */
+/**
+ * Convierte la fecha local de un partido (date + time con zona horaria)
+ * a la fecha correspondiente en CEST (UTC+2).
+ * 
+ * Ejemplo: "2026-06-23" + "21:00 UTC-5" → "2026-06-24" (04:00 CEST)
+ * 
+ * @param {string} dateStr - Fecha en formato "YYYY-MM-DD"
+ * @param {string} timeStr - Hora en formato "HH:MM UTC±N"
+ * @returns {string} Fecha en CEST como "YYYY-MM-DD"
+ */
+function daConvertToCESTDate(dateStr, timeStr) {
+  if (!dateStr) return dateStr;
+  
+  let hour = 0, minute = 0, utcOffset = 0;
+  
+  if (timeStr) {
+    const timeMatch = timeStr.match(/^(\d{2}):(\d{2})\s+UTC([+-]\d+)$/);
+    if (timeMatch) {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+      utcOffset = parseInt(timeMatch[3], 10);
+    }
+  }
+  
+  // Crear fecha en UTC: hora local - offset = UTC
+  const [anio, mes, dia] = dateStr.split('-').map(Number);
+  const utcHour = hour - utcOffset;
+  const utcDate = new Date(Date.UTC(anio, mes - 1, dia, utcHour, minute));
+  
+  if (Number.isNaN(utcDate.getTime())) return dateStr;
+  
+  // Convertir UTC a CEST (UTC+2) para obtener la fecha en Europa
+  const cestDate = new Date(utcDate.getTime() + (2 * 60 * 60 * 1000));
+  
+  const y = cestDate.getUTCFullYear();
+  const m = String(cestDate.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(cestDate.getUTCDate()).padStart(2, '0');
+  
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Versión completa con hora para ordenar dentro del mismo día CEST
+ */
+function daConvertToCEST(dateStr, timeStr) {
+  if (!dateStr) return { date: dateStr, timestamp: 0 };
+  
+  let hour = 0, minute = 0, utcOffset = 0;
+  
+  if (timeStr) {
+    const timeMatch = timeStr.match(/^(\d{2}):(\d{2})\s+UTC([+-]\d+)$/);
+    if (timeMatch) {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+      utcOffset = parseInt(timeMatch[3], 10);
+    }
+  }
+  
+  const [anio, mes, dia] = dateStr.split('-').map(Number);
+  const utcHour = hour - utcOffset;
+  const utcDate = new Date(Date.UTC(anio, mes - 1, dia, utcHour, minute));
+  
+  if (Number.isNaN(utcDate.getTime())) {
+    return { date: dateStr, timestamp: new Date(dateStr + 'T00:00:00Z').getTime() };
+  }
+  
+  // Añadir 2 horas para CEST
+  const cestTimestamp = utcDate.getTime() + (2 * 60 * 60 * 1000);
+  const cestDate = new Date(cestTimestamp);
+  
+  const y = cestDate.getUTCFullYear();
+  const m = String(cestDate.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(cestDate.getUTCDate()).padStart(2, '0');
+  
+  return { 
+    date: `${y}-${m}-${d}`, 
+    timestamp: cestTimestamp 
+  };
+}
+
 function daPrecalcularBumpChart(players, finishedMatches) {
   const TOTAL_GROUP_MATCHES = 72;
 
-  const byDate = {};
+  // Agrupar por fecha CEST en lugar de fecha local
+  const byCESTDate = {};
   finishedMatches.forEach(m => {
-    if (!byDate[m.date]) byDate[m.date] = [];
-    byDate[m.date].push(m);
+    const cest = daConvertToCEST(m.date, m.time);
+    const cestDate = cest.date;
+    if (!byCESTDate[cestDate]) byCESTDate[cestDate] = [];
+    byCESTDate[cestDate].push({ ...m, _cestTimestamp: cest.timestamp });
   });
 
-  const uniqueDates = Object.keys(byDate).sort();
+  // Ordenar las fechas CEST
+  const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const today = new Date().toISOString().split('T')[0];
-  const hasTodayMatches = uniqueDates.includes(today);
+  const todayCEST = daConvertToCEST(
+    new Date().toISOString().split('T')[0], 
+    null
+  ).date;
+  
+  const hasTodayMatches = uniqueDates.includes(todayCEST);
   
   const dates = [...uniqueDates];
   if (!hasTodayMatches && dates.length > 0) {
     const lastDate = dates[dates.length - 1];
     const lastDateObj = new Date(lastDate + 'T00:00:00');
-    const todayObj = new Date(today + 'T00:00:00');
+    const todayObj = new Date(todayCEST + 'T00:00:00');
     
     if (todayObj > lastDateObj) {
-      dates.push(today);
+      dates.push(todayCEST);
     }
   }
 
@@ -47,8 +138,10 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   const matchesSoFar = [];
 
   dates.forEach(date => {
-    if (byDate[date]) {
-      matchesSoFar.push(...byDate[date]);
+    if (byCESTDate[date]) {
+      // Ordenar partidos del día por timestamp CEST para consistencia
+      const dayMatches = byCESTDate[date].sort((a, b) => a._cestTimestamp - b._cestTimestamp);
+      matchesSoFar.push(...dayMatches);
     }
     
     const realPartial = daBuildPartialReal(matchesSoFar);
@@ -62,18 +155,16 @@ function daPrecalcularBumpChart(players, finishedMatches) {
 
     dayScores.sort((a, b) => b.score - a.score);
 
-    // Rank secuencial para el bump chart
     dayScores.forEach((d, i) => {
       dailyScores.push({
         player: d.name,
         score: d.score,
-        date,
+        date,  // Fecha CEST
         rank: i + 1,
         sharedRank: null
       });
     });
 
-    // Rank compartido para tendencias
     let currentRank = 1;
     let previousScore = null;
     let playersAtRank = 0;
@@ -95,7 +186,7 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   });
 
   window.__bumpChartData = dailyScores;
-  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos');
+  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos, fechas CEST:', dates);
 }
 
 /* -----------------------------------------------------------
@@ -104,7 +195,6 @@ function daPrecalcularBumpChart(players, finishedMatches) {
 function daCalculateScore(player, real, faseGruposTerminada) {
   let score = 0;
 
-  // 1. Posiciones de grupo (1º-4º = 5 pts cada uno) — SOLO si fase completa
   if (faseGruposTerminada) {
     const groupNames = Object.keys(real.groups || {});
     groupNames.forEach(group => {
@@ -118,7 +208,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   }
 
-  // 2. Resultados exactos y 1X2 — SIEMPRE
   const predResults = player.groupMatchResults || {};
   const realResults = real.groupMatchResults || {};
   
@@ -145,7 +234,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // 3. Mejores terceros — SOLO si fase completa
   if (faseGruposTerminada) {
     const realTP = new Set((real.thirdPlace || []).slice(0, 8));
     const predTP = player.thirdPlace || [];
@@ -154,7 +242,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   }
 
-  // 4. Eliminatorias — SIEMPRE
   const roundPoints = {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
     finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
@@ -420,25 +507,32 @@ function daProcessAndRender(players, finishedMatches) {
 
   const TOTAL_GROUP_MATCHES = 72;
 
-  const byDate = {};
+  // Agrupar por fecha CEST
+  const byCESTDate = {};
   finishedMatches.forEach(m => {
-    if (!byDate[m.date]) byDate[m.date] = [];
-    byDate[m.date].push(m);
+    const cest = daConvertToCEST(m.date, m.time);
+    const cestDate = cest.date;
+    if (!byCESTDate[cestDate]) byCESTDate[cestDate] = [];
+    byCESTDate[cestDate].push({ ...m, _cestTimestamp: cest.timestamp });
   });
 
-  const uniqueDates = Object.keys(byDate).sort();
+  const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const today = new Date().toISOString().split('T')[0];
-  const hasTodayMatches = uniqueDates.includes(today);
+  const todayCEST = daConvertToCEST(
+    new Date().toISOString().split('T')[0], 
+    null
+  ).date;
+  
+  const hasTodayMatches = uniqueDates.includes(todayCEST);
   
   const dates = [...uniqueDates];
   if (!hasTodayMatches && dates.length > 0) {
     const lastDate = dates[dates.length - 1];
     const lastDateObj = new Date(lastDate + 'T00:00:00');
-    const todayObj = new Date(today + 'T00:00:00');
+    const todayObj = new Date(todayCEST + 'T00:00:00');
     
     if (todayObj > lastDateObj) {
-      dates.push(today);
+      dates.push(todayCEST);
     }
   }
 
@@ -457,8 +551,9 @@ function daProcessAndRender(players, finishedMatches) {
 
     const date = dates[dateIndex];
     
-    if (byDate[date]) {
-      matchesSoFar.push(...byDate[date]);
+    if (byCESTDate[date]) {
+      const dayMatches = byCESTDate[date].sort((a, b) => a._cestTimestamp - b._cestTimestamp);
+      matchesSoFar.push(...dayMatches);
     }
     
     const realPartial = daBuildPartialReal(matchesSoFar);
@@ -504,8 +599,8 @@ function daProcessAndRender(players, finishedMatches) {
     });
 
     if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
-      const isToday = date === today;
-      const hasData = !!byDate[date];
+      const isToday = date === todayCEST;
+      const hasData = !!byCESTDate[date];
       container.innerHTML = '<p class="note-text">Procesando: día ' + (dateIndex + 1) + '/' + dates.length + 
         ' (' + processed + '/' + total + ' cálculos)' + 
         (faseGruposTerminada ? ' — Fase de grupos COMPLETA' : '') +
@@ -536,7 +631,6 @@ function daToggleFitMode() {
     btn.style.background = '#6c757d';
   }
   
-  // Re-renderizar para aplicar el nuevo tamaño
   if (window.__bumpChartData && window.__bumpChartData.length > 0) {
     const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
     daRenderBumpChart(window.__bumpChartData, topN);
@@ -544,7 +638,7 @@ function daToggleFitMode() {
 }
 
 /* -----------------------------------------------------------
-   RENDERIZADO DEL BUMP CHART (SCROLL HORIZONTAL + FIT MODE)
+   RENDERIZADO DEL BUMP CHART
    ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
@@ -565,37 +659,41 @@ function daRenderBumpChart(dailyData, topN) {
   const isMobile = window.innerWidth <= 768;
   const isFitMode = BUMP_CHART_FIT_MODE;
   
-  // Dimensiones base
-  const margin = { top: 30, right: isMobile ? 80 : 150, bottom: 60, left: 50 };
-  const minWidthPerDate = isMobile ? 70 : (isFitMode ? 40 : 100);
+  const margin = { 
+    top: 30, 
+    right: isMobile ? (isFitMode ? 50 : 80) : (isFitMode ? 90 : 150), 
+    bottom: 60, 
+    left: isMobile ? (isFitMode ? 35 : 45) : 50 
+  };
+  
+  const minWidthPerDate = isMobile ? 70 : 100;
   const containerWidth = wrapper.clientWidth || 800;
   
-  // En modo scroll: ancho fijo por día, posiblemente mayor que el contenedor
-  // En modo fit: ancho = contenedor
   let width, svgWidth;
   
   if (isFitMode) {
-    width = Math.max(containerWidth - margin.left - margin.right, 300);
-    svgWidth = containerWidth;
+    svgWidth = Math.max(containerWidth, 300);
+    width = Math.max(svgWidth - margin.left - margin.right, 200);
   } else {
     const calculatedWidth = Math.max(dates.length * minWidthPerDate, containerWidth);
-    width = calculatedWidth - margin.left - margin.right;
     svgWidth = calculatedWidth;
+    width = svgWidth - margin.left - margin.right;
   }
   
   const height = isMobile ? 400 : 520;
   const innerHeight = height - margin.top - margin.bottom;
 
-  // Ajustar el contenedor
   container.style.width = isFitMode ? '100%' : svgWidth + 'px';
   container.style.height = height + 'px';
+  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
 
   const svg = d3.select('#bumpChartContainer')
     .append('svg')
-    .attr('width', svgWidth)
+    .attr('width', isFitMode ? '100%' : svgWidth)
     .attr('height', height)
     .attr('viewBox', `0 0 ${svgWidth} ${height}`)
     .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block')
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 

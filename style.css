@@ -1344,10 +1344,7 @@ body {
 #bumpChartScrollWrapper.fit-mode {
   overflow-x: hidden;
 }
-#bumpChartScrollWrapper.fit-mode svg {
-  width: 100% !important;
-  height: auto !important;
-}
 #bumpChartScrollWrapper.fit-mode #bumpChartContainer {
   width: 100% !important;
+  min-width: 0 !important;
 }
