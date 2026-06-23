@@ -1852,7 +1852,7 @@ function renderLeaderboard() {
     const allDates = [...new Set(bumpData.map(d => d.date))].sort();
     
     if (allDates.length >= 2) {
-      const yesterday = allDates[allDates.length - 1];
+      const yesterday = allDates[allDates.length - 2];
       const yesterdayData = bumpData.filter(d => d.date === yesterday);
       
       // Usar sharedRank (rank compartido) para comparar con el leaderboard

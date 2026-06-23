@@ -1,6 +1,8 @@
 /* ============================================================
-   DATA ANALYSIS — Bump Chart (CON LÓGICA DE FASE DE GRUPOS CONDICIONAL)
+   DATA ANALYSIS — Bump Chart (CON SCROLL HORIZONTAL + TOGGLE FIT)
    ============================================================ */
+
+let BUMP_CHART_FIT_MODE = false; // false = scroll horizontal (default), true = ajustar al ancho
 
 function daLog(msg) {
   console.log('[DataAnalysis]', msg);
@@ -93,14 +95,11 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   });
 
   window.__bumpChartData = dailyScores;
+  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos');
 }
 
 /* -----------------------------------------------------------
    CÁLCULO MANUAL DE PUNTUACIÓN
-   - Grupos: solo si faseGruposTerminada
-   - Resultados exactos/1X2: siempre
-   - Mejores terceros: solo si faseGruposTerminada
-   - Eliminatorias: siempre que haya resultados
    ----------------------------------------------------------- */
 function daCalculateScore(player, real, faseGruposTerminada) {
   let score = 0;
@@ -135,12 +134,10 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     
     if (isNaN(pG1) || isNaN(pG2) || isNaN(rG1) || isNaN(rG2)) return;
     
-    // Resultado exacto: 5 pts
     if (pG1 === rG1 && pG2 === rG2) {
       score += 5;
     }
     
-    // 1X2: 1 pt
     const p1x2 = pG1 > pG2 ? '1' : pG1 < pG2 ? '2' : 'X';
     const r1x2 = rG1 > rG2 ? '1' : rG1 < rG2 ? '2' : 'X';
     if (p1x2 === r1x2) {
@@ -148,7 +145,7 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // 3. Mejores terceros (1 pt cada uno acertado en top 8) — SOLO si fase completa
+  // 3. Mejores terceros — SOLO si fase completa
   if (faseGruposTerminada) {
     const realTP = new Set((real.thirdPlace || []).slice(0, 8));
     const predTP = player.thirdPlace || [];
@@ -157,13 +154,12 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   }
 
-  // 4. Eliminatorias — SIEMPRE que haya resultados
+  // 4. Eliminatorias — SIEMPRE
   const roundPoints = {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
     finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
   };
 
-  // Construir mapa de equipo -> ronda alcanzada en los resultados reales
   const teamRoundReal = {};
   const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
   
@@ -184,7 +180,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   });
 
-  // Semifinales: perdedores
   const sfMatches = real.knockout?.matches?.semifinals || [];
   if (sfMatches.length === 2) {
     const sf1 = sfMatches[0], sf2 = sfMatches[1];
@@ -203,7 +198,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   }
 
-  // Cuartos: perdedores
   const qfMatches = real.knockout?.matches?.quarterfinals || [];
   qfMatches.forEach(m => {
     if (m?.winner) {
@@ -212,7 +206,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Octavos: perdedores
   const r16Matches = real.knockout?.matches?.round16 || [];
   r16Matches.forEach(m => {
     if (m?.winner) {
@@ -221,7 +214,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Dieciseisavos: perdedores
   const r32Matches = real.knockout?.matches?.round32 || [];
   r32Matches.forEach(m => {
     if (m?.winner) {
@@ -230,7 +222,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Ahora calcular para la predicción del jugador
   const teamRoundPred = {};
   const predKO = player.knockout?.matches || {};
   
@@ -246,7 +237,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   });
 
-  // Semifinales predichas
   const predSF = predKO.semifinals || [];
   if (predSF.length === 2) {
     const sf1 = predSF[0], sf2 = predSF[1];
@@ -265,7 +255,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   }
 
-  // Cuartos predichos
   (predKO.quarterfinals || []).forEach(m => {
     if (m?.winner) {
       const loser = m.winner === m.team1 ? m.team2 : m.team1;
@@ -273,7 +262,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Octavos predichos
   (predKO.round16 || []).forEach(m => {
     if (m?.winner) {
       const loser = m.winner === m.team1 ? m.team2 : m.team1;
@@ -281,7 +269,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Dieciseisavos predichos
   (predKO.round32 || []).forEach(m => {
     if (m?.winner) {
       const loser = m.winner === m.team1 ? m.team2 : m.team1;
@@ -289,7 +276,6 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     }
   });
 
-  // Comparar y sumar puntos
   const allTeams = new Set([
     ...Object.keys(teamRoundReal),
     ...Object.keys(teamRoundPred)
@@ -381,7 +367,6 @@ function daBuildPartialReal(matchesWithResults) {
     });
   });
 
-  // Calcular mejores terceros
   const candidates = [];
   gNames.forEach(group => {
     if (!real.groups[group] || real.groups[group].length < 3) return;
@@ -402,7 +387,6 @@ function daBuildPartialReal(matchesWithResults) {
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
-  // Eliminatorias
   const roundMap = {
     'Round of 32': 'round32', 'Round of 16': 'round16',
     'Quarter-final': 'quarterfinals', 'Semi-final': 'semifinals',
@@ -431,30 +415,6 @@ function daBuildPartialReal(matchesWithResults) {
 /* -----------------------------------------------------------
    PROCESAMIENTO Y RENDERIZADO
    ----------------------------------------------------------- */
-   // ===== FUNCIÓN AUXILIAR: Calcular ranks con posiciones compartidas =====
-function calculateSharedRanks(scoresArray) {
-  // scoresArray: [{name, score}, ...] ya ordenado por score descendente
-  let currentRank = 1;
-  let previousScore = null;
-  let playersAtRank = 0;
-  const ranks = {};
-
-  scoresArray.forEach((entry, index) => {
-    const score = Number(entry.score) || 0;
-
-    if (previousScore !== null && score !== previousScore) {
-      currentRank += playersAtRank;
-      playersAtRank = 0;
-    }
-    playersAtRank++;
-    previousScore = score;
-
-    ranks[entry.name] = currentRank;
-  });
-
-  return ranks;
-}
-
 function daProcessAndRender(players, finishedMatches) {
   const container = document.getElementById('bumpChartContainer');
 
@@ -514,24 +474,21 @@ function daProcessAndRender(players, finishedMatches) {
 
     dayScores.sort((a, b) => b.score - a.score);
 
-    // ===== RANK SECUENCIAL para el bump chart (visual, no compartido) =====
-    // Esto evita que las líneas se superpongan visualmente
     dayScores.forEach((d, i) => {
       dailyScores.push({
         player: d.name,
         score: d.score,
         date,
-        rank: i + 1, // rank secuencial: 1, 2, 3, 4...
-        sharedRank: null // se calcula después
+        rank: i + 1,
+        sharedRank: null
       });
     });
 
-    // ===== RANK COMPARTIDO para las tendencias (misma lógica que leaderboard) =====
     let currentRank = 1;
     let previousScore = null;
     let playersAtRank = 0;
     
-    dayScores.forEach((entry, idx) => {
+    dayScores.forEach((entry) => {
       const score = Number(entry.score) || 0;
       if (previousScore !== null && score !== previousScore) {
         currentRank += playersAtRank;
@@ -540,7 +497,6 @@ function daProcessAndRender(players, finishedMatches) {
       playersAtRank++;
       previousScore = score;
       
-      // Guardar el rank compartido en el último elemento del día
       const matchingEntry = dailyScores.find(d => d.player === entry.name && d.date === date);
       if (matchingEntry) {
         matchingEntry.sharedRank = currentRank;
@@ -562,8 +518,37 @@ function daProcessAndRender(players, finishedMatches) {
   processNextDate(0);
 }
 
+/* -----------------------------------------------------------
+   TOGGLE FIT MODE
+   ----------------------------------------------------------- */
+function daToggleFitMode() {
+  BUMP_CHART_FIT_MODE = !BUMP_CHART_FIT_MODE;
+  const wrapper = document.getElementById('bumpChartScrollWrapper');
+  const btn = document.getElementById('btnToggleFit');
+  
+  if (BUMP_CHART_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+  
+  // Re-renderizar para aplicar el nuevo tamaño
+  if (window.__bumpChartData && window.__bumpChartData.length > 0) {
+    const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
+    daRenderBumpChart(window.__bumpChartData, topN);
+  }
+}
+
+/* -----------------------------------------------------------
+   RENDERIZADO DEL BUMP CHART (SCROLL HORIZONTAL + FIT MODE)
+   ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN) {
   const container = document.getElementById('bumpChartContainer');
+  const wrapper = document.getElementById('bumpChartScrollWrapper');
   container.innerHTML = '';
 
   const dates = [...new Set(dailyData.map(d => d.date))].sort();
@@ -578,25 +563,39 @@ function daRenderBumpChart(dailyData, topN) {
   const filteredData = dailyData.filter(d => topPlayers.has(d.player));
 
   const isMobile = window.innerWidth <= 768;
-  const minWidthPerDate = isMobile ? 70 : 100;
-  const calculatedWidth = Math.max(dates.length * minWidthPerDate, container.clientWidth || 800);
+  const isFitMode = BUMP_CHART_FIT_MODE;
   
+  // Dimensiones base
   const margin = { top: 30, right: isMobile ? 80 : 150, bottom: 60, left: 50 };
-  const containerWidth = container.clientWidth || 800;
-  const width = Math.max(calculatedWidth - margin.left - margin.right, 300);
+  const minWidthPerDate = isMobile ? 70 : (isFitMode ? 40 : 100);
+  const containerWidth = wrapper.clientWidth || 800;
+  
+  // En modo scroll: ancho fijo por día, posiblemente mayor que el contenedor
+  // En modo fit: ancho = contenedor
+  let width, svgWidth;
+  
+  if (isFitMode) {
+    width = Math.max(containerWidth - margin.left - margin.right, 300);
+    svgWidth = containerWidth;
+  } else {
+    const calculatedWidth = Math.max(dates.length * minWidthPerDate, containerWidth);
+    width = calculatedWidth - margin.left - margin.right;
+    svgWidth = calculatedWidth;
+  }
+  
   const height = isMobile ? 400 : 520;
   const innerHeight = height - margin.top - margin.bottom;
 
-  container.style.overflow = isMobile ? 'auto' : 'hidden';
-  container.style.webkitOverflowScrolling = 'touch';
+  // Ajustar el contenedor
+  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.height = height + 'px';
 
   const svg = d3.select('#bumpChartContainer')
     .append('svg')
-    .attr('width', width + margin.left + margin.right)
+    .attr('width', svgWidth)
     .attr('height', height)
-    .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height}`)
-    .attr('preserveAspectRatio', 'xMinYMin meet')
-    .style('min-width', (width + margin.left + margin.right) + 'px')
+    .attr('viewBox', `0 0 ${svgWidth} ${height}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -662,7 +661,6 @@ function daRenderBumpChart(dailyData, topN) {
     .style('padding', '10px 14px').style('border-radius', '10px').style('font-size', '13px')
     .style('pointer-events', 'none').style('z-index', '10000').style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
-  // ===== FUNCIÓN PARA MOSTRAR TOOLTIP CON DATOS DEL PUNTO =====
   function showTooltip(event, pointData) {
     const dateObj = new Date(pointData.date + 'T00:00:00');
     tooltip.transition().duration(150).style('opacity', 1);
@@ -693,15 +691,14 @@ function daRenderBumpChart(dailyData, topN) {
     tooltip.transition().duration(200).style('opacity', 0);
   }
 
-  // Hover en puntos — USA LOS DATOS DEL PUNTO (d), NO DEL ÚLTIMO DÍA
   points.on('mouseover', function(event, d) {
     highlightPlayer(d.player);
-    showTooltip(event, d); // ← d es el dato del punto específico (día X, jugador Y)
+    showTooltip(event, d);
   }).on('mousemove', function(event) {
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
   }).on('mouseout', resetHighlight);
 
-  // Labels
+  // Labels del último día
   const lastPoints = filteredData.filter(d => d.date === lastDate);
   
   const labels = svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
@@ -716,10 +713,9 @@ function daRenderBumpChart(dailyData, topN) {
     .style('cursor', 'pointer')
     .style('pointer-events', 'all');
 
-  // Hover en labels — muestra tooltip del ÚLTIMO DÍA (comportamiento actual, correcto)
   labels.on('mouseenter', function(event, d) {
     highlightPlayer(d.player);
-    showTooltip(event, d); // d es del último día porque labelsToShow filtra por lastDate
+    showTooltip(event, d);
   }).on('mousemove', function(event) {
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
   }).on('mouseleave', resetHighlight);
@@ -740,7 +736,6 @@ function initDataAnalysis() {
     return;
   }
 
-  // Si ya tenemos datos precalculados, renderizar directamente
   if (window.__bumpChartData && window.__bumpChartData.length > 0) {
     container.innerHTML = '<p class="note-text">Renderizando gráfico...</p>';
     const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
@@ -804,13 +799,18 @@ function initDataAnalysis() {
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshBumpChart');
   const topSelect = document.getElementById('bumpChartTopN');
+  const toggleBtn = document.getElementById('btnToggleFit');
+  
   if (refreshBtn) refreshBtn.addEventListener('click', function() {
     if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect?.value || '10', 10));
     else initDataAnalysis();
   });
+  
   if (topSelect) topSelect.addEventListener('change', function() {
     if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect.value, 10));
   });
+  
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitMode);
 });
 
 window.addEventListener('resize', function() {
