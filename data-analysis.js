@@ -920,3 +920,535 @@ window.addEventListener('resize', function() {
     }, 300);
   }
 });
+
+/* ============================================================
+   LINE RANKING — Puntuación vs Tiempo (Día/Semana)
+   ============================================================ */
+
+let LINE_RANKING_FIT_MODE = false;
+
+/**
+ * Obtiene la fecha de inicio de semana (lunes) para una fecha dada
+ */
+function daGetWeekStart(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00');
+  const day = date.getDay(); // 0=domingo, 1=lunes...
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Ajustar a lunes
+  const monday = new Date(date.setDate(diff));
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, '0');
+  const d = String(monday.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Agrupa datos diarios por semana (toma el último valor de cada semana)
+ */
+function daGroupByWeek(dailyData) {
+  const byWeek = {};
+  
+  dailyData.forEach(d => {
+    const weekStart = daGetWeekStart(d.date);
+    if (!byWeek[weekStart]) byWeek[weekStart] = {};
+    byWeek[weekStart][d.player] = d; // Sobrescribe: queda el último día de la semana
+  });
+  
+  const result = [];
+  const weeks = Object.keys(byWeek).sort();
+  weeks.forEach(week => {
+    Object.values(byWeek[week]).forEach(d => {
+      result.push({ ...d, date: week, _isWeek: true });
+    });
+  });
+  
+  return result;
+}
+
+function daToggleFitLineRanking() {
+  LINE_RANKING_FIT_MODE = !LINE_RANKING_FIT_MODE;
+  const wrapper = document.getElementById('lineRankingScrollWrapper');
+  const btn = document.getElementById('btnToggleFitLine');
+  
+  if (LINE_RANKING_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+  
+  if (window.__lineRankingData && window.__lineRankingData.length > 0) {
+    const topN = parseInt(document.getElementById('lineRankingTopN')?.value || '10', 10);
+    const timeFilter = document.getElementById('lineRankingTimeFilter')?.value || 'day';
+    daRenderLineRanking(window.__lineRankingData, topN, timeFilter);
+  }
+}
+
+function daRenderLineRanking(dailyData, topN, timeFilter) {
+  const container = document.getElementById('lineRankingContainer');
+  const wrapper = document.getElementById('lineRankingScrollWrapper');
+  container.innerHTML = '';
+
+  // Aplicar filtro de tiempo
+  let filteredData = dailyData;
+  if (timeFilter === 'week') {
+    filteredData = daGroupByWeek(dailyData);
+  }
+
+  const dates = [...new Set(filteredData.map(d => d.date))].sort();
+  if (dates.length === 0) {
+    container.innerHTML = '<p class="note-text">No hay fechas para mostrar.</p>';
+    return;
+  }
+
+  // Seleccionar top jugadores por puntuación final
+  const lastDate = dates[dates.length - 1];
+  const lastScores = filteredData
+    .filter(d => d.date === lastDate)
+    .sort((a, b) => b.score - a.score);
+  const topPlayers = new Set(lastScores.slice(0, topN).map(d => d.player));
+  const chartData = filteredData.filter(d => topPlayers.has(d.player));
+
+  const isMobile = window.innerWidth <= 768;
+  const isFitMode = LINE_RANKING_FIT_MODE;
+  
+  const margin = { 
+    top: 30, 
+    right: isMobile ? (isFitMode ? 50 : 80) : (isFitMode ? 90 : 150), 
+    bottom: 60, 
+    left: isMobile ? (isFitMode ? 45 : 55) : 60 
+  };
+  
+  const minWidthPerDate = isMobile ? 70 : 100;
+  const containerWidth = wrapper.clientWidth || 800;
+  
+  let width, svgWidth;
+  
+  if (isFitMode) {
+    svgWidth = Math.max(containerWidth, 300);
+    width = Math.max(svgWidth - margin.left - margin.right, 200);
+  } else {
+    const calculatedWidth = Math.max(dates.length * minWidthPerDate, containerWidth);
+    svgWidth = calculatedWidth;
+    width = svgWidth - margin.left - margin.right;
+  }
+  
+  const height = isMobile ? 400 : 520;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.height = height + 'px';
+  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
+
+  const svg = d3.select('#lineRankingContainer')
+    .append('svg')
+    .attr('width', isFitMode ? '100%' : svgWidth)
+    .attr('height', height)
+    .attr('viewBox', `0 0 ${svgWidth} ${height}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block')
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const x = d3.scalePoint().domain(dates).range([0, width]).padding(0.3);
+  
+  const maxScore = d3.max(chartData, d => d.score) || 1;
+  const y = d3.scaleLinear().domain([0, maxScore * 1.05]).range([innerHeight, 0]);
+
+  const playersList = [...new Set(chartData.map(d => d.player))];
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(playersList);
+  
+  const line = d3.line()
+    .x(d => x(d.date))
+    .y(d => y(d.score))
+    .curve(d3.curveMonotoneX);
+  
+  const nested = d3.group(chartData, d => d.player);
+
+  // Grid
+  svg.append('g')
+    .attr('class', 'grid-y')
+    .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(''))
+    .attr('stroke', '#f0f0f0')
+    .attr('stroke-dasharray', '3,3');
+  svg.select('.grid-y').select('.domain').remove();
+
+  // Líneas
+  const lines = svg.selectAll('.line-ranking-line').data(Array.from(nested)).enter().append('path')
+    .attr('class', 'line-ranking-line')
+    .attr('d', ([, values]) => line(values))
+    .attr('fill', 'none')
+    .attr('stroke', ([player]) => color(player))
+    .attr('stroke-width', isMobile ? 2.5 : 3)
+    .attr('stroke-opacity', 0.85)
+    .attr('stroke-linejoin', 'round')
+    .attr('stroke-linecap', 'round')
+    .attr('data-player', ([player]) => player);
+
+  // Área bajo la línea (subtle)
+  const area = d3.area()
+    .x(d => x(d.date))
+    .y0(innerHeight)
+    .y1(d => y(d.score))
+    .curve(d3.curveMonotoneX);
+
+  svg.selectAll('.line-ranking-area').data(Array.from(nested)).enter().append('path')
+    .attr('class', 'line-ranking-area')
+    .attr('d', ([, values]) => area(values))
+    .attr('fill', ([player]) => color(player))
+    .attr('fill-opacity', 0.08)
+    .attr('stroke', 'none');
+
+  // Puntos
+  const points = svg.selectAll('.line-ranking-point').data(chartData).enter().append('circle')
+    .attr('class', 'line-ranking-point')
+    .attr('cx', d => x(d.date))
+    .attr('cy', d => y(d.score))
+    .attr('r', isMobile ? 4 : 5)
+    .attr('fill', d => color(d.player))
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('data-player', d => d.player);
+
+  // Eje X
+  const xAxis = svg.append('g').attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).tickFormat(d => {
+      const date = new Date(d + 'T00:00:00');
+      if (timeFilter === 'week') {
+        return isMobile 
+          ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+          : 'Sem. ' + date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      }
+      return isMobile 
+        ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })
+        : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    }));
+  
+  xAxis.selectAll('text')
+    .style('text-anchor', 'end')
+    .attr('dx', '-.8em')
+    .attr('dy', '.15em')
+    .attr('transform', 'rotate(-35)')
+    .style('font-size', isMobile ? '9px' : '11px')
+    .style('fill', '#666');
+  xAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Eje Y
+  const yAxis = svg.append('g')
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + ' pts'));
+  yAxis.selectAll('text')
+    .style('font-size', isMobile ? '10px' : '11px')
+    .style('fill', '#666');
+  yAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div').attr('class', 'line-ranking-tooltip')
+    .style('opacity', 0)
+    .style('position', 'absolute')
+    .style('background', 'rgba(26,26,46,0.95)')
+    .style('color', '#fff')
+    .style('padding', '10px 14px')
+    .style('border-radius', '10px')
+    .style('font-size', '13px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
+
+  function showTooltip(event, pointData) {
+    const dateObj = new Date(pointData.date + 'T00:00:00');
+    const label = timeFilter === 'week' ? 'Semana del ' : '';
+    tooltip.transition().duration(150).style('opacity', 1);
+    tooltip.html(`
+      <div style="font-weight:700;margin-bottom:4px;">${pointData.player}</div>
+      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="margin-top:6px;font-size:18px;font-weight:700;color:#7FD8FF;">${pointData.score} pts</div>
+    `);
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }
+
+  function highlightPlayer(playerName) {
+    svg.selectAll('.line-ranking-line').attr('stroke-opacity', 0.12);
+    svg.selectAll('.line-ranking-line').filter(([p]) => p === playerName)
+      .attr('stroke-opacity', 1).attr('stroke-width', isMobile ? 4 : 5);
+    
+    svg.selectAll('.line-ranking-area').attr('fill-opacity', 0.02);
+    svg.selectAll('.line-ranking-area').filter(([p]) => p === playerName)
+      .attr('fill-opacity', 0.15);
+    
+    svg.selectAll('.line-ranking-point').attr('r', isMobile ? 4 : 5).attr('stroke-width', 2);
+    svg.selectAll('.line-ranking-point').filter(d => d.player === playerName)
+      .attr('r', isMobile ? 6 : 8).attr('stroke-width', 3);
+  }
+
+  function resetHighlight() {
+    svg.selectAll('.line-ranking-line').attr('stroke-opacity', 0.85).attr('stroke-width', isMobile ? 2.5 : 3);
+    svg.selectAll('.line-ranking-area').attr('fill-opacity', 0.08);
+    svg.selectAll('.line-ranking-point').attr('r', isMobile ? 4 : 5).attr('stroke-width', 2);
+    tooltip.transition().duration(200).style('opacity', 0);
+  }
+
+  points.on('mouseover', function(event, d) {
+    highlightPlayer(d.player);
+    showTooltip(event, d);
+  }).on('mousemove', function(event) {
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }).on('mouseout', resetHighlight);
+
+  // Labels del último día
+  const lastPoints = chartData.filter(d => d.date === lastDate);
+  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
+  
+  const labels = svg.selectAll('.line-ranking-label').data(labelsToShow).enter().append('text')
+    .attr('class', 'line-ranking-label')
+    .attr('x', width + (isMobile ? 5 : 10))
+    .attr('y', d => y(d.score))
+    .attr('dy', '0.35em')
+    .text(d => isMobile ? d.player.substring(0, 8) : `${d.player} (${d.score})`)
+    .attr('fill', d => color(d.player))
+    .attr('font-size', isMobile ? '10px' : '12px')
+    .attr('font-weight', '600')
+    .style('cursor', 'pointer')
+    .style('pointer-events', 'all');
+
+  labels.on('mouseenter', function(event, d) {
+    highlightPlayer(d.player);
+    showTooltip(event, d);
+  }).on('mousemove', function(event) {
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  }).on('mouseleave', resetHighlight);
+
+  // Título eje Y
+  svg.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('y', 0 - margin.left + 12)
+    .attr('x', 0 - (innerHeight / 2))
+    .attr('dy', '1em')
+    .style('text-anchor', 'middle')
+    .style('font-size', '12px')
+    .style('fill', '#888')
+    .text('Puntuación');
+}
+
+function daInitLineRanking() {
+  const container = document.getElementById('lineRankingContainer');
+  if (!container) {
+    console.error('[LineRanking] No existe #lineRankingContainer');
+    return;
+  }
+
+  // Reutilizar datos del bump chart si existen
+  if (window.__bumpChartData && window.__bumpChartData.length > 0) {
+    window.__lineRankingData = window.__bumpChartData;
+    container.innerHTML = '<p class="note-text">Renderizando gráfico...</p>';
+    const topN = parseInt(document.getElementById('lineRankingTopN')?.value || '10', 10);
+    const timeFilter = document.getElementById('lineRankingTimeFilter')?.value || 'day';
+    daRenderLineRanking(window.__lineRankingData, topN, timeFilter);
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+    
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    // Calcular datos (igual que bump chart pero guardamos en variable global)
+    daProcessAndRenderLineRanking(players, finished);
+
+  }).catch(err => {
+    console.error('[LineRanking] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
+function daProcessAndRenderLineRanking(players, finishedMatches) {
+  const container = document.getElementById('lineRankingContainer');
+  const TOTAL_GROUP_MATCHES = 72;
+
+  const byCESTDate = {};
+  finishedMatches.forEach(m => {
+    const cest = daConvertToCEST(m.date, m.time);
+    const cestDate = cest.date;
+    if (!byCESTDate[cestDate]) byCESTDate[cestDate] = [];
+    byCESTDate[cestDate].push({ ...m, _cestTimestamp: cest.timestamp });
+  });
+
+  const uniqueDates = Object.keys(byCESTDate).sort();
+  
+  const todayCEST = daConvertToCEST(
+    new Date().toISOString().split('T')[0], 
+    null
+  ).date;
+  
+  const hasTodayMatches = uniqueDates.includes(todayCEST);
+  
+  const dates = [...uniqueDates];
+  if (!hasTodayMatches && dates.length > 0) {
+    const lastDate = dates[dates.length - 1];
+    const lastDateObj = new Date(lastDate + 'T00:00:00');
+    const todayObj = new Date(todayCEST + 'T00:00:00');
+    
+    if (todayObj > lastDateObj) {
+      dates.push(todayCEST);
+    }
+  }
+
+  const dailyScores = [];
+  const matchesSoFar = [];
+  let processed = 0;
+  const total = dates.length * players.length;
+
+  function processNextDate(dateIndex) {
+    if (dateIndex >= dates.length) {
+      window.__lineRankingData = dailyScores;
+      const topN = parseInt(document.getElementById('lineRankingTopN')?.value || '10', 10);
+      const timeFilter = document.getElementById('lineRankingTimeFilter')?.value || 'day';
+      daRenderLineRanking(dailyScores, topN, timeFilter);
+      return;
+    }
+
+    const date = dates[dateIndex];
+    
+    if (byCESTDate[date]) {
+      const dayMatches = byCESTDate[date].sort((a, b) => a._cestTimestamp - b._cestTimestamp);
+      matchesSoFar.push(...dayMatches);
+    }
+    
+    const realPartial = daBuildPartialReal(matchesSoFar);
+    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
+
+    const dayScores = players.map(player => {
+      processed++;
+      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
+      return { name: player.name || 'Anónimo', score };
+    });
+
+    dayScores.sort((a, b) => b.score - a.score);
+
+    dayScores.forEach((d, i) => {
+      dailyScores.push({
+        player: d.name,
+        score: d.score,
+        date,
+        rank: i + 1,
+        sharedRank: null
+      });
+    });
+
+    let currentRank = 1;
+    let previousScore = null;
+    let playersAtRank = 0;
+    
+    dayScores.forEach((entry) => {
+      const score = Number(entry.score) || 0;
+      if (previousScore !== null && score !== previousScore) {
+        currentRank += playersAtRank;
+        playersAtRank = 0;
+      }
+      playersAtRank++;
+      previousScore = score;
+      
+      const matchingEntry = dailyScores.find(d => d.player === entry.name && d.date === date);
+      if (matchingEntry) {
+        matchingEntry.sharedRank = currentRank;
+      }
+    });
+
+    if (dateIndex % 2 === 0 || dateIndex === dates.length - 1) {
+      const isToday = date === todayCEST;
+      const hasData = !!byCESTDate[date];
+      container.innerHTML = '<p class="note-text">Procesando puntuaciones: día ' + (dateIndex + 1) + '/' + dates.length + 
+        ' (' + processed + '/' + total + ' cálculos)' + 
+        (isToday ? (hasData ? ' — HOY' : ' — HOY (sin nuevos partidos)') : '') + '</p>';
+    }
+
+    setTimeout(() => processNextDate(dateIndex + 1), 10);
+  }
+
+  processNextDate(0);
+}
+
+/* -----------------------------------------------------------
+   CONTROLES DEL LINE RANKING
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshLineRanking');
+  const topSelect = document.getElementById('lineRankingTopN');
+  const timeSelect = document.getElementById('lineRankingTimeFilter');
+  const toggleBtn = document.getElementById('btnToggleFitLine');
+  
+  if (refreshBtn) refreshBtn.addEventListener('click', function() {
+    if (window.__lineRankingData) {
+      const topN = parseInt(topSelect?.value || '10', 10);
+      const timeFilter = timeSelect?.value || 'day';
+      daRenderLineRanking(window.__lineRankingData, topN, timeFilter);
+    } else {
+      daInitLineRanking();
+    }
+  });
+  
+  if (topSelect) topSelect.addEventListener('change', function() {
+    if (window.__lineRankingData) {
+      daRenderLineRanking(window.__lineRankingData, parseInt(topSelect.value, 10), timeSelect?.value || 'day');
+    }
+  });
+  
+  if (timeSelect) timeSelect.addEventListener('change', function() {
+    if (window.__lineRankingData) {
+      daRenderLineRanking(window.__lineRankingData, parseInt(topSelect?.value || '10', 10), timeSelect.value);
+    }
+  });
+  
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitLineRanking);
+});
+
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && window.__lineRankingData) {
+    clearTimeout(window.__lineRankingResizeTimer);
+    window.__lineRankingResizeTimer = setTimeout(function() {
+      const topN = parseInt(document.getElementById('lineRankingTopN')?.value || '10', 10);
+      const timeFilter = document.getElementById('lineRankingTimeFilter')?.value || 'day';
+      daRenderLineRanking(window.__lineRankingData, topN, timeFilter);
+    }, 300);
+  }
+});

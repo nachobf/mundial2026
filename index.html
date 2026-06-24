@@ -126,40 +126,62 @@
         </section>
       </div>
         <div id="tab-data-analysis" class="tab-content">
-          <section class="section">
-            <div class="da-collapsible-section" id="bumpChartSection">
-              <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('bumpChartSection')">
-                <h2>📊 Evolución del Ranking</h2>
-                <span class="arrow">▶</span>
-              </div>
-              <div class="da-collapsible-content">
-                <p class="section-hint">Bump chart que muestra cómo ha evolucionado la clasificación día a día según los resultados reales del torneo. Se recalculan las puntuaciones de cada jugador acumulando los partidos finalizados hasta cada fecha.</p>
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-                  <label style="font-size:14px;color:#444;">Mostrar top 
-                    <select id="bumpChartTopN" style="padding:6px 10px;border-radius:6px;border:1px solid #ddd;font-size:14px;">
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="999" selected>Todos</option>
-                    </select>
-                  </label>
-                  <button id="btnRefreshBumpChart" class="modal-btn confirm-btn" style="padding:8px 16px;font-size:13px;">🔄 Actualizar gráfico</button>
-                  <button id="btnToggleFit" class="modal-btn" style="padding:8px 16px;font-size:13px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;">↔️ Ajustar al ancho</button>
-                </div>
-              <div id="bumpChartScrollWrapper" style="width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #e9ecef;border-radius:12px;background:#fff;">
-                <div id="bumpChartContainer" style="height:520px;position:relative;"></div>
-              </div>
-              </div>
-            </div>
-          </section>
-        <!-- Espacio reservado para futuros gráficos -->
+        <!-- BUMP CHART (Posición vs Tiempo) -->
         <section class="section">
-          <div class="da-collapsible-section" id="futureChartsSection">
-            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('futureChartsSection')">
-              <h2>📈 Más Análisis</h2>
+          <div class="da-collapsible-section" id="bumpChartSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('bumpChartSection')">
+              <h2>📊 Evolución del Ranking (Posición)</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
-              <p class="section-hint">Próximamente: distribución de puntos, aciertos por fase, comparativas entre jugadores, y más.</p>
+              <p class="section-hint">Bump chart que muestra cómo ha evolucionado la clasificación día a día según los resultados reales del torneo.</p>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <label style="font-size:14px;color:#444;">Mostrar top 
+                  <select id="bumpChartTopN" style="padding:6px 10px;border-radius:6px;border:1px solid #ddd;font-size:14px;">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="999" selected>Todos</option>
+                  </select>
+                </label>
+                <button id="btnRefreshBumpChart" class="modal-btn confirm-btn" style="padding:8px 16px;font-size:13px;">🔄 Actualizar gráfico</button>
+                <button id="btnToggleFitBump" class="modal-btn" style="padding:8px 16px;font-size:13px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;">↔️ Ajustar al ancho</button>
+              </div>
+              <div id="bumpChartScrollWrapper" style="width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #e9ecef;border-radius:12px;background:#fff;">
+                <div id="bumpChartContainer" style="height:520px;position:relative;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LINE RANKING (Puntuación vs Tiempo) -->
+        <section class="section">
+          <div class="da-collapsible-section" id="lineRankingSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('lineRankingSection')">
+              <h2>📈 Evolución de Puntuación</h2>
+              <span class="arrow">▶</span>
+            </div>
+            <div class="da-collapsible-content">
+              <p class="section-hint">Líneas de puntuación acumulada de cada jugador día a día. La Y muestra los puntos totales, no la posición.</p>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <label style="font-size:14px;color:#444;">Agrupar por 
+                  <select id="lineRankingTimeFilter" style="padding:6px 10px;border-radius:6px;border:1px solid #ddd;font-size:14px;">
+                    <option value="day" selected>Día</option>
+                    <option value="week">Semana</option>
+                  </select>
+                </label>
+                <label style="font-size:14px;color:#444;">Mostrar top 
+                  <select id="lineRankingTopN" style="padding:6px 10px;border-radius:6px;border:1px solid #ddd;font-size:14px;">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="999">Todos</option>
+                  </select>
+                </label>
+                <button id="btnRefreshLineRanking" class="modal-btn confirm-btn" style="padding:8px 16px;font-size:13px;">🔄 Actualizar gráfico</button>
+                <button id="btnToggleFitLine" class="modal-btn" style="padding:8px 16px;font-size:13px;background:#6c757d;color:#fff;border:none;border-radius:6px;cursor:pointer;">↔️ Ajustar al ancho</button>
+              </div>
+              <div id="lineRankingScrollWrapper" style="width:100%;overflow-x:auto;overflow-y:hidden;border:1px solid #e9ecef;border-radius:12px;background:#fff;">
+                <div id="lineRankingContainer" style="height:520px;position:relative;"></div>
+              </div>
             </div>
           </div>
         </section>

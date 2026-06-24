@@ -1571,6 +1571,12 @@ function toggleDataAnalysisSection(sectionId) {
         }
       }, 50);
     }
+    
+    if (sectionId === 'lineRankingSection') {
+      setTimeout(() => {
+        if (typeof daInitLineRanking === 'function') daInitLineRanking();
+      }, 50);
+    }
   } else {
     content.classList.remove('active');
     content.style.display = 'none';

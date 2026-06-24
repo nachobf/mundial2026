@@ -1285,7 +1285,6 @@ body {
   border: 1px solid #e0e0e0;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 16px;
 }
 .da-collapsible-header { 
   display:flex;
@@ -1322,29 +1321,29 @@ body {
   display:block;
 }
 /* Scroll horizontal del bump chart */
-#bumpChartScrollWrapper {
+#bumpChartScrollWrapper, #lineRankingScrollWrapper {
   scrollbar-width: thin;
   scrollbar-color: #ccc #f0f0f0;
 }
-#bumpChartScrollWrapper::-webkit-scrollbar {
+#bumpChartScrollWrapper::-webkit-scrollbar, #lineRankingScrollWrapper::-webkit-scrollbar {
   height: 10px;
 }
-#bumpChartScrollWrapper::-webkit-scrollbar-track {
+#bumpChartScrollWrapper::-webkit-scrollbar-track, #lineRankingScrollWrapper::-webkit-scrollbar-track {
   background: #f0f0f0;
   border-radius: 5px;
 }
-#bumpChartScrollWrapper::-webkit-scrollbar-thumb {
+#bumpChartScrollWrapper::-webkit-scrollbar-thumb, #lineRankingScrollWrapper::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 5px;
 }
-#bumpChartScrollWrapper::-webkit-scrollbar-thumb:hover {
+#bumpChartScrollWrapper::-webkit-scrollbar-thumb:hover, #lineRankingScrollWrapper::-webkit-scrollbar-thumb:hover {
   background: #aaa;
 }
 /* Modo fit-to-width: el SVG escala al contenedor */
-#bumpChartScrollWrapper.fit-mode {
+#bumpChartScrollWrapper.fit-mode, #lineRankingScrollWrapper.fit-mode {
   overflow-x: hidden;
 }
-#bumpChartScrollWrapper.fit-mode #bumpChartContainer {
+#bumpChartScrollWrapper.fit-mode #bumpChartContainer, #lineRankingScrollWrapper.fit-mode #lineRankingContainer {
   width: 100% !important;
   min-width: 0 !important;
 }
