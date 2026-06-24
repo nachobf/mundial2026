@@ -818,9 +818,8 @@ function daRenderBumpChart(dailyData, topN, timeFilter) {
 
   // Labels del último día
   const lastPoints = chartData.filter(d => d.date === lastDate);
-  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
   
-  const labels = svg.selectAll('.bump-label').data(labelsToShow).enter().append('text')
+  const labels = svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
     .attr('class', 'bump-label')
     .attr('x', width + (isMobile ? 5 : 10))
     .attr('y', d => y(d.rank))
@@ -1235,9 +1234,8 @@ function daRenderLineRanking(dailyData, topN, timeFilter) {
 
   // Labels del último día
   const lastPoints = chartData.filter(d => d.date === lastDate);
-  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
   
-  const labels = svg.selectAll('.line-ranking-label').data(labelsToShow).enter().append('text')
+  const labels = svg.selectAll('.line-ranking-label').data(lastPoints).enter().append('text')
     .attr('class', 'line-ranking-label')
     .attr('x', width + (isMobile ? 5 : 10))
     .attr('y', d => y(d.score))
