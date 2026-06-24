@@ -614,12 +614,22 @@ function daProcessAndRender(players, finishedMatches) {
 }
 
 /* -----------------------------------------------------------
-   TOGGLE FIT MODE
+   FUNCIÓN COMPARTIDA: Aplicar filtro de tiempo (día/semana)
+   ----------------------------------------------------------- */
+function daApplyTimeFilter(dailyData, timeFilter) {
+  if (timeFilter === 'week') {
+    return daGroupByWeek(dailyData);
+  }
+  return dailyData;
+}
+
+/* -----------------------------------------------------------
+   TOGGLE FIT MODE — BUMP CHART
    ----------------------------------------------------------- */
 function daToggleFitMode() {
   BUMP_CHART_FIT_MODE = !BUMP_CHART_FIT_MODE;
   const wrapper = document.getElementById('bumpChartScrollWrapper');
-  const btn = document.getElementById('btnToggleFit');
+  const btn = document.getElementById('btnToggleFitBump');
   
   if (BUMP_CHART_FIT_MODE) {
     wrapper.classList.add('fit-mode');
@@ -633,28 +643,32 @@ function daToggleFitMode() {
   
   if (window.__bumpChartData && window.__bumpChartData.length > 0) {
     const topN = parseInt(document.getElementById('bumpChartTopN')?.value || '10', 10);
-    daRenderBumpChart(window.__bumpChartData, topN);
+    const timeFilter = document.getElementById('bumpChartTimeFilter')?.value || 'day';
+    daRenderBumpChart(window.__bumpChartData, topN, timeFilter);
   }
 }
 
 /* -----------------------------------------------------------
-   RENDERIZADO DEL BUMP CHART
+   RENDERIZADO DEL BUMP CHART (CON FILTRO DE TIEMPO)
    ----------------------------------------------------------- */
-function daRenderBumpChart(dailyData, topN) {
+function daRenderBumpChart(dailyData, topN, timeFilter) {
   const container = document.getElementById('bumpChartContainer');
   const wrapper = document.getElementById('bumpChartScrollWrapper');
   container.innerHTML = '';
 
-  const dates = [...new Set(dailyData.map(d => d.date))].sort();
+  // Aplicar filtro de tiempo
+  let filteredData = daApplyTimeFilter(dailyData, timeFilter);
+
+  const dates = [...new Set(filteredData.map(d => d.date))].sort();
   if (dates.length === 0) {
     container.innerHTML = '<p class="note-text">No hay fechas para mostrar.</p>';
     return;
   }
 
   const lastDate = dates[dates.length - 1];
-  const lastRanks = dailyData.filter(d => d.date === lastDate).sort((a, b) => a.rank - b.rank);
+  const lastRanks = filteredData.filter(d => d.date === lastDate).sort((a, b) => a.rank - b.rank);
   const topPlayers = new Set(lastRanks.slice(0, topN).map(d => d.player));
-  const filteredData = dailyData.filter(d => topPlayers.has(d.player));
+  const chartData = filteredData.filter(d => topPlayers.has(d.player));
 
   const isMobile = window.innerWidth <= 768;
   const isFitMode = BUMP_CHART_FIT_MODE;
@@ -698,13 +712,13 @@ function daRenderBumpChart(dailyData, topN) {
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
   const x = d3.scalePoint().domain(dates).range([0, width]).padding(0.3);
-  const maxRank = d3.max(filteredData, d => d.rank) || 1;
+  const maxRank = d3.max(chartData, d => d.rank) || 1;
   const y = d3.scaleLinear().domain([1, maxRank]).range([0, innerHeight]);
 
-  const playersList = [...new Set(filteredData.map(d => d.player))];
+  const playersList = [...new Set(chartData.map(d => d.player))];
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(playersList);
   const line = d3.line().x(d => x(d.date)).y(d => y(d.rank)).curve(d3.curveMonotoneX);
-  const nested = d3.group(filteredData, d => d.player);
+  const nested = d3.group(chartData, d => d.player);
 
   // Grid horizontal
   svg.selectAll('.grid-line').data(y.ticks(maxRank)).enter().append('line')
@@ -721,7 +735,7 @@ function daRenderBumpChart(dailyData, topN) {
     .attr('data-player', ([player]) => player);
 
   // Puntos
-  const points = svg.selectAll('.bump-point').data(filteredData).enter().append('circle')
+  const points = svg.selectAll('.bump-point').data(chartData).enter().append('circle')
     .attr('class', 'bump-point').attr('cx', d => x(d.date)).attr('cy', d => y(d.rank))
     .attr('r', isMobile ? 4 : 5)
     .attr('fill', d => color(d.player)).attr('stroke', '#fff').attr('stroke-width', 2)
@@ -731,6 +745,11 @@ function daRenderBumpChart(dailyData, topN) {
   const xAxis = svg.append('g').attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).tickFormat(d => {
       const date = new Date(d + 'T00:00:00');
+      if (timeFilter === 'week') {
+        return isMobile 
+          ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+          : 'Sem. ' + date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+      }
       return isMobile 
         ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })
         : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
@@ -761,10 +780,11 @@ function daRenderBumpChart(dailyData, topN) {
 
   function showTooltip(event, pointData) {
     const dateObj = new Date(pointData.date + 'T00:00:00');
+    const label = timeFilter === 'week' ? 'Semana del ' : '';
     tooltip.transition().duration(150).style('opacity', 1);
     tooltip.html(`
       <div style="font-weight:700;margin-bottom:4px;">${pointData.player}</div>
-      <div style="color:#aaa;font-size:12px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;font-weight:700;">#${pointData.rank}</span>
         <span style="color:#7FD8FF;font-weight:600;">${pointData.score} pts</span>
@@ -797,9 +817,10 @@ function daRenderBumpChart(dailyData, topN) {
   }).on('mouseout', resetHighlight);
 
   // Labels del último día
-  const lastPoints = filteredData.filter(d => d.date === lastDate);
+  const lastPoints = chartData.filter(d => d.date === lastDate);
+  const labelsToShow = isMobile ? lastPoints.slice(0, 3) : lastPoints;
   
-  const labels = svg.selectAll('.bump-label').data(lastPoints).enter().append('text')
+  const labels = svg.selectAll('.bump-label').data(labelsToShow).enter().append('text')
     .attr('class', 'bump-label')
     .attr('x', width + (isMobile ? 5 : 10))
     .attr('y', d => y(d.rank))
@@ -892,20 +913,36 @@ function initDataAnalysis() {
 }
 
 /* -----------------------------------------------------------
-   CONTROLES
+   CONTROLES DEL BUMP CHART
    ----------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshBumpChart');
   const topSelect = document.getElementById('bumpChartTopN');
-  const toggleBtn = document.getElementById('btnToggleFit');
+  const timeSelect = document.getElementById('bumpChartTimeFilter');
+  const toggleBtn = document.getElementById('btnToggleFitBump');
   
   if (refreshBtn) refreshBtn.addEventListener('click', function() {
-    if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect?.value || '10', 10));
-    else initDataAnalysis();
+    if (window.__bumpChartData) {
+      const topN = parseInt(topSelect?.value || '10', 10);
+      const timeFilter = timeSelect?.value || 'day';
+      daRenderBumpChart(window.__bumpChartData, topN, timeFilter);
+    } else {
+      initDataAnalysis();
+    }
   });
   
   if (topSelect) topSelect.addEventListener('change', function() {
-    if (window.__bumpChartData) daRenderBumpChart(window.__bumpChartData, parseInt(topSelect.value, 10));
+    if (window.__bumpChartData) {
+      const timeFilter = timeSelect?.value || 'day';
+      daRenderBumpChart(window.__bumpChartData, parseInt(topSelect.value, 10), timeFilter);
+    }
+  });
+  
+  if (timeSelect) timeSelect.addEventListener('change', function() {
+    if (window.__bumpChartData) {
+      const topN = parseInt(topSelect?.value || '10', 10);
+      daRenderBumpChart(window.__bumpChartData, topN, timeSelect.value);
+    }
   });
   
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitMode);

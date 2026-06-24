@@ -1347,3 +1347,84 @@ body {
   width: 100% !important;
   min-width: 0 !important;
 }
+
+/* Controles de gráficos */
+.da-controls {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-bottom:16px;
+}
+.da-controls-filters {
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.da-controls-filters label {
+  font-size:14px;
+  color:#444;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.da-controls-filters select {
+  padding:6px 10px;
+  border-radius:6px;
+  border:1px solid #ddd;
+  font-size:14px;
+}
+.da-controls-buttons {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.da-controls-buttons button {
+  padding:8px 16px;
+  font-size:13px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+.da-btn-toggle {
+  background:#6c757d;
+  color:#fff;
+}
+    
+/* Scroll horizontal */
+.da-chart-scroll-wrapper {
+  width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border:1px solid #e9ecef;
+  border-radius:12px;
+  background:#fff;
+}
+.da-chart-scroll-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #ccc #f0f0f0;
+}
+.da-chart-scroll-wrapper::-webkit-scrollbar {
+  height: 10px;
+}
+.da-chart-scroll-wrapper::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 5px;
+}
+.da-chart-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 5px;
+}
+.da-chart-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+/* Modo fit */
+.da-chart-scroll-wrapper.fit-mode {
+  overflow-x: hidden;
+}
+.da-chart-scroll-wrapper.fit-mode > div {
+  width: 100% !important;
+  min-width: 0 !important;
+}
