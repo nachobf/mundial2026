@@ -1491,3 +1491,176 @@ body {
     margin-left: 0;
   }
 }
+
+/* ===== DAILY POINTS — CHECKBOXES DE JUGADORES ===== */
+.dp-players-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.dp-label {
+  font-size: 14px;
+  color: #444;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dp-players-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dp-player-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #f5f5f5;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  font-size: 13px;
+  color: #333;
+}
+
+.dp-player-checkbox:hover {
+  background: #e8e8e8;
+}
+
+.dp-player-checkbox.checked {
+  background: #e3f2fd;
+  border-color: #1976d2;
+  color: #1565c0;
+}
+
+.dp-player-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #1976d2;
+}
+
+.dp-select-all-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dp-select-all-btn:hover {
+  background: #f5f5f5;
+}
+
+/* ===== FILTROS Y BOTONES ===== */
+.dp-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+
+.dp-filters-row label {
+  font-size: 14px;
+  color: #444;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.dp-filters-row select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+.dp-buttons-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dp-buttons-row button {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ===== MÓVIL ===== */
+@media (max-width: 768px) {
+  .dp-players-row {
+    align-items: flex-start;
+  }
+  
+  .dp-players-checkboxes {
+    gap: 6px;
+  }
+  
+  .dp-player-checkbox {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  /* Fila 1: Jugadores + Escala */
+  .dp-filters-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  
+  .dp-filters-row label:first-child {
+    grid-column: 1 / -1; /* Agrupar por ocupa toda la fila */
+  }
+  
+  .dp-filters-row label:nth-child(2) {
+    grid-column: 1; /* Fecha */
+  }
+  
+  .dp-filters-row label:nth-child(3) {
+    grid-column: 2; /* Escala */
+  }
+  
+  /* Fila 2: Botones */
+  .dp-buttons-row {
+    margin-bottom: 12px;
+  }
+  
+  .dp-buttons-row button {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+  }
+}
+
+/* PC pequeño: todo en una fila */
+@media (max-width: 1100px) and (min-width: 769px) {
+  .dp-players-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .dp-filters-row {
+    flex-wrap: wrap;
+  }
+}

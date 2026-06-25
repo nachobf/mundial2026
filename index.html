@@ -200,7 +200,7 @@
           </div>
         </section>
 
-                <!-- PUNTOS POR DÍA (Barras agrupadas) -->
+        <!-- PUNTOS POR DÍA (Barras verticales) -->
         <section class="section">
           <div class="da-collapsible-section" id="dailyPointsSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('dailyPointsSection')">
@@ -208,37 +208,44 @@
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
-              <p class="section-hint">Puntos ganados cada día por jugador. Útil para ver quién acertó los resultados de cada día o semana.</p>
-              <div class="da-controls">
-                <div class="da-controls-filters">
-                  <label>Jugadores
-                    <select id="dailyPointsPlayers" multiple style="min-width:160px; height: auto;">
-                      <!-- Se llena dinámicamente, todos seleccionados por defecto -->
-                    </select>
-                  </label>
-                  <label>Día
-                    <select id="dailyPointsDay">
-                      <!-- Se llena dinámicamente -->
-                    </select>
-                  </label>
-                  <label>Agrupar por
-                    <select id="dailyPointsTimeFilter">
-                      <option value="day" selected>Día</option>
-                      <option value="week">Semana</option>
-                    </select>
-                  </label>
-                  <label>Escala Y
-                    <select id="dailyPointsScale">
-                      <option value="absolute" selected>Puntos</option>
-                      <option value="percent">%</option>
-                    </select>
-                  </label>
+              <p class="section-hint">Puntos ganados cada día por jugador. Útil para ver quién acertó los resultados de cada jornada.</p>
+              
+              <!-- Fila 1: Jugadores (checkboxes) -->
+              <div class="dp-players-row">
+                <span class="dp-label">Jugadores:</span>
+                <div class="dp-players-checkboxes" id="dailyPointsPlayersContainer">
+                  <!-- Se llena dinámicamente -->
                 </div>
-                <div class="da-controls-buttons">
-                  <button id="btnRefreshDailyPoints" class="modal-btn confirm-btn">🔄 Actualizar</button>
-                  <button id="btnToggleFitDaily" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
-                </div>
+                <button type="button" class="dp-select-all-btn" id="btnSelectAllPlayers" onclick="daToggleSelectAllPlayers()">Desmarcar todos</button>
               </div>
+              
+              <!-- Fila 2: Filtros (día/semana, fecha, escala) -->
+              <div class="dp-filters-row">
+                <label>Agrupar por
+                  <select id="dailyPointsTimeFilter">
+                    <option value="day" selected>Día</option>
+                    <option value="week">Semana</option>
+                  </select>
+                </label>
+                <label>Fecha
+                  <select id="dailyPointsDay">
+                    <!-- Se llena dinámicamente -->
+                  </select>
+                </label>
+                <label>Escala Y
+                  <select id="dailyPointsScale">
+                    <option value="absolute" selected>Puntos</option>
+                    <option value="percent">%</option>
+                  </select>
+                </label>
+              </div>
+              
+              <!-- Fila 3: Botones -->
+              <div class="dp-buttons-row">
+                <button id="btnRefreshDailyPoints" class="modal-btn confirm-btn">🔄 Actualizar</button>
+                <button id="btnToggleFitDaily" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+              </div>
+              
               <div id="dailyPointsScrollWrapper" class="da-chart-scroll-wrapper">
                 <div id="dailyPointsContainer" style="height:520px;position:relative;"></div>
               </div>

@@ -1493,19 +1493,43 @@ window.addEventListener('resize', function() {
    ============================================================ */
 
 let DAILY_POINTS_FIT_MODE = false;
-let __dailyPointsData = null; // { byDay: {date: [{player, points, totalScore, pct}]}, players: [], dates: [], weeks: [] }
+let __dailyPointsData = null;
+let __dailyPointsAllSelected = true; // Estado del botón "Todos/Ninguno"
+
+const TOURNAMENT_END = '2026-07-19';
 
 /**
  * Determina a qué semana del torneo pertenece una fecha CEST
- * Semana 1: 11-17 junio, Semana 2: 18-24 junio, Semana 3: 25 junio-...
+ * Semana 1: 11-17 jun, Semana 2: 18-24 jun, etc. hasta el 19 julio
  */
 function daGetTournamentWeek(dateStr) {
   const date = new Date(dateStr + 'T00:00:00');
-  const start = new Date('2026-06-11T00:00:00'); // Inicio del torneo en CEST
+  const start = new Date('2026-06-11T00:00:00');
   const diffMs = date - start;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const week = Math.floor(diffDays / 7) + 1;
-  return Math.max(1, week);
+  return Math.max(1, Math.floor(diffDays / 7) + 1);
+}
+
+/**
+ * Calcula todas las semanas del torneo hasta la fecha final o hoy
+ */
+function daGetAllTournamentWeeks() {
+  const start = new Date('2026-06-11T00:00:00');
+  const end = new Date(TOURNAMENT_END + 'T00:00:00');
+  const today = new Date();
+  const limit = today < end ? today : end;
+  
+  const weeks = [];
+  let current = new Date(start);
+  let weekNum = 1;
+  
+  while (current <= limit) {
+    weeks.push(weekNum);
+    current.setDate(current.getDate() + 7);
+    weekNum++;
+  }
+  
+  return weeks;
 }
 
 /**
@@ -1514,7 +1538,6 @@ function daGetTournamentWeek(dateStr) {
 function daCalculateDailyPoints(players, finishedMatches) {
   const TOTAL_GROUP_MATCHES = 72;
 
-  // Agrupar partidos por fecha CEST
   const byCESTDate = {};
   finishedMatches.forEach(m => {
     const cest = daConvertToCEST(m.date, m.time);
@@ -1532,7 +1555,6 @@ function daCalculateDailyPoints(players, finishedMatches) {
     }
   }
 
-  // Calcular puntuación acumulada día a día
   const cumulativeScores = {};
   players.forEach(p => { cumulativeScores[p.name] = {}; });
 
@@ -1569,7 +1591,7 @@ function daCalculateDailyPoints(players, finishedMatches) {
     byDay[date] = dayData;
   });
 
-  // Calcular porcentajes (respecto al máximo delta del día, entre TODOS los jugadores)
+  // Porcentajes sobre TODOS los jugadores
   dates.forEach(date => {
     const maxDelta = Math.max(...byDay[date].map(d => d.points), 1);
     byDay[date].forEach(d => {
@@ -1577,8 +1599,11 @@ function daCalculateDailyPoints(players, finishedMatches) {
     });
   });
 
-  // Calcular semanas del torneo (solo las que tienen datos)
-  const weeks = [...new Set(dates.map(daGetTournamentWeek))].sort((a, b) => a - b);
+  // Semanas dinámicas hasta la fecha final del torneo
+  const allWeeks = daGetAllTournamentWeeks();
+  const usedWeeks = [...new Set(dates.map(daGetTournamentWeek))].sort((a, b) => a - b);
+  // Incluir semanas futuras si el torneo está en curso
+  const weeks = allWeeks.filter(w => w <= Math.max(...usedWeeks, ...allWeeks));
 
   return {
     byDay,
@@ -1588,16 +1613,11 @@ function daCalculateDailyPoints(players, finishedMatches) {
   };
 }
 
-/**
- * Agrupa datos diarios por semana del torneo (suma deltas)
- */
 function daGroupDailyByWeek(data) {
-  const { byDay, players, dates } = data;
+  const { byDay, players, dates, weeks } = data;
   const byWeek = {};
-  const weekDates = [];
-
-  // Inicializar semanas
-  data.weeks.forEach(w => {
+  
+  weeks.forEach(w => {
     byWeek[w] = {};
     players.forEach(p => {
       byWeek[w][p] = {
@@ -1610,19 +1630,17 @@ function daGroupDailyByWeek(data) {
     });
   });
 
-  // Sumar puntos por semana
   dates.forEach(date => {
     const week = daGetTournamentWeek(date);
     if (!byWeek[week]) return;
     
     byDay[date].forEach(d => {
       byWeek[week][d.player].points += d.points;
-      byWeek[week][d.player].totalScore = d.totalScore; // último total
+      byWeek[week][d.player].totalScore = d.totalScore;
     });
   });
 
-  // Recalcular porcentajes por semana (sobre TODOS los jugadores)
-  data.weeks.forEach(w => {
+  weeks.forEach(w => {
     const weekData = Object.values(byWeek[w]);
     const maxDelta = Math.max(...weekData.map(d => d.points), 1);
     weekData.forEach(d => {
@@ -1630,17 +1648,16 @@ function daGroupDailyByWeek(data) {
     });
   });
 
-  // Reconstruir estructura compatible con byDay
   const newByDay = {};
-  data.weeks.forEach(w => {
+  weeks.forEach(w => {
     newByDay[`Semana ${w}`] = Object.values(byWeek[w]);
   });
 
   return {
     byDay: newByDay,
     players,
-    dates: data.weeks.map(w => `Semana ${w}`),
-    weeks: data.weeks
+    dates: weeks.map(w => `Semana ${w}`),
+    weeks
   };
 }
 
@@ -1662,27 +1679,90 @@ function daToggleFitDailyPoints() {
   daRefreshDailyPoints();
 }
 
+/* ===== CHECKBOXES DE JUGADORES ===== */
+
+function daRenderPlayerCheckboxes() {
+  const container = document.getElementById('dailyPointsPlayersContainer');
+  if (!container || !__dailyPointsData) return;
+  
+  container.innerHTML = '';
+  const players = __dailyPointsData.players;
+  
+  players.forEach(p => {
+    const label = document.createElement('label');
+    label.className = 'dp-player-checkbox' + (__dailyPointsAllSelected ? ' checked' : '');
+    label.dataset.player = p;
+    
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = __dailyPointsAllSelected;
+    cb.dataset.player = p;
+    cb.addEventListener('change', function() {
+      label.classList.toggle('checked', this.checked);
+      daUpdateSelectAllButton();
+      daRefreshDailyPoints();
+    });
+    
+    const span = document.createElement('span');
+    span.textContent = p;
+    
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
+    
+    // Click en el label también togglea
+    label.addEventListener('click', function(e) {
+      if (e.target !== cb) {
+        cb.checked = !cb.checked;
+        label.classList.toggle('checked', cb.checked);
+        daUpdateSelectAllButton();
+        daRefreshDailyPoints();
+      }
+    });
+  });
+  
+  daUpdateSelectAllButton();
+}
+
+function daToggleSelectAllPlayers() {
+  __dailyPointsAllSelected = !__dailyPointsAllSelected;
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
+  const labels = document.querySelectorAll('#dailyPointsPlayersContainer .dp-player-checkbox');
+  
+  checkboxes.forEach((cb, i) => {
+    cb.checked = __dailyPointsAllSelected;
+    labels[i].classList.toggle('checked', __dailyPointsAllSelected);
+  });
+  
+  daUpdateSelectAllButton();
+  daRefreshDailyPoints();
+}
+
+function daUpdateSelectAllButton() {
+  const btn = document.getElementById('btnSelectAllPlayers');
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+  
+  __dailyPointsAllSelected = allChecked;
+  if (btn) {
+    btn.textContent = allChecked ? 'Desmarcar todos' : 'Marcar todos';
+    btn.style.display = noneChecked ? 'inline-block' : 'inline-block';
+  }
+}
+
+function daGetSelectedPlayersFromCheckboxes() {
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]:checked');
+  const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
+  return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
+}
+
+/* ===== SELECTORES ===== */
+
 function daPopulateDailyPointsControls() {
   if (!__dailyPointsData) return;
   
-  const { players, dates, weeks } = __dailyPointsData;
-  
-  // Selector de jugadores (multiselect, todos seleccionados por defecto)
-  const playerSelect = document.getElementById('dailyPointsPlayers');
-  if (playerSelect) {
-    // Guardar selección actual si existe
-    const currentSelected = Array.from(playerSelect.selectedOptions).map(o => o.value);
-    
-    playerSelect.innerHTML = '';
-    players.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      // Todos seleccionados por defecto, o mantener previos si existen
-      opt.selected = currentSelected.length === 0 || currentSelected.includes(p);
-      playerSelect.appendChild(opt);
-    });
-  }
+  const { dates, weeks } = __dailyPointsData;
   
   // Selector de día/semana
   const daySelect = document.getElementById('dailyPointsDay');
@@ -1706,25 +1786,17 @@ function daPopulateDailyPointsControls() {
       const opt = document.createElement('option');
       opt.value = item.value;
       opt.textContent = item.label;
-      if (i === items.length - 1) opt.selected = true; // último por defecto
+      if (i === items.length - 1) opt.selected = true;
       daySelect.appendChild(opt);
     });
     
-    // Intentar mantener selección previa
     if (currentVal && Array.from(daySelect.options).some(o => o.value === currentVal)) {
       daySelect.value = currentVal;
     }
   }
 }
 
-function daGetSelectedPlayers() {
-  const select = document.getElementById('dailyPointsPlayers');
-  if (!select) return __dailyPointsData ? __dailyPointsData.players : [];
-  
-  const selected = Array.from(select.selectedOptions).map(o => o.value);
-  // Si ninguno seleccionado, devolver todos
-  return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
-}
+/* ===== REFRESH Y RENDER ===== */
 
 function daRefreshDailyPoints() {
   if (!__dailyPointsData) {
@@ -1739,10 +1811,9 @@ function daRefreshDailyPoints() {
     data = daGroupDailyByWeek(__dailyPointsData);
   }
   
-  // Actualizar selector de días si cambió el filtro de tiempo
   daPopulateDailyPointsControls();
   
-  const selectedPlayers = daGetSelectedPlayers();
+  const selectedPlayers = daGetSelectedPlayersFromCheckboxes();
   const selectedDay = document.getElementById('dailyPointsDay')?.value || data.dates[data.dates.length - 1];
   const scale = document.getElementById('dailyPointsScale')?.value || 'absolute';
   
@@ -1759,7 +1830,6 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     return;
   }
 
-  // Filtrar jugadores seleccionados y ordenar por totalScore (de mayor a menor)
   let dayData = data.byDay[selectedDay]
     .filter(d => selectedPlayers.includes(d.player))
     .sort((a, b) => b.totalScore - a.totalScore);
@@ -1811,13 +1881,11 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Escalas
   const x = d3.scaleBand()
     .domain(dayData.map(d => d.player))
     .range([0, width])
     .padding(0.2);
 
-  // Calcular máximo del día sobre TODOS los jugadores (para escala consistente)
   const allDayData = data.byDay[selectedDay];
   const maxValue = scale === 'percent' 
     ? 100 
@@ -1827,11 +1895,9 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .domain([0, maxValue || 1])
     .range([innerHeight, 0]);
 
-  // Color por jugador (consistente con otros gráficos)
   const allPlayers = __dailyPointsData ? __dailyPointsData.players : [];
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(allPlayers);
 
-  // Grid horizontal
   svg.append('g')
     .attr('class', 'grid-y')
     .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(''))
@@ -1840,7 +1906,6 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .attr('stroke-dasharray', '3,3');
   svg.select('.grid-y').select('.domain').remove();
 
-  // Barras
   const bars = svg.selectAll('.daily-bar').data(dayData).enter().append('rect')
     .attr('class', 'daily-bar')
     .attr('x', d => x(d.player))
@@ -1852,14 +1917,12 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .attr('ry', 4)
     .attr('opacity', 0.85);
 
-  // Animación
   bars.transition()
     .duration(600)
     .delay((d, i) => i * 30)
     .attr('y', d => y(scale === 'percent' ? d.pct : d.points))
     .attr('height', d => innerHeight - y(scale === 'percent' ? d.pct : d.points));
 
-  // Eje X (nombres rotados)
   const xAxis = svg.append('g')
     .attr('transform', `translate(0,${innerHeight})`)
     .call(d3.axisBottom(x).tickFormat(d => {
@@ -1876,7 +1939,6 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .style('fill', '#444');
   xAxis.select('.domain').attr('stroke', '#ddd');
 
-  // Eje Y
   const yAxis = svg.append('g')
     .call(d3.axisLeft(y).ticks(5).tickFormat(d => {
       if (scale === 'percent') return d + '%';
@@ -1887,7 +1949,6 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .style('fill', '#666');
   yAxis.select('.domain').attr('stroke', '#ddd');
 
-  // Tooltip
   const tooltip = d3.select('body').append('div')
     .attr('class', 'daily-tooltip')
     .style('opacity', 0)
@@ -1934,7 +1995,6 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     tooltip.transition().duration(200).style('opacity', 0);
   });
 
-  // Título eje Y
   svg.append('text')
     .attr('transform', 'rotate(-90)')
     .attr('y', 0 - margin.left + 12)
@@ -1945,7 +2005,7 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     .style('fill', '#888')
     .text(scale === 'percent' ? 'Porcentaje (%)' : 'Puntos ganados');
 
-  // Línea de media: calculada sobre TODOS los jugadores del día
+  // Media sobre TODOS los jugadores
   const allValues = allDayData.map(d => scale === 'percent' ? d.pct : d.points);
   const avgValue = allValues.reduce((a, b) => a + b, 0) / allValues.length;
   
@@ -1979,6 +2039,7 @@ function daInitDailyPoints() {
   }
 
   if (__dailyPointsData) {
+    daRenderPlayerCheckboxes();
     daPopulateDailyPointsControls();
     daRefreshDailyPoints();
     return;
@@ -2027,6 +2088,7 @@ function daInitDailyPoints() {
     }
 
     __dailyPointsData = daCalculateDailyPoints(players, finished);
+    daRenderPlayerCheckboxes();
     daPopulateDailyPointsControls();
     daRefreshDailyPoints();
 
@@ -2044,24 +2106,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const daySelect = document.getElementById('dailyPointsDay');
   const timeSelect = document.getElementById('dailyPointsTimeFilter');
   const scaleSelect = document.getElementById('dailyPointsScale');
-  const playerSelect = document.getElementById('dailyPointsPlayers');
   const toggleBtn = document.getElementById('btnToggleFitDaily');
   
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshDailyPoints);
-  
   if (daySelect) daySelect.addEventListener('change', daRefreshDailyPoints);
-  
   if (timeSelect) timeSelect.addEventListener('change', function() {
     daPopulateDailyPointsControls();
     daRefreshDailyPoints();
   });
-  
   if (scaleSelect) scaleSelect.addEventListener('change', daRefreshDailyPoints);
-  
-  if (playerSelect) {
-    playerSelect.addEventListener('change', daRefreshDailyPoints);
-  }
-  
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitDailyPoints);
 });
 
