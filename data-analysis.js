@@ -1679,7 +1679,54 @@ function daToggleFitDailyPoints() {
   daRefreshDailyPoints();
 }
 
-/* ===== CHECKBOXES DE JUGADORES ===== */
+/* ===== DROPDOWN MULTISELECT DE JUGADORES ===== */
+
+function daTogglePlayersDropdown(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById('dailyPointsPlayersDropdown');
+  const toggle = document.getElementById('btnDailyPointsPlayersToggle');
+  const menu = document.getElementById('dailyPointsPlayersMenu');
+  
+  const isOpen = menu.classList.contains('open');
+  
+  // Cerrar todos los dropdowns primero
+  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
+  
+  if (!isOpen) {
+    menu.classList.add('open');
+    toggle.classList.add('active');
+  }
+}
+
+// Cerrar dropdown al hacer click fuera
+document.addEventListener('click', function(e) {
+  const dropdown = document.getElementById('dailyPointsPlayersDropdown');
+  if (dropdown && !dropdown.contains(e.target)) {
+    const menu = document.getElementById('dailyPointsPlayersMenu');
+    const toggle = document.getElementById('btnDailyPointsPlayersToggle');
+    if (menu) menu.classList.remove('open');
+    if (toggle) toggle.classList.remove('active');
+  }
+});
+
+function daUpdateToggleText() {
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
+  const checked = Array.from(checkboxes).filter(cb => cb.checked);
+  const text = document.getElementById('dpPlayersToggleText');
+  
+  if (!text) return;
+  
+  if (checked.length === 0) {
+    text.textContent = 'Ninguno seleccionado';
+  } else if (checked.length === checkboxes.length) {
+    text.textContent = 'Todos seleccionados';
+  } else if (checked.length === 1) {
+    text.textContent = checked[0].dataset.player;
+  } else {
+    text.textContent = `${checked.length} seleccionados`;
+  }
+}
 
 function daRenderPlayerCheckboxes() {
   const container = document.getElementById('dailyPointsPlayersContainer');
@@ -1690,16 +1737,15 @@ function daRenderPlayerCheckboxes() {
   
   players.forEach(p => {
     const label = document.createElement('label');
-    label.className = 'dp-player-checkbox' + (__dailyPointsAllSelected ? ' checked' : '');
-    label.dataset.player = p;
+    label.className = 'dp-dropdown-item';
     
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = __dailyPointsAllSelected;
+    cb.checked = true; // Todos seleccionados por defecto
     cb.dataset.player = p;
     cb.addEventListener('change', function() {
-      label.classList.toggle('checked', this.checked);
-      daUpdateSelectAllButton();
+      daUpdateSelectAllCheckbox();
+      daUpdateToggleText();
       daRefreshDailyPoints();
     });
     
@@ -1710,45 +1756,51 @@ function daRenderPlayerCheckboxes() {
     label.appendChild(span);
     container.appendChild(label);
     
-    // Click en el label también togglea
+    // Click en el label también togglea (pero no si es el checkbox)
     label.addEventListener('click', function(e) {
       if (e.target !== cb) {
         cb.checked = !cb.checked;
-        label.classList.toggle('checked', cb.checked);
-        daUpdateSelectAllButton();
+        daUpdateSelectAllCheckbox();
+        daUpdateToggleText();
         daRefreshDailyPoints();
       }
     });
   });
   
-  daUpdateSelectAllButton();
+  daUpdateSelectAllCheckbox();
+  daUpdateToggleText();
 }
 
-function daToggleSelectAllPlayers() {
-  __dailyPointsAllSelected = !__dailyPointsAllSelected;
+function daUpdateSelectAllCheckbox() {
+  const selectAllCb = document.getElementById('dpSelectAllCheckbox');
   const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
-  const labels = document.querySelectorAll('#dailyPointsPlayersContainer .dp-player-checkbox');
+  if (!selectAllCb || checkboxes.length === 0) return;
   
-  checkboxes.forEach((cb, i) => {
-    cb.checked = __dailyPointsAllSelected;
-    labels[i].classList.toggle('checked', __dailyPointsAllSelected);
-  });
-  
-  daUpdateSelectAllButton();
-  daRefreshDailyPoints();
-}
-
-function daUpdateSelectAllButton() {
-  const btn = document.getElementById('btnSelectAllPlayers');
-  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
   const allChecked = Array.from(checkboxes).every(cb => cb.checked);
   const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
   
-  __dailyPointsAllSelected = allChecked;
-  if (btn) {
-    btn.textContent = allChecked ? 'Desmarcar todos' : 'Marcar todos';
-    btn.style.display = noneChecked ? 'inline-block' : 'inline-block';
-  }
+  selectAllCb.checked = allChecked;
+  selectAllCb.indeterminate = !allChecked && !noneChecked;
+}
+
+function daToggleSelectAllPlayers() {
+  const selectAllCb = document.getElementById('dpSelectAllCheckbox');
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
+  
+  const shouldCheck = selectAllCb.checked;
+  
+  checkboxes.forEach(cb => {
+    cb.checked = shouldCheck;
+  });
+  
+  daUpdateToggleText();
+  daRefreshDailyPoints();
+}
+
+function daGetSelectedPlayersFromCheckboxes() {
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]:checked');
+  const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
+  return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
 }
 
 function daGetSelectedPlayersFromCheckboxes() {

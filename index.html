@@ -210,13 +210,25 @@
             <div class="da-collapsible-content">
               <p class="section-hint">Puntos ganados cada día por jugador. Útil para ver quién acertó los resultados de cada jornada.</p>
               
-              <!-- Fila 1: Jugadores (checkboxes) -->
+              <!-- Fila 1: Jugadores (dropdown multiselect) -->
               <div class="dp-players-row">
                 <span class="dp-label">Jugadores:</span>
-                <div class="dp-players-checkboxes" id="dailyPointsPlayersContainer">
-                  <!-- Se llena dinámicamente -->
+                <div class="dp-dropdown" id="dailyPointsPlayersDropdown">
+                  <button type="button" class="dp-dropdown-toggle" id="btnDailyPointsPlayersToggle" onclick="daTogglePlayersDropdown(event)">
+                    <span id="dpPlayersToggleText">Todos seleccionados</span>
+                    <span class="dp-dropdown-arrow">▼</span>
+                  </button>
+                  <div class="dp-dropdown-menu" id="dailyPointsPlayersMenu">
+                    <label class="dp-dropdown-item">
+                      <input type="checkbox" id="dpSelectAllCheckbox" checked onchange="daToggleSelectAllPlayers()">
+                      <span>Seleccionar todos</span>
+                    </label>
+                    <div class="dp-dropdown-divider"></div>
+                    <div id="dailyPointsPlayersContainer">
+                      <!-- Se llena dinámicamente -->
+                    </div>
+                  </div>
                 </div>
-                <button type="button" class="dp-select-all-btn" id="btnSelectAllPlayers" onclick="daToggleSelectAllPlayers()">Desmarcar todos</button>
               </div>
               
               <!-- Fila 2: Filtros (día/semana, fecha, escala) -->
