@@ -1487,3 +1487,578 @@ window.addEventListener('resize', function() {
     }, 300);
   }
 });
+
+/* ============================================================
+   DAILY POINTS — Puntos ganados por día/semana (barras agrupadas)
+   ============================================================ */
+
+let DAILY_POINTS_FIT_MODE = false;
+let __dailyPointsData = null; // { byDay: {date: [{player, points, totalScore, pct}]}, players: [], dates: [] }
+
+/**
+ * Calcula los puntos ganados CADA DÍA (delta) para cada jugador.
+ * Necesita recalcular desde cero cada día para obtener el delta.
+ */
+function daCalculateDailyPoints(players, finishedMatches) {
+  const TOTAL_GROUP_MATCHES = 72;
+
+  // Agrupar partidos por fecha CEST
+  const byCESTDate = {};
+  finishedMatches.forEach(m => {
+    const cest = daConvertToCEST(m.date, m.time);
+    if (!byCESTDate[cest.date]) byCESTDate[cest.date] = [];
+    byCESTDate[cest.date].push(m);
+  });
+
+  const dates = Object.keys(byCESTDate).sort();
+  const todayCEST = daConvertToCEST(new Date().toISOString().split('T')[0], null).date;
+  
+  // Añadir hoy si no hay partidos pero ya empezó el torneo
+  if (!byCESTDate[todayCEST] && dates.length > 0) {
+    const lastDate = dates[dates.length - 1];
+    if (new Date(todayCEST) > new Date(lastDate)) {
+      dates.push(todayCEST);
+    }
+  }
+
+  // Calcular puntuación acumulada día a día para cada jugador
+  const cumulativeScores = {}; // { player: { date: score } }
+  players.forEach(p => { cumulativeScores[p.name] = {}; });
+
+  const matchesSoFar = [];
+  const byDay = {};
+
+  dates.forEach(date => {
+    if (byCESTDate[date]) {
+      matchesSoFar.push(...byCESTDate[date]);
+    }
+    
+    const realPartial = daBuildPartialReal(matchesSoFar);
+    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
+
+    const dayData = [];
+
+    players.forEach(player => {
+      const score = daCalculateScore(player, realPartial, faseGruposTerminada);
+      const prevDate = dates[dates.indexOf(date) - 1];
+      const prevScore = prevDate ? cumulativeScores[player.name][prevDate] : 0;
+      const delta = score - prevScore;
+      
+      cumulativeScores[player.name][date] = score;
+      
+      dayData.push({
+        player: player.name,
+        points: delta,
+        totalScore: score,
+        date: date
+      });
+    });
+
+    byDay[date] = dayData;
+  });
+
+  // Calcular porcentajes (respecto al máximo posible ese día, que es el máximo delta)
+  dates.forEach(date => {
+    const maxDelta = Math.max(...byDay[date].map(d => d.points), 1);
+    byDay[date].forEach(d => {
+      d.pct = Math.round((d.points / maxDelta) * 100);
+    });
+  });
+
+  return {
+    byDay,
+    players: players.map(p => p.name),
+    dates
+  };
+}
+
+/**
+ * Agrupa datos diarios por semana (suma los deltas de la semana)
+ */
+function daGroupDailyByWeek(dailyData) {
+  const { byDay, players, dates } = dailyData;
+  const byWeek = {};
+  const weekDates = [];
+
+  dates.forEach(date => {
+    const weekStart = daGetWeekStart(date);
+    if (!byWeek[weekStart]) {
+      byWeek[weekStart] = {};
+      weekDates.push(weekStart);
+    }
+    
+    byDay[date].forEach(d => {
+      if (!byWeek[weekStart][d.player]) {
+        byWeek[weekStart][d.player] = {
+          player: d.player,
+          points: 0,
+          totalScore: d.totalScore, // último total conocido
+          date: weekStart
+        };
+      }
+      byWeek[weekStart][d.player].points += d.points;
+    });
+  });
+
+  // Recalcular porcentajes por semana
+  weekDates.forEach(week => {
+    const weekPlayers = Object.values(byWeek[week]);
+    const maxDelta = Math.max(...weekPlayers.map(d => d.points), 1);
+    weekPlayers.forEach(d => {
+      d.pct = Math.round((d.points / maxDelta) * 100);
+    });
+  });
+
+  // Reconstruir estructura compatible
+  const newByDay = {};
+  weekDates.forEach(week => {
+    newByDay[week] = Object.values(byWeek[week]);
+  });
+
+  return {
+    byDay: newByDay,
+    players,
+    dates: weekDates.sort()
+  };
+}
+
+function daToggleFitDailyPoints() {
+  DAILY_POINTS_FIT_MODE = !DAILY_POINTS_FIT_MODE;
+  const wrapper = document.getElementById('dailyPointsScrollWrapper');
+  const btn = document.getElementById('btnToggleFitDaily');
+  
+  if (DAILY_POINTS_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+  
+  daRefreshDailyPoints();
+}
+
+function daPopulateDailyPointsControls() {
+  if (!__dailyPointsData) return;
+  
+  const { players, dates } = __dailyPointsData;
+  
+  // Selector de jugadores
+  const playerSelect = document.getElementById('dailyPointsPlayers');
+  if (playerSelect && playerSelect.options.length <= 1) {
+    // Guardar selección actual
+    const currentSelection = Array.from(playerSelect.selectedOptions).map(o => o.value);
+    
+    playerSelect.innerHTML = '<option value="all">Todos</option>';
+    players.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      playerSelect.appendChild(opt);
+    });
+    
+    // Restaurar selección o poner "todos"
+    if (currentSelection.includes('all') || currentSelection.length === 0) {
+      playerSelect.options[0].selected = true;
+    } else {
+      Array.from(playerSelect.options).forEach(o => {
+        o.selected = currentSelection.includes(o.value);
+      });
+    }
+  }
+  
+  // Selector de día/semana
+  const daySelect = document.getElementById('dailyPointsDay');
+  if (daySelect && dates.length > 0) {
+    const currentVal = daySelect.value;
+    daySelect.innerHTML = '';
+    
+    const timeFilter = document.getElementById('dailyPointsTimeFilter')?.value || 'day';
+    const labelPrefix = timeFilter === 'week' ? 'Sem. ' : '';
+    
+    dates.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      const dateObj = new Date(d + 'T00:00:00');
+      opt.textContent = labelPrefix + dateObj.toLocaleDateString('es-ES', { 
+        day: 'numeric', month: 'short' 
+      });
+      if (i === dates.length - 1) opt.selected = true; // último por defecto (hoy)
+      daySelect.appendChild(opt);
+    });
+    
+    // Intentar mantener selección previa si existe
+    if (currentVal && dates.includes(currentVal)) {
+      daySelect.value = currentVal;
+    }
+  }
+}
+
+function daGetSelectedPlayers() {
+  const select = document.getElementById('dailyPointsPlayers');
+  if (!select) return [];
+  
+  const selected = Array.from(select.selectedOptions).map(o => o.value);
+  if (selected.includes('all') || selected.length === 0) {
+    return __dailyPointsData ? __dailyPointsData.players : [];
+  }
+  return selected;
+}
+
+function daRefreshDailyPoints() {
+  if (!__dailyPointsData) {
+    daInitDailyPoints();
+    return;
+  }
+  
+  const timeFilter = document.getElementById('dailyPointsTimeFilter')?.value || 'day';
+  let data = __dailyPointsData;
+  
+  if (timeFilter === 'week') {
+    data = daGroupDailyByWeek(__dailyPointsData);
+  }
+  
+  // Actualizar selector de días si cambió el filtro de tiempo
+  daPopulateDailyPointsControls();
+  
+  const selectedPlayers = daGetSelectedPlayers();
+  const selectedDay = document.getElementById('dailyPointsDay')?.value || data.dates[data.dates.length - 1];
+  const scale = document.getElementById('dailyPointsScale')?.value || 'absolute';
+  
+  daRenderDailyPoints(data, selectedPlayers, selectedDay, scale);
+}
+
+function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
+  const container = document.getElementById('dailyPointsContainer');
+  const wrapper = document.getElementById('dailyPointsScrollWrapper');
+  container.innerHTML = '';
+
+  if (!data.byDay[selectedDay]) {
+    container.innerHTML = '<p class="note-text">No hay datos para el período seleccionado.</p>';
+    return;
+  }
+
+  // Filtrar y ordenar jugadores por puntuación TOTAL (de mayor a menor)
+  let dayData = data.byDay[selectedDay]
+    .filter(d => selectedPlayers.includes(d.player))
+    .sort((a, b) => b.totalScore - a.totalScore);
+
+  if (dayData.length === 0) {
+    container.innerHTML = '<p class="note-text">Ningún jugador seleccionado tiene datos.</p>';
+    return;
+  }
+
+  const isMobile = window.innerWidth <= 768;
+  const isFitMode = DAILY_POINTS_FIT_MODE;
+  
+  const margin = { 
+    top: 30, 
+    right: isMobile ? 20 : 40, 
+    bottom: isMobile ? 100 : 80, 
+    left: isMobile ? (isFitMode ? 45 : 55) : 60 
+  };
+  
+  // Ancho por barra: más jugadores = más ancho necesario
+  const barWidth = isMobile ? 30 : 40;
+  const minWidthPerPlayer = barWidth + (isMobile ? 8 : 12);
+  const containerWidth = wrapper.clientWidth || 800;
+  const calculatedWidth = Math.max(dayData.length * minWidthPerPlayer, containerWidth);
+  
+  let width, svgWidth;
+  
+  if (isFitMode) {
+    svgWidth = Math.max(containerWidth, 300);
+    width = Math.max(svgWidth - margin.left - margin.right, 200);
+  } else {
+    svgWidth = Math.max(calculatedWidth, containerWidth);
+    width = svgWidth - margin.left - margin.right;
+  }
+  
+  const height = isMobile ? 450 : 520;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.height = height + 'px';
+  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
+
+  const svg = d3.select('#dailyPointsContainer')
+    .append('svg')
+    .attr('width', isFitMode ? '100%' : svgWidth)
+    .attr('height', height)
+    .attr('viewBox', `0 0 ${svgWidth} ${height}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block')
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Escalas
+  const x = d3.scaleBand()
+    .domain(dayData.map(d => d.player))
+    .range([0, width])
+    .padding(0.2);
+
+  const maxValue = scale === 'percent' ? 100 : d3.max(dayData, d => d.points) * 1.1;
+  const y = d3.scaleLinear()
+    .domain([0, maxValue || 1])
+    .range([innerHeight, 0]);
+
+  // Color por jugador (consistente con otros gráficos)
+  const allPlayers = __dailyPointsData ? __dailyPointsData.players : [];
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(allPlayers);
+
+  // Grid horizontal
+  svg.append('g')
+    .attr('class', 'grid-y')
+    .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(''))
+    .selectAll('line')
+    .attr('stroke', '#f0f0f0')
+    .attr('stroke-dasharray', '3,3');
+  svg.select('.grid-y').select('.domain').remove();
+
+  // Barras
+  const bars = svg.selectAll('.daily-bar').data(dayData).enter().append('rect')
+    .attr('class', 'daily-bar')
+    .attr('x', d => x(d.player))
+    .attr('y', innerHeight) // animación desde abajo
+    .attr('width', x.bandwidth())
+    .attr('height', 0)
+    .attr('fill', d => color(d.player))
+    .attr('rx', 4)
+    .attr('ry', 4)
+    .attr('opacity', 0.85);
+
+  // Animación
+  bars.transition()
+    .duration(600)
+    .delay((d, i) => i * 30)
+    .attr('y', d => y(scale === 'percent' ? d.pct : d.points))
+    .attr('height', d => innerHeight - y(scale === 'percent' ? d.pct : d.points));
+
+  // Eje X (nombres rotados)
+  const xAxis = svg.append('g')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).tickFormat(d => {
+      const name = d;
+      return isMobile && name.length > 8 ? name.substring(0, 6) + '...' : name;
+    }));
+  
+  xAxis.selectAll('text')
+    .style('text-anchor', 'end')
+    .attr('dx', '-.5em')
+    .attr('dy', '.15em')
+    .attr('transform', 'rotate(-45)')
+    .style('font-size', isMobile ? '9px' : '11px')
+    .style('fill', '#444');
+  xAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Eje Y
+  const yAxis = svg.append('g')
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => {
+      if (scale === 'percent') return d + '%';
+      return d + ' pts';
+    }));
+  yAxis.selectAll('text')
+    .style('font-size', isMobile ? '10px' : '11px')
+    .style('fill', '#666');
+  yAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div')
+    .attr('class', 'daily-tooltip')
+    .style('opacity', 0)
+    .style('position', 'absolute')
+    .style('background', 'rgba(26,26,46,0.95)')
+    .style('color', '#fff')
+    .style('padding', '12px 16px')
+    .style('border-radius', '10px')
+    .style('font-size', '13px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
+
+  bars.on('mouseover', function(event, d) {
+    d3.select(this).attr('opacity', 1).attr('stroke', '#fff').attr('stroke-width', 2);
+    
+    const dateObj = new Date(selectedDay + 'T00:00:00');
+    tooltip.transition().duration(150).style('opacity', 1);
+    tooltip.html(`
+      <div style="font-weight:700;margin-bottom:6px;font-size:15px;">${d.player}</div>
+      <div style="color:#aaa;font-size:12px;margin-bottom:8px;">${dateObj.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span>Puntos este día:</span>
+          <span style="font-weight:700;color:#7FD8FF;">${d.points} pts</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span>Total acumulado:</span>
+          <span style="font-weight:700;">${d.totalScore} pts</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span>% del mejor:</span>
+          <span style="font-weight:700;color:#FFD700;">${d.pct}%</span>
+        </div>
+      </div>
+    `);
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  })
+  .on('mousemove', function(event) {
+    tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+  })
+  .on('mouseout', function() {
+    d3.select(this).attr('opacity', 0.85).attr('stroke', 'none');
+    tooltip.transition().duration(200).style('opacity', 0);
+  });
+
+  // Título eje Y
+  svg.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('y', 0 - margin.left + 12)
+    .attr('x', 0 - (innerHeight / 2))
+    .attr('dy', '1em')
+    .style('text-anchor', 'middle')
+    .style('font-size', '12px')
+    .style('fill', '#888')
+    .text(scale === 'percent' ? 'Porcentaje (%)' : 'Puntos ganados');
+
+  // Línea de referencia: media
+  const avgValue = d3.mean(dayData, d => scale === 'percent' ? d.pct : d.points);
+  if (avgValue > 0) {
+    svg.append('line')
+      .attr('x1', 0)
+      .attr('x2', width)
+      .attr('y1', y(avgValue))
+      .attr('y2', y(avgValue))
+      .attr('stroke', '#ff6b6b')
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '6,4')
+      .attr('opacity', 0.6);
+    
+    svg.append('text')
+      .attr('x', width)
+      .attr('y', y(avgValue) - 5)
+      .attr('text-anchor', 'end')
+      .style('font-size', '10px')
+      .style('fill', '#ff6b6b')
+      .style('opacity', 0.7)
+      .text('Media: ' + (scale === 'percent' ? Math.round(avgValue) + '%' : avgValue.toFixed(1) + ' pts'));
+  }
+}
+
+function daInitDailyPoints() {
+  const container = document.getElementById('dailyPointsContainer');
+  if (!container) {
+    console.error('[DailyPoints] No existe #dailyPointsContainer');
+    return;
+  }
+
+  // Si ya tenemos datos precalculados, usarlos
+  if (__dailyPointsData) {
+    daPopulateDailyPointsControls();
+    daRefreshDailyPoints();
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+    
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    // Precalcular datos
+    __dailyPointsData = daCalculateDailyPoints(players, finished);
+    daPopulateDailyPointsControls();
+    daRefreshDailyPoints();
+
+  }).catch(err => {
+    console.error('[DailyPoints] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
+/* -----------------------------------------------------------
+   CONTROLES DEL DAILY POINTS
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshDailyPoints');
+  const daySelect = document.getElementById('dailyPointsDay');
+  const timeSelect = document.getElementById('dailyPointsTimeFilter');
+  const scaleSelect = document.getElementById('dailyPointsScale');
+  const playerSelect = document.getElementById('dailyPointsPlayers');
+  const toggleBtn = document.getElementById('btnToggleFitDaily');
+  
+  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshDailyPoints);
+  
+  if (daySelect) daySelect.addEventListener('change', daRefreshDailyPoints);
+  
+  if (timeSelect) timeSelect.addEventListener('change', function() {
+    // Al cambiar día/semana, repoblar el selector de fechas
+    daPopulateDailyPointsControls();
+    daRefreshDailyPoints();
+  });
+  
+  if (scaleSelect) scaleSelect.addEventListener('change', daRefreshDailyPoints);
+  
+  if (playerSelect) {
+    playerSelect.addEventListener('change', function() {
+      // Si seleccionas "todos" + otros, quita "todos"
+      const selected = Array.from(playerSelect.selectedOptions).map(o => o.value);
+      if (selected.length > 1 && selected.includes('all')) {
+        Array.from(playerSelect.options).forEach(o => {
+          o.selected = o.value !== 'all';
+        });
+      }
+      daRefreshDailyPoints();
+    });
+  }
+  
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitDailyPoints);
+});
+
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && __dailyPointsData) {
+    clearTimeout(window.__dailyPointsResizeTimer);
+    window.__dailyPointsResizeTimer = setTimeout(function() {
+      daRefreshDailyPoints();
+    }, 300);
+  }
+});

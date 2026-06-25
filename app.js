@@ -1577,6 +1577,12 @@ function toggleDataAnalysisSection(sectionId) {
         if (typeof daInitLineRanking === 'function') daInitLineRanking();
       }, 50);
     }
+
+    if (sectionId === 'dailyPointsSection') {
+      setTimeout(() => {
+        if (typeof daInitDailyPoints === 'function') daInitDailyPoints();
+      }, 50);
+    }
   } else {
     content.classList.remove('active');
     content.style.display = 'none';

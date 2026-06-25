@@ -199,6 +199,52 @@
             </div>
           </div>
         </section>
+
+                <!-- PUNTOS POR DÍA (Barras agrupadas) -->
+        <section class="section">
+          <div class="da-collapsible-section" id="dailyPointsSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('dailyPointsSection')">
+              <h2>📊 Puntos por Día</h2>
+              <span class="arrow">▶</span>
+            </div>
+            <div class="da-collapsible-content">
+              <p class="section-hint">Puntos ganados cada día por jugador. Útil para ver quién acertó los resultados de cada día o semana.</p>
+              <div class="da-controls">
+                <div class="da-controls-filters">
+                  <label>Jugadores
+                    <select id="dailyPointsPlayers" multiple size="1" style="min-width:140px;">
+                      <option value="all" selected>Todos</option>
+                    </select>
+                  </label>
+                  <label>Día
+                    <select id="dailyPointsDay">
+                      <!-- Se llena dinámicamente -->
+                    </select>
+                  </label>
+                  <label>Agrupar por
+                    <select id="dailyPointsTimeFilter">
+                      <option value="day" selected>Día</option>
+                      <option value="week">Semana</option>
+                    </select>
+                  </label>
+                  <label>Escala Y
+                    <select id="dailyPointsScale">
+                      <option value="absolute" selected>Puntos</option>
+                      <option value="percent">%</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="da-controls-buttons">
+                  <button id="btnRefreshDailyPoints" class="modal-btn confirm-btn">🔄 Actualizar</button>
+                  <button id="btnToggleFitDaily" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+                </div>
+              </div>
+              <div id="dailyPointsScrollWrapper" class="da-chart-scroll-wrapper">
+                <div id="dailyPointsContainer" style="height:520px;position:relative;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div id="tab-como-jugar" class="tab-content">
