@@ -1784,6 +1784,7 @@ function daTogglePlayersDropdown(event) {
 
 // Cerrar dropdown al hacer click fuera
 document.addEventListener('click', function(e) {
+  // Daily Points dropdown
   const dropdown = document.getElementById('dailyPointsPlayersDropdown');
   if (dropdown && !dropdown.contains(e.target)) {
     const menu = document.getElementById('dailyPointsPlayersMenu');
@@ -1791,12 +1792,25 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
-
+  
+  // Category Chart players dropdown
   const catDropdown = document.getElementById('categoryChartPlayersDropdown');
   const catToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
-  if (catDropdown && !catDropdown.contains(e.target) && e.target !== catToggleBtn && !catToggleBtn.contains(e.target)) {
+  if (catDropdown && !catDropdown.contains(e.target) && 
+      e.target !== catToggleBtn && !catToggleBtn.contains(e.target)) {
     const menu = document.getElementById('categoryChartPlayersMenu');
     const toggle = document.getElementById('btnCategoryChartPlayersToggle');
+    if (menu) menu.classList.remove('open');
+    if (toggle) toggle.classList.remove('active');
+  }
+  
+  // Category Chart categories dropdown
+  const catCatDropdown = document.getElementById('categoryChartCategoriesDropdown');
+  const catCatToggleBtn = document.getElementById('btnCategoryChartCategoriesToggle');
+  if (catCatDropdown && !catCatDropdown.contains(e.target) && 
+      e.target !== catCatToggleBtn && !catCatToggleBtn.contains(e.target)) {
+    const menu = document.getElementById('categoryChartCategoriesMenu');
+    const toggle = document.getElementById('btnCategoryChartCategoriesToggle');
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
@@ -2264,6 +2278,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let CATEGORY_CHART_FIT_MODE = false;
 let __categoryChartData = null;
+let __categoryChartPlayers = [];
 
 const CATEGORY_CONFIG = {
   exactResults: { label: 'Resultados exactos', max: 360, color: '#4CAF50' },
@@ -2797,6 +2812,7 @@ function daInitCategoryChart() {
     }
 
     __categoryChartData = daCalculateCategoryScores(players, finished);
+    __categoryChartPlayers = players.map(p => p.name);
     daRenderCategoryCheckboxes();
     daRenderCategoryPlayerCheckboxes();
     daRefreshCategoryChart();
@@ -2910,18 +2926,21 @@ function daUpdateCategoryPlayersToggleText() {
 
 function daRenderCategoryPlayerCheckboxes() {
   const container = document.getElementById('categoryChartPlayersContainer');
-  if (!container || !__dailyPointsData) return;
-
+  if (!container) return;
+  
   container.innerHTML = '';
-  const players = __dailyPointsData.players;
-
+  const players = __categoryChartPlayers.length > 0 ? __categoryChartPlayers : 
+                  (__dailyPointsData ? __dailyPointsData.players : []);
+  
+  if (players.length === 0) return;
+  
   players.forEach((p, index) => {
     const id = 'dp-cat-player-' + index;
-
+    
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
     label.htmlFor = id;
-
+    
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = id;
@@ -2932,15 +2951,15 @@ function daRenderCategoryPlayerCheckboxes() {
       daUpdateCategoryPlayersToggleText();
       daRefreshCategoryChart();
     });
-
+    
     const span = document.createElement('span');
     span.textContent = p;
-
+    
     label.appendChild(cb);
     label.appendChild(span);
     container.appendChild(label);
   });
-
+  
   daUpdateCategorySelectAllCheckbox();
   daUpdateCategoryPlayersToggleText();
 }
