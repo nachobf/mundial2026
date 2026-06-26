@@ -1814,6 +1814,17 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
+
+  // Radar Chart players dropdown
+  const radarDropdown = document.getElementById('radarChartPlayersDropdown');
+  const radarToggleBtn = document.getElementById('btnRadarChartPlayersToggle');
+  if (radarDropdown && !radarDropdown.contains(e.target) && 
+      e.target !== radarToggleBtn && !radarToggleBtn.contains(e.target)) {
+    const menu = document.getElementById('radarChartPlayersMenu');
+    const toggle = document.getElementById('btnRadarChartPlayersToggle');
+    if (menu) menu.classList.remove('open');
+    if (toggle) toggle.classList.remove('active');
+  }
 });
 
 function daUpdateToggleText() {
@@ -3017,6 +3028,845 @@ window.addEventListener('resize', function() {
     clearTimeout(window.__categoryChartResizeTimer);
     window.__categoryChartResizeTimer = setTimeout(function() {
       daRefreshCategoryChart();
+    }, 300);
+  }
+});
+
+/* ============================================================
+   RADAR CHART — Perfil de Jugador
+   ============================================================ */
+
+let RADAR_CHART_FIT_MODE = false;
+let __radarChartData = null;
+let __radarChartPlayers = [];
+
+function daToggleFitRadar() {
+  RADAR_CHART_FIT_MODE = !RADAR_CHART_FIT_MODE;
+  const wrapper = document.getElementById('radarChartScrollWrapper');
+  const btn = document.getElementById('btnToggleFitRadar');
+
+  if (RADAR_CHART_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+
+  daRefreshRadarChart();
+}
+
+function daToggleRadarPlayersDropdown(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('radarChartPlayersMenu');
+  const toggle = document.getElementById('btnRadarChartPlayersToggle');
+
+  const isOpen = menu.classList.contains('open');
+
+  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
+
+  if (!isOpen) {
+    menu.classList.add('open');
+    toggle.classList.add('active');
+  }
+}
+
+function daUpdateRadarPlayersToggleText() {
+  const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]');
+  const checked = Array.from(checkboxes).filter(cb => cb.checked);
+  const text = document.getElementById('dpRadarPlayersToggleText');
+
+  if (!text) return;
+
+  if (checked.length === 0) {
+    text.textContent = 'Ninguno seleccionado';
+  } else if (checked.length === 1) {
+    text.textContent = checked[0].dataset.player;
+  } else {
+    text.textContent = checked.length + ' seleccionados';
+  }
+}
+
+function daRenderRadarPlayerCheckboxes() {
+  const container = document.getElementById('radarChartPlayersContainer');
+  if (!container || !__radarChartData) return;
+
+  container.innerHTML = '';
+  const players = __radarChartPlayers.length > 0 ? __radarChartPlayers : 
+                  (__dailyPointsData ? __dailyPointsData.players : []);
+
+  if (players.length === 0) return;
+
+  // Preseleccionar top 3 por defecto (los primeros 3 del array ya están ordenados por score)
+  players.forEach((p, index) => {
+    const id = 'dp-radar-player-' + index;
+
+    const label = document.createElement('label');
+    label.className = 'dp-dropdown-item';
+    label.htmlFor = id;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    // Preseleccionar top 3
+    cb.checked = index < 3;
+    cb.dataset.player = p;
+    cb.addEventListener('change', function() {
+      // Limitar a máximo 4 seleccionados
+      const allChecked = Array.from(document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]:checked'));
+      if (allChecked.length > 4) {
+        cb.checked = false;
+        showToast('Máximo 4 jugadores para el radar', true);
+        return;
+      }
+      daUpdateRadarSelectAllCheckbox();
+      daUpdateRadarPlayersToggleText();
+      daRefreshRadarChart();
+    });
+
+    const span = document.createElement('span');
+    span.textContent = p;
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+
+  daUpdateRadarSelectAllCheckbox();
+  daUpdateRadarPlayersToggleText();
+}
+
+function daUpdateRadarSelectAllCheckbox() {
+  const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
+  const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]');
+  if (!selectAllCb || checkboxes.length === 0) return;
+
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+
+  selectAllCb.checked = allChecked;
+  selectAllCb.indeterminate = !allChecked && !noneChecked;
+}
+
+function daToggleSelectAllRadarPlayers() {
+  const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
+  const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]');
+
+  // Limitar a máximo 4 si se seleccionan todos
+  if (selectAllCb.checked) {
+    checkboxes.forEach((cb, idx) => {
+      cb.checked = idx < 4;
+    });
+    if (checkboxes.length > 4) {
+      showToast('Solo se muestran los 4 primeros jugadores', true);
+    }
+  } else {
+    checkboxes.forEach(cb => { cb.checked = false; });
+  }
+
+  daUpdateRadarPlayersToggleText();
+  daRefreshRadarChart();
+}
+
+function daGetSelectedRadarPlayers() {
+  const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]:checked');
+  const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
+  return selected.length > 0 ? selected : 
+    (__radarChartPlayers ? __radarChartPlayers.slice(0, 3) : []);
+}
+
+function daRefreshRadarChart() {
+  if (!__radarChartData) {
+    daInitRadarChart();
+    return;
+  }
+
+  const selectedPlayers = daGetSelectedRadarPlayers();
+  daRenderRadarChart(__radarChartData, selectedPlayers);
+}
+
+function daRenderRadarChart(data, selectedPlayers) {
+  const container = document.getElementById('radarChartContainer');
+  const wrapper = document.getElementById('radarChartScrollWrapper');
+  container.innerHTML = '';
+
+  let chartData = data.filter(d => selectedPlayers.includes(d.player));
+
+  if (chartData.length === 0) {
+    container.innerHTML = '<p class="note-text">Ningún jugador seleccionado tiene datos.</p>';
+    return;
+  }
+
+  const isMobile = window.innerWidth <= 768;
+  const isFitMode = RADAR_CHART_FIT_MODE;
+
+  const margin = { top: 40, right: 80, bottom: 40, left: 80 };
+  const containerWidth = wrapper.clientWidth || 600;
+  const size = Math.min(containerWidth - margin.left - margin.right, 
+                        isMobile ? 350 : 500);
+
+  const width = size;
+  const height = size;
+  const svgWidth = isFitMode ? Math.max(containerWidth, 300) : width + margin.left + margin.right;
+  const svgHeight = height + margin.top + margin.bottom;
+  const radius = Math.min(width, height) / 2 - 20;
+
+  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.height = svgHeight + 'px';
+  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
+  container.style.display = 'flex';
+  container.style.justifyContent = 'center';
+  container.style.alignItems = 'center';
+
+  const svg = d3.select('#radarChartContainer')
+    .append('svg')
+    .attr('width', isFitMode ? '100%' : svgWidth)
+    .attr('height', svgHeight)
+    .attr('viewBox', `0 0 ${svgWidth} ${svgHeight}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block')
+    .append('g')
+    .attr('transform', `translate(${svgWidth / 2},${svgHeight / 2})`);
+
+  // Configuración de ejes
+  const categories = [
+    { key: 'exactResults', label: 'Resultados\nexactos', max: 360 },
+    { key: 'oneXTwo', label: '1X2', max: 72 },
+    { key: 'groupPositions', label: 'Posiciones\ngrupos', max: 240 },
+    { key: 'bestThirds', label: 'Mejores\nterceros', max: 8 },
+    { key: 'knockoutRounds', label: 'Fase final\n(hasta semis)', max: 356 },
+    { key: 'finalPositions', label: 'Campeón, finalista\n3º, 4º', max: 150 }
+  ];
+
+  const angleSlice = (Math.PI * 2) / categories.length;
+
+  // Escalas
+  const rScale = d3.scaleLinear().domain([0, 100]).range([0, radius]);
+
+  // Grid circular
+  const levels = [20, 40, 60, 80, 100];
+  levels.forEach(level => {
+    svg.append('circle')
+      .attr('r', rScale(level))
+      .attr('fill', 'none')
+      .attr('stroke', '#e0e0e0')
+      .attr('stroke-width', 1);
+
+    // Label del nivel
+    svg.append('text')
+      .attr('x', 4)
+      .attr('y', -rScale(level))
+      .attr('dy', '0.35em')
+      .style('font-size', '10px')
+      .style('fill', '#aaa')
+      .text(level + '%');
+  });
+
+  // Ejes radiales
+  categories.forEach((cat, i) => {
+    const angle = angleSlice * i - Math.PI / 2;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+
+    svg.append('line')
+      .attr('x1', 0)
+      .attr('y1', 0)
+      .attr('x2', x)
+      .attr('y2', y)
+      .attr('stroke', '#e0e0e0')
+      .attr('stroke-width', 1);
+
+    // Labels de categorías
+    const labelX = Math.cos(angle) * (radius + 30);
+    const labelY = Math.sin(angle) * (radius + 30);
+
+    svg.append('text')
+      .attr('x', labelX)
+      .attr('y', labelY)
+      .attr('text-anchor', 'middle')
+      .attr('dy', '0.35em')
+      .style('font-size', isMobile ? '10px' : '12px')
+      .style('font-weight', '600')
+      .style('fill', '#444')
+      .text(cat.label.replace('\n', ' '));
+  });
+
+  // Colores para jugadores
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+
+  // Dibujar áreas de cada jugador
+  chartData.forEach((playerData, idx) => {
+    const color = colors[idx % colors.length];
+
+    const points = categories.map((cat, i) => {
+      const angle = angleSlice * i - Math.PI / 2;
+      const rawVal = playerData[cat.key] || 0;
+      const pct = cat.max > 0 ? (rawVal / cat.max) * 100 : 0;
+      const r = rScale(pct);
+      return {
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r,
+        value: rawVal,
+        pct: Math.round(pct),
+        category: cat.label.replace('\n', ' ')
+      };
+    });
+
+    // Área rellena
+    const lineGenerator = d3.line()
+      .x(d => d.x)
+      .y(d => d.y)
+      .curve(d3.curveLinearClosed);
+
+    svg.append('path')
+      .datum(points)
+      .attr('d', lineGenerator)
+      .attr('fill', color)
+      .attr('fill-opacity', 0.15)
+      .attr('stroke', color)
+      .attr('stroke-width', 2.5)
+      .attr('stroke-opacity', 0.8);
+
+    // Puntos
+    svg.selectAll('.radar-point-' + idx)
+      .data(points)
+      .enter()
+      .append('circle')
+      .attr('class', 'radar-point-' + idx)
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y)
+      .attr('r', isMobile ? 4 : 5)
+      .attr('fill', color)
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2);
+  });
+
+  // Leyenda
+  const legend = svg.append('g')
+    .attr('transform', `translate(${-radius}, ${-radius - 35})`);
+
+  chartData.forEach((d, i) => {
+    const color = colors[i % colors.length];
+    const legendItem = legend.append('g')
+      .attr('transform', `translate(${i * (isMobile ? 70 : 110)}, 0)`);
+
+    legendItem.append('rect')
+      .attr('width', 12)
+      .attr('height', 12)
+      .attr('rx', 3)
+      .attr('fill', color);
+
+    legendItem.append('text')
+      .attr('x', 18)
+      .attr('y', 6)
+      .attr('dy', '0.35em')
+      .style('font-size', isMobile ? '10px' : '12px')
+      .style('font-weight', '600')
+      .style('fill', '#444')
+      .text(d.player.length > (isMobile ? 8 : 12) ? d.player.substring(0, isMobile ? 6 : 10) + '...' : d.player);
+  });
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div')
+    .attr('class', 'radar-tooltip')
+    .style('opacity', 0)
+    .style('position', 'absolute')
+    .style('background', 'rgba(26,26,46,0.95)')
+    .style('color', '#fff')
+    .style('padding', '10px 14px')
+    .style('border-radius', '10px')
+    .style('font-size', '13px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
+
+  // Interactividad en puntos
+  chartData.forEach((playerData, idx) => {
+    const color = colors[idx % colors.length];
+
+    const points = categories.map((cat, i) => {
+      const angle = angleSlice * i - Math.PI / 2;
+      const rawVal = playerData[cat.key] || 0;
+      const pct = cat.max > 0 ? (rawVal / cat.max) * 100 : 0;
+      const r = rScale(pct);
+      return {
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r,
+        value: rawVal,
+        pct: Math.round(pct),
+        category: cat.label.replace('\n', ' '),
+        player: playerData.player,
+        max: cat.max
+      };
+    });
+
+    svg.selectAll('.radar-hit-' + idx)
+      .data(points)
+      .enter()
+      .append('circle')
+      .attr('class', 'radar-hit-' + idx)
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y)
+      .attr('r', isMobile ? 12 : 15)
+      .attr('fill', 'transparent')
+      .style('cursor', 'pointer')
+      .on('mouseover', function(event, d) {
+        d3.select(this.parentNode).selectAll('.radar-point-' + idx)
+          .filter((p, i) => p.x === d.x && p.y === d.y)
+          .attr('r', isMobile ? 7 : 9);
+
+        tooltip.transition().duration(150).style('opacity', 1);
+        tooltip.html(`
+          <div style="font-weight:700;margin-bottom:4px;color:${color};">${d.player}</div>
+          <div style="color:#aaa;font-size:12px;margin-bottom:6px;">${d.category}</div>
+          <div style="display:flex;justify-content:space-between;gap:16px;">
+            <span>Puntos:</span>
+            <span style="font-weight:700;">${d.value} / ${d.max}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:16px;">
+            <span>Porcentaje:</span>
+            <span style="font-weight:700;color:#7FD8FF;">${d.pct}%</span>
+          </div>
+        `);
+        tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+      })
+      .on('mousemove', function(event) {
+        tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+      })
+      .on('mouseout', function() {
+        d3.select(this.parentNode).selectAll('.radar-point-' + idx)
+          .attr('r', isMobile ? 4 : 5);
+        tooltip.transition().duration(200).style('opacity', 0);
+      });
+  });
+}
+
+function daInitRadarChart() {
+  const container = document.getElementById('radarChartContainer');
+  if (!container) {
+    console.error('[RadarChart] No existe #radarChartContainer');
+    return;
+  }
+
+  if (__radarChartData) {
+    daRenderRadarPlayerCheckboxes();
+    daRefreshRadarChart();
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    __radarChartData = daCalculateCategoryScores(players, finished);
+    __radarChartPlayers = players.map(p => p.name);
+    daRenderRadarPlayerCheckboxes();
+    daRefreshRadarChart();
+
+  }).catch(err => {
+    console.error('[RadarChart] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
+/* -----------------------------------------------------------
+   CONTROLES DEL RADAR CHART
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshRadarChart');
+  const toggleBtn = document.getElementById('btnToggleFitRadar');
+  const playersToggleBtn = document.getElementById('btnRadarChartPlayersToggle');
+  const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
+
+  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshRadarChart);
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitRadar);
+  if (playersToggleBtn) playersToggleBtn.addEventListener('click', daToggleRadarPlayersDropdown);
+  if (selectAllCb) selectAllCb.addEventListener('change', daToggleSelectAllRadarPlayers);
+});
+
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && __radarChartData) {
+    clearTimeout(window.__radarChartResizeTimer);
+    window.__radarChartResizeTimer = setTimeout(function() {
+      daRefreshRadarChart();
+    }, 300);
+  }
+});
+
+
+/* ============================================================
+   PODIUM CHART — Top 3 por Categoría
+   ============================================================ */
+
+let PODIUM_CHART_FIT_MODE = false;
+let __podiumChartData = null;
+
+function daToggleFitPodium() {
+  PODIUM_CHART_FIT_MODE = !PODIUM_CHART_FIT_MODE;
+  const wrapper = document.getElementById('podiumChartScrollWrapper');
+  const btn = document.getElementById('btnToggleFitPodium');
+
+  if (PODIUM_CHART_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+
+  daRefreshPodiumChart();
+}
+
+function daRefreshPodiumChart() {
+  if (!__podiumChartData) {
+    daInitPodiumChart();
+    return;
+  }
+
+  daRenderPodiumChart(__podiumChartData);
+}
+
+function daRenderPodiumChart(data) {
+  const container = document.getElementById('podiumChartContainer');
+  const wrapper = document.getElementById('podiumChartScrollWrapper');
+  container.innerHTML = '';
+
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p class="note-text">No hay datos para mostrar.</p>';
+    return;
+  }
+
+  const isMobile = window.innerWidth <= 768;
+  const isFitMode = PODIUM_CHART_FIT_MODE;
+
+  const categories = [
+    { key: 'exactResults', label: 'Resultados exactos', color: '#4CAF50', max: 360 },
+    { key: 'oneXTwo', label: '1X2', color: '#2196F3', max: 72 },
+    { key: 'groupPositions', label: 'Posiciones grupos', color: '#FF9800', max: 240 },
+    { key: 'bestThirds', label: 'Mejores terceros', color: '#9C27B0', max: 8 },
+    { key: 'knockoutRounds', label: 'Fase final (hasta semis)', color: '#F44336', max: 356 },
+    { key: 'finalPositions', label: 'Campeón, finalista, 3º, 4º', color: '#FFD700', max: 150 }
+  ];
+
+  const margin = { top: 20, right: isMobile ? 10 : 20, bottom: 20, left: isMobile ? 10 : 20 };
+  const containerWidth = wrapper.clientWidth || 800;
+
+  // Layout: 3 columnas en desktop, 2 en tablet, 1 en mobile
+  const cols = isMobile ? 1 : (containerWidth < 900 ? 2 : 3);
+  const cardWidth = isFitMode ? (containerWidth / cols - 20) : 280;
+  const cardHeight = 220;
+  const cardGapX = 16;
+  const cardGapY = 16;
+
+  const rows = Math.ceil(categories.length / cols);
+  const totalWidth = cols * cardWidth + (cols - 1) * cardGapX + margin.left + margin.right;
+  const totalHeight = rows * cardHeight + (rows - 1) * cardGapY + margin.top + margin.bottom;
+
+  container.style.width = isFitMode ? '100%' : totalWidth + 'px';
+  container.style.height = totalHeight + 'px';
+  container.style.minWidth = isFitMode ? '0' : totalWidth + 'px';
+
+  const svg = d3.select('#podiumChartContainer')
+    .append('svg')
+    .attr('width', isFitMode ? '100%' : totalWidth)
+    .attr('height', totalHeight)
+    .attr('viewBox', `0 0 ${totalWidth} ${totalHeight}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block');
+
+  const tooltip = d3.select('body').append('div')
+    .attr('class', 'podium-tooltip')
+    .style('opacity', 0)
+    .style('position', 'absolute')
+    .style('background', 'rgba(26,26,46,0.95)')
+    .style('color', '#fff')
+    .style('padding', '10px 14px')
+    .style('border-radius', '10px')
+    .style('font-size', '13px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
+
+  categories.forEach((cat, catIdx) => {
+    const col = catIdx % cols;
+    const row = Math.floor(catIdx / cols);
+    const x = margin.left + col * (cardWidth + cardGapX);
+    const y = margin.top + row * (cardHeight + cardGapY);
+
+    const cardGroup = svg.append('g')
+      .attr('transform', `translate(${x},${y})`);
+
+    // Fondo de la tarjeta
+    cardGroup.append('rect')
+      .attr('width', cardWidth)
+      .attr('height', cardHeight)
+      .attr('rx', 12)
+      .attr('ry', 12)
+      .attr('fill', '#fafafa')
+      .attr('stroke', '#e0e0e0')
+      .attr('stroke-width', 1);
+
+    // Header con color de categoría
+    cardGroup.append('rect')
+      .attr('width', cardWidth)
+      .attr('height', 36)
+      .attr('rx', 12)
+      .attr('ry', 12)
+      .attr('fill', cat.color);
+
+    // Esquinas redondeadas solo arriba
+    cardGroup.append('rect')
+      .attr('y', 18)
+      .attr('width', cardWidth)
+      .attr('height', 18)
+      .attr('fill', cat.color);
+
+    // Título de categoría
+    cardGroup.append('text')
+      .attr('x', cardWidth / 2)
+      .attr('y', 22)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '13px')
+      .style('font-weight', '700')
+      .style('fill', '#fff')
+      .text(cat.label);
+
+    // Top 3 de esta categoría
+    const catData = data.map(d => ({
+      player: d.player,
+      value: d[cat.key] || 0,
+      pct: cat.max > 0 ? Math.round((d[cat.key] / cat.max) * 100) : 0
+    })).sort((a, b) => b.value - a.value).slice(0, 3);
+
+    const barMax = Math.max(catData[0]?.value || 1, 1);
+    const barHeight = 28;
+    const barStartY = 50;
+    const barGap = 8;
+    const maxBarWidth = cardWidth - 40;
+
+    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']; // Oro, Plata, Bronce
+    const medalEmojis = ['🥇', '🥈', '🥉'];
+
+    catData.forEach((entry, idx) => {
+      const barY = barStartY + idx * (barHeight + barGap);
+      const barWidth = (entry.value / barMax) * maxBarWidth;
+
+      // Fondo de la barra
+      cardGroup.append('rect')
+        .attr('x', 20)
+        .attr('y', barY)
+        .attr('width', maxBarWidth)
+        .attr('height', barHeight)
+        .attr('rx', 6)
+        .attr('ry', 6)
+        .attr('fill', '#f0f0f0');
+
+      // Barra de valor
+      cardGroup.append('rect')
+        .attr('x', 20)
+        .attr('y', barY)
+        .attr('width', 0)
+        .attr('height', barHeight)
+        .attr('rx', 6)
+        .attr('ry', 6)
+        .attr('fill', cat.color)
+        .attr('fill-opacity', 0.7 + (idx * 0.1))
+        .transition()
+        .duration(600)
+        .delay(idx * 100)
+        .attr('width', Math.max(barWidth, 4));
+
+      // Medal emoji
+      cardGroup.append('text')
+        .attr('x', 12)
+        .attr('y', barY + barHeight / 2)
+        .attr('dy', '0.35em')
+        .style('font-size', '14px')
+        .text(medalEmojis[idx]);
+
+      // Nombre del jugador
+      cardGroup.append('text')
+        .attr('x', 28)
+        .attr('y', barY + barHeight / 2)
+        .attr('dy', '0.35em')
+        .style('font-size', '12px')
+        .style('font-weight', '600')
+        .style('fill', '#333')
+        .text(entry.player.length > 14 ? entry.player.substring(0, 12) + '...' : entry.player);
+
+      // Valor
+      cardGroup.append('text')
+        .attr('x', cardWidth - 12)
+        .attr('y', barY + barHeight / 2)
+        .attr('text-anchor', 'end')
+        .attr('dy', '0.35em')
+        .style('font-size', '12px')
+        .style('font-weight', '700')
+        .style('fill', '#666')
+        .text(entry.value + ' pts');
+
+      // Área invisible para tooltip
+      cardGroup.append('rect')
+        .attr('x', 20)
+        .attr('y', barY)
+        .attr('width', cardWidth - 40)
+        .attr('height', barHeight)
+        .attr('fill', 'transparent')
+        .style('cursor', 'pointer')
+        .on('mouseover', function(event) {
+          tooltip.transition().duration(150).style('opacity', 1);
+          tooltip.html(`
+            <div style="font-weight:700;margin-bottom:4px;">${entry.player}</div>
+            <div style="color:#aaa;font-size:12px;margin-bottom:6px;">${cat.label}</div>
+            <div style="display:flex;justify-content:space-between;gap:16px;">
+              <span>Puntos:</span>
+              <span style="font-weight:700;">${entry.value} / ${cat.max}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:16px;">
+              <span>Porcentaje:</span>
+              <span style="font-weight:700;color:#7FD8FF;">${entry.pct}%</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;">
+              <span>Posición:</span>
+              <span style="font-weight:700;color:${medalColors[idx]};">${medalEmojis[idx]} #${idx + 1}</span>
+            </div>
+          `);
+          tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+        })
+        .on('mousemove', function(event) {
+          tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+        })
+        .on('mouseout', function() {
+          tooltip.transition().duration(200).style('opacity', 0);
+        });
+    });
+  });
+}
+
+function daInitPodiumChart() {
+  const container = document.getElementById('podiumChartContainer');
+  if (!container) {
+    console.error('[PodiumChart] No existe #podiumChartContainer');
+    return;
+  }
+
+  if (__podiumChartData) {
+    daRefreshPodiumChart();
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    __podiumChartData = daCalculateCategoryScores(players, finished);
+    daRefreshPodiumChart();
+
+  }).catch(err => {
+    console.error('[PodiumChart] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
+/* -----------------------------------------------------------
+   CONTROLES DEL PODIUM CHART
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshPodiumChart');
+  const toggleBtn = document.getElementById('btnToggleFitPodium');
+
+  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshPodiumChart);
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitPodium);
+});
+
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && __podiumChartData) {
+    clearTimeout(window.__podiumChartResizeTimer);
+    window.__podiumChartResizeTimer = setTimeout(function() {
+      daRefreshPodiumChart();
     }, 300);
   }
 });

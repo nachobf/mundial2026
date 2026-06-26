@@ -130,7 +130,7 @@
         <section class="section">
           <div class="da-collapsible-section" id="bumpChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('bumpChartSection')">
-              <h2>📈 Evolución del posición</h2>
+              <h2>📈 Evolución de posición</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
@@ -264,7 +264,7 @@
             </div>
           </div>
         </section>
-              <!-- CATEGORY CHART (Barras horizontales apiladas por tipo de puntuación) -->
+        <!-- CATEGORY CHART (Barras horizontales apiladas por tipo de puntuación) -->
         <section class="section">
           <div class="da-collapsible-section" id="categoryChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('categoryChartSection')">
@@ -334,6 +334,72 @@
 
               <div id="categoryChartScrollWrapper" class="da-chart-scroll-wrapper">
                 <div id="categoryChartContainer" style="min-height:400px;position:relative;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+                <!-- RADAR CHART -->
+        <section class="section">
+          <div class="da-collapsible-section" id="radarChartSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('radarChartSection')">
+              <h2>🕸️ Radar de puntuaciones</h2>
+              <span class="arrow">▶</span>
+            </div>
+            <div class="da-collapsible-content">
+              <p class="section-hint">Compara el rendimiento de hasta 4 jugadores en las 6 categorías de puntuación.</p>
+              
+              <!-- Fila 1: Jugadores (dropdown multiselect) -->
+              <div class="dp-players-row">
+                <span class="dp-label">Jugadores (máx 4):</span>
+                <div class="dp-dropdown" id="radarChartPlayersDropdown">
+                  <button type="button" class="dp-dropdown-toggle" id="btnRadarChartPlayersToggle">
+                    <span id="dpRadarPlayersToggleText">Top 3 seleccionados</span>
+                    <span class="dp-dropdown-arrow">▼</span>
+                  </button>
+                  <div class="dp-dropdown-menu" id="radarChartPlayersMenu">
+                    <label class="dp-dropdown-item">
+                      <input type="checkbox" id="dpSelectAllRadarCheckbox" onchange="daToggleSelectAllRadarPlayers()">
+                      <span>Seleccionar todos</span>
+                    </label>
+                    <div class="dp-dropdown-divider"></div>
+                    <div id="radarChartPlayersContainer">
+                      <!-- Se llena dinámicamente -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Fila 2: Botones -->
+              <div class="dp-buttons-row">
+                <button id="btnRefreshRadarChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
+                <button id="btnToggleFitRadar" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+              </div>
+              
+              <div id="radarChartScrollWrapper" class="da-chart-scroll-wrapper">
+                <div id="radarChartContainer" style="min-height:400px;position:relative;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PODIUM CHART -->
+        <section class="section">
+          <div class="da-collapsible-section" id="podiumChartSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('podiumChartSection')">
+              <h2>🏆 Podium por Categoría</h2>
+              <span class="arrow">▶</span>
+            </div>
+            <div class="da-collapsible-content">
+              <p class="section-hint">Top 3 jugadores en cada una de las 6 categorías de puntuación.</p>
+              
+              <!-- Fila 1: Botones -->
+              <div class="dp-buttons-row">
+                <button id="btnRefreshPodiumChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
+                <button id="btnToggleFitPodium" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+              </div>
+              
+              <div id="podiumChartScrollWrapper" class="da-chart-scroll-wrapper">
+                <div id="podiumChartContainer" style="min-height:400px;position:relative;"></div>
               </div>
             </div>
           </div>

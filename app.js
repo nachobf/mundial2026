@@ -1589,6 +1589,18 @@ function toggleDataAnalysisSection(sectionId) {
         if (typeof daInitCategoryChart === 'function') daInitCategoryChart();
       }, 50);
     }
+    
+    if (sectionId === 'radarChartSection') {
+      setTimeout(() => {
+        if (typeof daInitRadarChart === 'function') daInitRadarChart();
+      }, 50);
+    }
+
+    if (sectionId === 'podiumChartSection') {
+      setTimeout(() => {
+        if (typeof daInitPodiumChart === 'function') daInitPodiumChart();
+      }, 50);
+    }
   } else {
     content.classList.remove('active');
     content.style.display = 'none';
