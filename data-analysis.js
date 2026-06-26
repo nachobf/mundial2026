@@ -3021,8 +3021,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshCategoryChart');
   const scaleSelect = document.getElementById('categoryChartScale');
   const toggleBtn = document.getElementById('btnToggleFitCategory');
-  if (catPlayersToggleBtn) catPlayersToggleBtn.addEventListener('click', daToggleCategoryPlayersDropdown);
-  if (selectAllCatPlayersCb) selectAllCatPlayersCb.addEventListener('change', daToggleSelectAllCategoryPlayers);
+  const catPlayersToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
+  const selectAllCatPlayersCb = document.getElementById('dpSelectAllCategoryCheckbox');
   const catToggleBtn = document.getElementById('btnCategoryChartCategoriesToggle');
   const selectAllCatCb = document.getElementById('dpSelectAllCategoriesCheckbox');
 
