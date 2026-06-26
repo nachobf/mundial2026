@@ -3031,13 +3031,21 @@ window.addEventListener('resize', function() {
     }, 300);
   }
 });
+
 /* ============================================================
-   RADAR CHART — Perfil de Jugador (v3 con selector de escala)
+   RADAR CHART — Perfil de Jugador (v4 final)
    ============================================================ */
 
 let RADAR_CHART_FIT_MODE = false;
 let __radarChartData = null;
 let __radarChartPlayers = [];
+
+// Paleta de colores para jugadores (compartida)
+const RADAR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
+  '#FF8C42', '#6C5CE7', '#00B894', '#E17055', '#74B9FF', '#A29BFE',
+  '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
+];
 
 function daToggleFitRadar() {
   RADAR_CHART_FIT_MODE = !RADAR_CHART_FIT_MODE;
@@ -3102,11 +3110,13 @@ function daRenderRadarPlayerCheckboxes() {
   if (players.length === 0) return;
 
   players.forEach((p, index) => {
+    const color = RADAR_COLORS[index % RADAR_COLORS.length];
     const id = 'dp-radar-player-' + index;
 
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
     label.htmlFor = id;
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;';
 
     const cb = document.createElement('input');
     cb.type = 'checkbox';
@@ -3119,10 +3129,16 @@ function daRenderRadarPlayerCheckboxes() {
       daRefreshRadarChart();
     });
 
+    // Punto de color del jugador
+    const colorDot = document.createElement('span');
+    colorDot.style.cssText = `width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;`;
+
     const span = document.createElement('span');
     span.textContent = p;
+    span.style.flex = '1';
 
     label.appendChild(cb);
+    label.appendChild(colorDot);
     label.appendChild(span);
     container.appendChild(label);
   });
@@ -3280,15 +3296,9 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .text(cat.label);
   });
 
-  const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
-    '#FF8C42', '#6C5CE7', '#00B894', '#E17055', '#74B9FF', '#A29BFE',
-    '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
-  ];
-
   // Dibujar áreas de cada jugador
   chartData.forEach((playerData, idx) => {
-    const color = colors[idx % colors.length];
+    const color = RADAR_COLORS[idx % RADAR_COLORS.length];
 
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
@@ -3344,7 +3354,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const itemWidth = isMobile ? 70 : 100;
 
   chartData.forEach((d, i) => {
-    const color = colors[i % colors.length];
+    const color = RADAR_COLORS[i % RADAR_COLORS.length];
     const row = Math.floor(i / itemsPerRow);
     const col = i % itemsPerRow;
     const totalRowWidth = Math.min(chartData.length - row * itemsPerRow, itemsPerRow) * itemWidth;
@@ -3384,7 +3394,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
   chartData.forEach((playerData, idx) => {
-    const color = colors[idx % colors.length];
+    const color = RADAR_COLORS[idx % RADAR_COLORS.length];
 
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
@@ -3540,7 +3550,7 @@ window.addEventListener('resize', function() {
 
 
 /* ============================================================
-   PODIUM CHART — Top 3 por Categoría (v3 con selector de escala)
+   PODIUM CHART — Top 3 por Categoría (v4 con selector de escala)
    ============================================================ */
 
 let PODIUM_CHART_FIT_MODE = false;
