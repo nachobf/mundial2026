@@ -3245,11 +3245,13 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const angleSlice = (Math.PI * 2) / categories.length;
 
   // Escala: % (0-100) o puntos (0-max de la categoría con más puntos)
-  const maxDomain = scale === 'percent' ? 100 : d3.max(categories, d => d.max);
+  const maxDomain = scale === 'percent' ? 100 : d3.max(chartData, d => {
+    return d3.max(categories, c => d[c.key] || 0);
+  });
   const rScale = d3.scaleLinear().domain([0, maxDomain]).range([0, radius]);
 
   // Grid circular
-  const levels = scale === 'percent' ? [20, 40, 60, 80, 100] : [25, 50, 75, 100];
+  const levels = scale === 'percent' ? [20, 40, 60, 80, 100] : [20, 40, 60, 80, 100];
   levels.forEach(level => {
     const val = scale === 'percent' ? level : Math.round((level / 100) * maxDomain);
     svg.append('circle')
