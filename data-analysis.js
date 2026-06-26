@@ -1794,7 +1794,7 @@ function daRenderPlayerCheckboxes() {
   container.innerHTML = '';
   const players = __dailyPointsData.players;
   
-  players.forEach(p => {
+  players.forEach((p,index) => {
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
     label.htmlFor = 'dp-player-' + index;
