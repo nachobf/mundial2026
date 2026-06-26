@@ -1800,8 +1800,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
-
-
 function daUpdateToggleText() {
   const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
   const checked = Array.from(checkboxes).filter(cb => cb.checked);
@@ -1889,107 +1887,8 @@ function daGetSelectedPlayersFromCheckboxes() {
   return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
 }
 
-/* ===== DROPDOWN MULTISELECT DE JUGADORES PARA CATEGORY CHART ===== */
-
-function daToggleCategoryPlayersDropdown(event) {
-  event.stopPropagation();
-  const menu = document.getElementById('categoryChartPlayersMenu');
-  const toggle = document.getElementById('btnCategoryChartPlayersToggle');
-  
-  const isOpen = menu.classList.contains('open');
-  
-  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
-  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
-  
-  if (!isOpen) {
-    menu.classList.add('open');
-    toggle.classList.add('active');
-  }
-}
-
-function daUpdateCategoryPlayersToggleText() {
-  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
-  const checked = Array.from(checkboxes).filter(cb => cb.checked);
-  const text = document.getElementById('dpCategoryPlayersToggleText');
-  
-  if (!text) return;
-  
-  if (checked.length === 0) {
-    text.textContent = 'Ninguno seleccionado';
-  } else if (checked.length === checkboxes.length) {
-    text.textContent = 'Todos seleccionados';
-  } else if (checked.length === 1) {
-    text.textContent = checked[0].dataset.player;
-  } else {
-    text.textContent = `${checked.length} seleccionados`;
-  }
-}
-
-function daRenderCategoryPlayerCheckboxes() {
-  const container = document.getElementById('categoryChartPlayersContainer');
-  if (!container || !__dailyPointsData) return;
-  
-  container.innerHTML = '';
-  const players = __dailyPointsData.players;
-  
-  players.forEach((p, index) => {
-    const id = 'dp-cat-player-' + index;
-    
-    const label = document.createElement('label');
-    label.className = 'dp-dropdown-item';
-    label.htmlFor = id;
-    
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.id = id;
-    cb.checked = true;
-    cb.dataset.player = p;
-    cb.addEventListener('change', function() {
-      daUpdateCategorySelectAllCheckbox();
-      daUpdateCategoryPlayersToggleText();
-      daRefreshCategoryChart();
-    });
-    
-    const span = document.createElement('span');
-    span.textContent = p;
-    
-    label.appendChild(cb);
-    label.appendChild(span);
-    container.appendChild(label);
-  });
-  
-  daUpdateCategorySelectAllCheckbox();
-  daUpdateCategoryPlayersToggleText();
-}
-
-function daUpdateCategorySelectAllCheckbox() {
-  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
-  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
-  if (!selectAllCb || checkboxes.length === 0) return;
-  
-  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-  const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
-  
-  selectAllCb.checked = allChecked;
-  selectAllCb.indeterminate = !allChecked && !noneChecked;
-}
-
-function daToggleSelectAllCategoryPlayers() {
-  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
-  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
-  
-  const shouldCheck = selectAllCb.checked;
-  
-  checkboxes.forEach(cb => {
-    cb.checked = shouldCheck;
-  });
-  
-  daUpdateCategoryPlayersToggleText();
-  daRefreshCategoryChart();
-}
-
-function daGetSelectedCategoryPlayers() {
-  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]:checked');
+function daGetSelectedPlayersFromCheckboxes() {
+  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]:checked');
   const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
   return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
 }
@@ -2381,70 +2280,24 @@ const CATEGORY_ORDER = ['exactResults', 'oneXTwo', 'groupPositions', 'bestThirds
 function daCalculateCategoryScores(players, finishedMatches) {
   const TOTAL_GROUP_MATCHES = 72;
 
-  const byCESTDate = {};
-  finishedMatches.forEach(m => {
-    const cest = daConvertToCEST(m.date, m.time);
-    if (!byCESTDate[cest.date]) byCESTDate[cest.date] = [];
-    byCESTDate[cest.date].push(m);
+  // Construir el estado real completo con TODOS los partidos
+  const real = daBuildPartialReal(finishedMatches);
+  const groupMatchesCount = finishedMatches.filter(m => m.group && m.group.startsWith('Group ')).length;
+  const faseGruposTerminada = groupMatchesCount >= TOTAL_GROUP_MATCHES;
+
+  return players.map(player => {
+    const cats = daCalculateScoreByCategory(player, real, faseGruposTerminada);
+    cats.player = player.name;
+    cats.totalScore = cats.exactResults + cats.oneXTwo + cats.groupPositions + cats.bestThirds + cats.knockoutRounds + cats.finalPositions;
+    return cats;
   });
-
-  const dates = Object.keys(byCESTDate).sort();
-  const matchesSoFar = [];
-  let prevFaseGruposTerminada = false;
-
-  const playerCategories = {};
-  players.forEach(p => {
-    playerCategories[p.name] = {
-      player: p.name,
-      exactResults: 0,
-      oneXTwo: 0,
-      groupPositions: 0,
-      bestThirds: 0,
-      knockoutRounds: 0,
-      finalPositions: 0,
-      totalScore: 0
-    };
-  });
-
-  dates.forEach(date => {
-    if (byCESTDate[date]) {
-      matchesSoFar.push(...byCESTDate[date]);
-    }
-
-    const realPartial = daBuildPartialReal(matchesSoFar);
-    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
-    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
-
-    players.forEach(player => {
-      const prevTotal = playerCategories[player.name].totalScore;
-      const newTotal = daCalculateScore(player, realPartial, faseGruposTerminada);
-      const delta = newTotal - prevTotal;
-
-      if (delta > 0) {
-        // Determinar qué categorías contribuyeron al delta
-        // Necesitamos calcular cada componente por separado
-        const cats = daCalculateScoreByCategory(player, realPartial, faseGruposTerminada, prevFaseGruposTerminada);
-
-        playerCategories[player.name].exactResults += cats.exactResults;
-        playerCategories[player.name].oneXTwo += cats.oneXTwo;
-        playerCategories[player.name].groupPositions += cats.groupPositions;
-        playerCategories[player.name].bestThirds += cats.bestThirds;
-        playerCategories[player.name].knockoutRounds += cats.knockoutRounds;
-        playerCategories[player.name].finalPositions += cats.finalPositions;
-        playerCategories[player.name].totalScore = newTotal;
-      }
-    });
-
-    prevFaseGruposTerminada = faseGruposTerminada;
-  });
-
-  return Object.values(playerCategories);
 }
 
 /**
- * Calcula la puntuación desglosada por categoría para un jugador
+ * Calcula la puntuación desglosada por categoría para un jugador.
+ * Cada categoría es independiente y suma solo los puntos de esa categoría.
  */
-function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseGruposTerminada) {
+function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
   const cats = {
     exactResults: 0,
     oneXTwo: 0,
@@ -2454,7 +2307,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     finalPositions: 0
   };
 
-  // 1. Resultados exactos y 1X2 (solo de partidos NUEVOS con resultado real)
+  // 1. Resultados exactos y 1X2
   const predResults = player.groupMatchResults || {};
   const realResults = real.groupMatchResults || {};
 
@@ -2481,8 +2334,8 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     }
   });
 
-  // 2. Posiciones de grupos (solo cuando la fase de grupos se completa por primera vez)
-  if (faseGruposTerminada && !prevFaseGruposTerminada) {
+  // 2. Posiciones de grupos (solo si fase de grupos terminada)
+  if (faseGruposTerminada) {
     const groupNames = Object.keys(real.groups || {});
     groupNames.forEach(group => {
       const realOrder = real.groups[group] || [];
@@ -2495,8 +2348,8 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     });
   }
 
-  // 3. Mejores terceros (solo cuando la fase de grupos se completa por primera vez)
-  if (faseGruposTerminada && !prevFaseGruposTerminada) {
+  // 3. Mejores terceros (solo si fase de grupos terminada)
+  if (faseGruposTerminada) {
     const realTP = new Set((real.thirdPlace || []).slice(0, 8));
     const predTP = player.thirdPlace || [];
     predTP.forEach(team => {
@@ -2504,12 +2357,13 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     });
   }
 
-  // 4. Eliminatorias
+  // 4. Eliminatorias - calcular ronda de cada equipo
   const roundPoints = {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
     finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
   };
 
+  // Construir mapa de rondas reales
   const teamRoundReal = {};
   const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
 
@@ -2530,7 +2384,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     });
   });
 
-  // Ajustar semifinalistas
+  // Ajustar 3º y 4º puesto
   const sfMatches = real.knockout?.matches?.semifinals || [];
   if (sfMatches.length === 2) {
     const sf1 = sfMatches[0], sf2 = sfMatches[1];
@@ -2543,6 +2397,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     }
   }
 
+  // Construir mapa de rondas predichas
   const teamRoundPred = {};
   const predKO = player.knockout?.matches || {};
 
@@ -2570,6 +2425,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseG
     }
   }
 
+  // Comparar predicciones con realidad
   const allTeams = new Set([...Object.keys(teamRoundReal), ...Object.keys(teamRoundPred)]);
 
   allTeams.forEach(team => {
@@ -3014,6 +2870,111 @@ function daGetSelectedCategories() {
   return Array.from(checkboxes).map(cb => cb.dataset.category);
 }
 
+/* ===== DROPDOWN MULTISELECT DE JUGADORES PARA CATEGORY CHART ===== */
+
+function daToggleCategoryPlayersDropdown(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('categoryChartPlayersMenu');
+  const toggle = document.getElementById('btnCategoryChartPlayersToggle');
+
+  const isOpen = menu.classList.contains('open');
+
+  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
+
+  if (!isOpen) {
+    menu.classList.add('open');
+    toggle.classList.add('active');
+  }
+}
+
+function daUpdateCategoryPlayersToggleText() {
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+  const checked = Array.from(checkboxes).filter(cb => cb.checked);
+  const text = document.getElementById('dpCategoryPlayersToggleText');
+
+  if (!text) return;
+
+  if (checked.length === 0) {
+    text.textContent = 'Ninguno seleccionado';
+  } else if (checked.length === checkboxes.length) {
+    text.textContent = 'Todos seleccionados';
+  } else if (checked.length === 1) {
+    text.textContent = checked[0].dataset.player;
+  } else {
+    text.textContent = `${checked.length} seleccionados`;
+  }
+}
+
+function daRenderCategoryPlayerCheckboxes() {
+  const container = document.getElementById('categoryChartPlayersContainer');
+  if (!container || !__dailyPointsData) return;
+
+  container.innerHTML = '';
+  const players = __dailyPointsData.players;
+
+  players.forEach((p, index) => {
+    const id = 'dp-cat-player-' + index;
+
+    const label = document.createElement('label');
+    label.className = 'dp-dropdown-item';
+    label.htmlFor = id;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    cb.checked = true;
+    cb.dataset.player = p;
+    cb.addEventListener('change', function() {
+      daUpdateCategorySelectAllCheckbox();
+      daUpdateCategoryPlayersToggleText();
+      daRefreshCategoryChart();
+    });
+
+    const span = document.createElement('span');
+    span.textContent = p;
+
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+
+  daUpdateCategorySelectAllCheckbox();
+  daUpdateCategoryPlayersToggleText();
+}
+
+function daUpdateCategorySelectAllCheckbox() {
+  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+  if (!selectAllCb || checkboxes.length === 0) return;
+
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+
+  selectAllCb.checked = allChecked;
+  selectAllCb.indeterminate = !allChecked && !noneChecked;
+}
+
+function daToggleSelectAllCategoryPlayers() {
+  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+
+  const shouldCheck = selectAllCb.checked;
+
+  checkboxes.forEach(cb => {
+    cb.checked = shouldCheck;
+  });
+
+  daUpdateCategoryPlayersToggleText();
+  daRefreshCategoryChart();
+}
+
+function daGetSelectedCategoryPlayers() {
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]:checked');
+  const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
+  return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
+}
+
 /* -----------------------------------------------------------
    CONTROLES DEL CATEGORY CHART
    ----------------------------------------------------------- */
@@ -3021,18 +2982,18 @@ document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshCategoryChart');
   const scaleSelect = document.getElementById('categoryChartScale');
   const toggleBtn = document.getElementById('btnToggleFitCategory');
-  const catPlayersToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
-  const selectAllCatPlayersCb = document.getElementById('dpSelectAllCategoryCheckbox');
   const catToggleBtn = document.getElementById('btnCategoryChartCategoriesToggle');
   const selectAllCatCb = document.getElementById('dpSelectAllCategoriesCheckbox');
+  const catPlayersToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
+  const selectAllCatPlayersCb = document.getElementById('dpSelectAllCategoryCheckbox');
 
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshCategoryChart);
   if (scaleSelect) scaleSelect.addEventListener('change', daRefreshCategoryChart);
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitCategory);
-  if (catPlayersToggleBtn) catPlayersToggleBtn.addEventListener('click', daToggleCategoryPlayersDropdown);
-  if (selectAllCatPlayersCb) selectAllCatPlayersCb.addEventListener('change', daToggleSelectAllCategoryPlayers);
   if (catToggleBtn) catToggleBtn.addEventListener('click', daToggleCategoriesDropdown);
   if (selectAllCatCb) selectAllCatCb.addEventListener('change', daToggleSelectAllCategories);
+  if (catPlayersToggleBtn) catPlayersToggleBtn.addEventListener('click', daToggleCategoryPlayersDropdown);
+  if (selectAllCatPlayersCb) selectAllCatPlayersCb.addEventListener('change', daToggleSelectAllCategoryPlayers);
 });
 
 window.addEventListener('resize', function() {

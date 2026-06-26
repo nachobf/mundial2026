@@ -130,7 +130,7 @@
         <section class="section">
           <div class="da-collapsible-section" id="bumpChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('bumpChartSection')">
-              <h2>📊 Evolución del Ranking (Posición)</h2>
+              <h2>📈 Evolución del posición</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
@@ -167,7 +167,7 @@
         <section class="section">
           <div class="da-collapsible-section" id="lineRankingSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('lineRankingSection')">
-              <h2>📈 Evolución de Puntuación</h2>
+              <h2>📶 Evolución de puntuación</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
@@ -204,7 +204,7 @@
         <section class="section">
           <div class="da-collapsible-section" id="dailyPointsSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('dailyPointsSection')">
-              <h2>📊 Puntos por Día</h2>
+              <h2>📊 Puntos por día</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
@@ -268,7 +268,7 @@
         <section class="section">
           <div class="da-collapsible-section" id="categoryChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('categoryChartSection')">
-              <h2>📊 Puntos por Categoría</h2>
+              <h2>🧮 Puntos por categoría</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
@@ -278,27 +278,6 @@
               <div class="dp-players-row">
                 <span class="dp-label">Jugadores:</span>
                 <div class="dp-dropdown" id="categoryChartPlayersDropdown">
-                  <button type="button" class="dp-dropdown-toggle" id="btnCategoryChartPlayersToggle" onclick="daTogglePlayersDropdown(event)">
-                    <span id="dpPlayersToggleText">Todos seleccionados</span>
-                    <span class="dp-dropdown-arrow">▼</span>
-                  </button>
-                  <div class="dp-dropdown-menu" id="dailyPointsPlayersMenu">
-                    <label class="dp-dropdown-item">
-                      <input type="checkbox" id="dpSelectAllCheckbox" checked onchange="daToggleSelectAllPlayers()">
-                      <span>Seleccionar todos</span>
-                    </label>
-                    <div class="dp-dropdown-divider"></div>
-                    <div id="dailyPointsPlayersContainer">
-                      <!-- Se llena dinámicamente (comparte el mismo contenedor que daily points) -->
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Fila 2: Categorías (dropdown multiselect) -->
-              <div class="dp-players-row">
-                <span class="dp-label">Categorías:</span>
-                <div class="dp-dropdown" id="categoryChartCategoriesDropdown">
                   <button type="button" class="dp-dropdown-toggle" id="btnCategoryChartPlayersToggle" onclick="daToggleCategoryPlayersDropdown(event)">
                     <span id="dpCategoryPlayersToggleText">Todos seleccionados</span>
                     <span class="dp-dropdown-arrow">▼</span>
@@ -310,6 +289,27 @@
                     </label>
                     <div class="dp-dropdown-divider"></div>
                     <div id="categoryChartPlayersContainer">
+                      <!-- Se llena dinámicamente -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fila 2: Categorías (dropdown multiselect) -->
+              <div class="dp-players-row">
+                <span class="dp-label">Categorías:</span>
+                <div class="dp-dropdown" id="categoryChartCategoriesDropdown">
+                  <button type="button" class="dp-dropdown-toggle" id="btnCategoryChartCategoriesToggle" onclick="daToggleCategoriesDropdown(event)">
+                    <span id="dpCategoriesToggleText">Todas seleccionadas</span>
+                    <span class="dp-dropdown-arrow">▼</span>
+                  </button>
+                  <div class="dp-dropdown-menu" id="categoryChartCategoriesMenu">
+                    <label class="dp-dropdown-item">
+                      <input type="checkbox" id="dpSelectAllCategoriesCheckbox" checked onchange="daToggleSelectAllCategories()">
+                      <span>Seleccionar todas</span>
+                    </label>
+                    <div class="dp-dropdown-divider"></div>
+                    <div id="categoryChartCategoriesContainer">
                       <!-- Se llena dinámicamente -->
                     </div>
                   </div>
