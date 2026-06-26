@@ -116,10 +116,7 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   // Ordenar las fechas CEST
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daConvertToCEST(
-    new Date().toISOString().split('T')[0], 
-    null
-  ).date;
+  const todayCEST = daGetTodayCEST();
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -518,10 +515,7 @@ function daProcessAndRender(players, finishedMatches) {
 
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daConvertToCEST(
-    new Date().toISOString().split('T')[0], 
-    null
-  ).date;
+  const todayCEST = daGetTodayCEST();
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -747,12 +741,12 @@ function daRenderBumpChart(dailyData, topN, timeFilter) {
       const date = new Date(d + 'T00:00:00');
       if (timeFilter === 'week') {
         return isMobile 
-          ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-          : 'Sem. ' + date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+          ? date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' })
+          : 'Sem. ' + date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
       }
       return isMobile 
-        ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })
-        : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        ? date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'numeric' })
+        : date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
     }));
   
   xAxis.selectAll('text')
@@ -779,12 +773,13 @@ function daRenderBumpChart(dailyData, topN, timeFilter) {
     .style('pointer-events', 'none').style('z-index', '10000').style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
   function showTooltip(event, pointData) {
-    const dateObj = new Date(pointData.date + 'T00:00:00');
+    const [py, pm, pd] = pointData.date.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(py, pm - 1, pd));
     const label = timeFilter === 'week' ? 'Semana del ' : '';
     tooltip.transition().duration(150).style('opacity', 1);
     tooltip.html(`
       <div style="font-weight:700;margin-bottom:4px;">${pointData.player}</div>
-      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'long' })}</div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;font-weight:700;">#${pointData.rank}</span>
         <span style="color:#7FD8FF;font-weight:600;">${pointData.score} pts</span>
@@ -967,15 +962,17 @@ let LINE_RANKING_FIT_MODE = false;
  * Obtiene la fecha de inicio de semana (lunes) para una fecha dada
  */
 function daGetWeekStart(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00');
-  const day = date.getDay(); // 0=domingo, 1=lunes...
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Ajustar a lunes
-  const monday = new Date(date.setDate(diff));
-  const y = monday.getFullYear();
-  const m = String(monday.getMonth() + 1).padStart(2, '0');
-  const d = String(monday.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const day = date.getUTCDay(); // 0=domingo, 1=lunes...
+  const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(Date.UTC(y, m - 1, diff));
+  const yy = monday.getUTCFullYear();
+  const mm = String(monday.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(monday.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
 }
+
 
 /**
  * Agrupa datos diarios por semana (toma el último valor de cada semana)
@@ -1154,12 +1151,12 @@ function daRenderLineRanking(dailyData, topN, timeFilter) {
       const date = new Date(d + 'T00:00:00');
       if (timeFilter === 'week') {
         return isMobile 
-          ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-          : 'Sem. ' + date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+          ? date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' })
+          : 'Sem. ' + date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
       }
       return isMobile 
-        ? date.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric' })
-        : date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+        ? date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'numeric' })
+        : date.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short' });
     }));
   
   xAxis.selectAll('text')
@@ -1193,12 +1190,13 @@ function daRenderLineRanking(dailyData, topN, timeFilter) {
     .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
   function showTooltip(event, pointData) {
-    const dateObj = new Date(pointData.date + 'T00:00:00');
+    const [py, pm, pd] = pointData.date.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(py, pm - 1, pd));
     const label = timeFilter === 'week' ? 'Semana del ' : '';
     tooltip.transition().duration(150).style('opacity', 1);
     tooltip.html(`
       <div style="font-weight:700;margin-bottom:4px;">${pointData.player}</div>
-      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long' })}</div>
+      <div style="color:#aaa;font-size:12px;">${label}${dateObj.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'short', day: 'numeric', month: 'long' })}</div>
       <div style="margin-top:6px;font-size:18px;font-weight:700;color:#7FD8FF;">${pointData.score} pts</div>
     `);
     tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
@@ -1348,10 +1346,7 @@ function daProcessAndRenderLineRanking(players, finishedMatches) {
 
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daConvertToCEST(
-    new Date().toISOString().split('T')[0], 
-    null
-  ).date;
+  const todayCEST = daGetTodayCEST();
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -1488,6 +1483,40 @@ window.addEventListener('resize', function() {
   }
 });
 
+/* -----------------------------------------------------------
+   MÁXIMO PUNTOS POSIBLE POR DÍA (para % relativo al máximo)
+   ----------------------------------------------------------- */
+function daCalculateMaxDeltaForDay(newMatches, faseGruposTerminada, prevFaseGruposTerminada) {
+  let maxDelta = 0;
+
+  // 1. Resultados exactos (5) + 1X2 (1) = 6 pts por cada partido de grupos
+  const groupMatches = newMatches.filter(m => m.group && m.group.startsWith('Group '));
+  maxDelta += groupMatches.length * 6;
+
+  // 2. Si la fase de grupos se completó este día: posiciones (12×4×5) + mejores terceros (8×1)
+  if (faseGruposTerminada && !prevFaseGruposTerminada) {
+    maxDelta += (12 * 4 * 5) + (8 * 1); // 240 + 8 = 248
+  }
+
+  // 3. Eliminatorias: cada partido resuelto otorga los puntos de la ronda alcanzada
+  const roundPoints = {
+    'Round of 32': 3,
+    'Round of 16': 5,
+    'Quarter-final': 10,
+    'Semi-final': 20,
+    'Match for third place': 20,
+    'Final': 50
+  };
+
+  newMatches.forEach(m => {
+    if (m.round && roundPoints[m.round]) {
+      maxDelta += roundPoints[m.round];
+    }
+  });
+
+  return maxDelta;
+}
+
 /* ============================================================
    DAILY POINTS — Puntos ganados por día/semana (barras verticales)
    ============================================================ */
@@ -1503,34 +1532,37 @@ const TOURNAMENT_END = '2026-07-19';
  * Semana 1: 11-17 jun, Semana 2: 18-24 jun, etc. hasta el 19 julio
  */
 function daGetTournamentWeek(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00');
-  const start = new Date('2026-06-11T00:00:00');
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const start = new Date(Date.UTC(2026, 5, 11)); // 11 de junio
   const diffMs = date - start;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   return Math.max(1, Math.floor(diffDays / 7) + 1);
 }
 
+
 /**
  * Calcula todas las semanas del torneo hasta la fecha final o hoy
  */
 function daGetAllTournamentWeeks() {
-  const start = new Date('2026-06-11T00:00:00');
-  const end = new Date(TOURNAMENT_END + 'T00:00:00');
+  const start = new Date(Date.UTC(2026, 5, 11));
+  const end = new Date(Date.UTC(2026, 6, 19)); // 19 de julio
   const today = new Date();
   const limit = today < end ? today : end;
-  
+
   const weeks = [];
   let current = new Date(start);
   let weekNum = 1;
-  
+
   while (current <= limit) {
     weeks.push(weekNum);
-    current.setDate(current.getDate() + 7);
+    current.setUTCDate(current.getUTCDate() + 7);
     weekNum++;
   }
-  
+
   return weeks;
 }
+
 
 /**
  * Calcula los puntos ganados CADA DÍA (delta) para cada jugador.
@@ -1546,11 +1578,11 @@ function daCalculateDailyPoints(players, finishedMatches) {
   });
 
   const dates = Object.keys(byCESTDate).sort();
-  const todayCEST = daConvertToCEST(new Date().toISOString().split('T')[0], null).date;
-  
+  const todayCEST = daGetTodayCEST();
+
   if (!byCESTDate[todayCEST] && dates.length > 0) {
     const lastDate = dates[dates.length - 1];
-    if (new Date(todayCEST) > new Date(lastDate)) {
+    if (new Date(todayCEST + 'T00:00:00') > new Date(lastDate + 'T00:00:00')) {
       dates.push(todayCEST);
     }
   }
@@ -1559,13 +1591,15 @@ function daCalculateDailyPoints(players, finishedMatches) {
   players.forEach(p => { cumulativeScores[p.name] = {}; });
 
   const matchesSoFar = [];
+  let prevMatchesCount = 0;
+  let prevFaseGruposTerminada = false;
   const byDay = {};
 
   dates.forEach((date, idx) => {
     if (byCESTDate[date]) {
       matchesSoFar.push(...byCESTDate[date]);
     }
-    
+
     const realPartial = daBuildPartialReal(matchesSoFar);
     const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
     const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
@@ -1576,9 +1610,9 @@ function daCalculateDailyPoints(players, finishedMatches) {
       const score = daCalculateScore(player, realPartial, faseGruposTerminada);
       const prevScore = idx > 0 ? cumulativeScores[player.name][dates[idx - 1]] : 0;
       const delta = score - prevScore;
-      
+
       cumulativeScores[player.name][date] = score;
-      
+
       dayData.push({
         player: player.name,
         points: delta,
@@ -1588,21 +1622,23 @@ function daCalculateDailyPoints(players, finishedMatches) {
       });
     });
 
-    byDay[date] = dayData;
-  });
+    // Calcular máximo teórico posible del día
+    const newMatches = matchesSoFar.slice(prevMatchesCount);
+    const maxDelta = daCalculateMaxDeltaForDay(newMatches, faseGruposTerminada, prevFaseGruposTerminada);
 
-  // Porcentajes sobre TODOS los jugadores
-  dates.forEach(date => {
-    const maxDelta = Math.max(...byDay[date].map(d => d.points), 1);
+    byDay[date] = dayData;
     byDay[date].forEach(d => {
-      d.pct = Math.round((d.points / maxDelta) * 100);
+      d.pct = maxDelta > 0 ? Math.round((d.points / maxDelta) * 100) : 0;
+      d.maxDelta = maxDelta;
     });
+
+    prevMatchesCount = matchesSoFar.length;
+    prevFaseGruposTerminada = faseGruposTerminada;
   });
 
   // Semanas dinámicas hasta la fecha final del torneo
   const allWeeks = daGetAllTournamentWeeks();
   const usedWeeks = [...new Set(dates.map(daGetTournamentWeek))].sort((a, b) => a - b);
-  // Incluir semanas futuras si el torneo está en curso
   const weeks = allWeeks.filter(w => w <= Math.max(...usedWeeks, ...allWeeks));
 
   return {
@@ -1613,10 +1649,11 @@ function daCalculateDailyPoints(players, finishedMatches) {
   };
 }
 
+
 function daGroupDailyByWeek(data) {
   const { byDay, players, dates, weeks } = data;
   const byWeek = {};
-  
+
   weeks.forEach(w => {
     byWeek[w] = {};
     players.forEach(p => {
@@ -1625,7 +1662,8 @@ function daGroupDailyByWeek(data) {
         points: 0,
         totalScore: 0,
         date: `Semana ${w}`,
-        week: w
+        week: w,
+        maxDelta: 0
       };
     });
   });
@@ -1633,18 +1671,18 @@ function daGroupDailyByWeek(data) {
   dates.forEach(date => {
     const week = daGetTournamentWeek(date);
     if (!byWeek[week]) return;
-    
+
     byDay[date].forEach(d => {
       byWeek[week][d.player].points += d.points;
       byWeek[week][d.player].totalScore = d.totalScore;
+      byWeek[week][d.player].maxDelta += (d.maxDelta || 0);
     });
   });
 
   weeks.forEach(w => {
     const weekData = Object.values(byWeek[w]);
-    const maxDelta = Math.max(...weekData.map(d => d.points), 1);
     weekData.forEach(d => {
-      d.pct = Math.round((d.points / maxDelta) * 100);
+      d.pct = d.maxDelta > 0 ? Math.round((d.points / d.maxDelta) * 100) : 0;
     });
   });
 
@@ -1660,6 +1698,7 @@ function daGroupDailyByWeek(data) {
     weeks
   };
 }
+
 
 function daToggleFitDailyPoints() {
   DAILY_POINTS_FIT_MODE = !DAILY_POINTS_FIT_MODE;
@@ -2018,10 +2057,12 @@ function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
     d3.select(this).attr('opacity', 1).attr('stroke', '#fff').attr('stroke-width', 2);
     
     const isWeek = d.date.startsWith('Semana');
+    const [py, pm, pd] = isWeek ? [0,0,0] : d.date.split('-').map(Number);
+    const dateObj = isWeek ? null : new Date(Date.UTC(py, pm - 1, pd));
     tooltip.transition().duration(150).style('opacity', 1);
     tooltip.html(`
       <div style="font-weight:700;margin-bottom:6px;font-size:15px;">${d.player}</div>
-      <div style="color:#aaa;font-size:12px;margin-bottom:8px;">${isWeek ? d.date : new Date(d.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+      <div style="color:#aaa;font-size:12px;margin-bottom:8px;">${isWeek ? d.date : dateObj.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long' })}</div>
       <div style="display:flex;flex-direction:column;gap:4px;">
         <div style="display:flex;justify-content:space-between;gap:16px;">
           <span>Puntos ${isWeek ? 'esta semana' : 'este día'}:</span>
