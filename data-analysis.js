@@ -1792,7 +1792,7 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
-  
+
   // Category Chart players dropdown
   const catDropdown = document.getElementById('categoryChartPlayersDropdown');
   const catToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
@@ -2553,31 +2553,31 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
     .append('g')
     .attr('transform', `translate(${margin.left},${margin.top})`);
 
-  // Calcular máximos por categoría seleccionada
+  // Categorías activas
   const activeCategories = selectedCategories.length > 0 ? selectedCategories : CATEGORY_ORDER;
 
-  const maxValues = {};
-  activeCategories.forEach(cat => {
-    maxValues[cat] = CATEGORY_CONFIG[cat].max;
-  });
-
-  // Preparar datos apilados
+  // Preparar datos: en modo %, cada categoría es su propio % sobre su máximo
   const stackData = chartData.map(d => {
     const obj = { player: d.player, totalScore: d.totalScore };
     let cumulative = 0;
     activeCategories.forEach(cat => {
+      const config = CATEGORY_CONFIG[cat];
       const val = d[cat] || 0;
-      obj[cat] = val;
+      // En modo %, el valor es el % sobre el máximo de esa categoría
+      const displayVal = scale === 'percent' 
+        ? (config.max > 0 ? (val / config.max) * 100 : 0)
+        : val;
+      obj[cat] = displayVal;
+      obj[cat + '_raw'] = val; // Guardar valor raw para tooltip
       obj[cat + '_start'] = cumulative;
-      cumulative += val;
+      cumulative += displayVal;
     });
     obj.cumulative = cumulative;
     return obj;
   });
 
-  const maxTotal = scale === 'percent' 
-    ? 100 
-    : d3.max(stackData, d => d.cumulative) * 1.05;
+  // Dominio del eje X: suma de todos los % o puntos
+  const maxTotal = d3.max(stackData, d => d.cumulative) * 1.05;
 
   const x = d3.scaleLinear()
     .domain([0, maxTotal || 1])
@@ -2598,7 +2598,7 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
     .attr('stroke-dasharray', '3,3');
   svg.select('.grid-x').select('.domain').remove();
 
-  // Barras apiladas
+  // Barras apiladas - cada categoría apilada una tras otra
   activeCategories.forEach(cat => {
     const config = CATEGORY_CONFIG[cat];
 
@@ -2608,7 +2608,7 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
       .append('rect')
       .attr('class', 'cat-bar cat-bar-' + cat)
       .attr('y', d => y(d.player))
-      .attr('x', d => x(scale === 'percent' ? (d[cat + '_start'] / d.cumulative * 100) : d[cat + '_start']))
+      .attr('x', d => x(d[cat + '_start']))
       .attr('height', y.bandwidth())
       .attr('width', 0)
       .attr('fill', config.color)
@@ -2618,12 +2618,7 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
       .transition()
       .duration(600)
       .delay((d, i) => i * 50)
-      .attr('width', d => {
-        if (scale === 'percent') {
-          return d.cumulative > 0 ? x((d[cat] / d.cumulative) * 100) : 0;
-        }
-        return x(d[cat]);
-      });
+      .attr('width', d => x(d[cat]));
   });
 
   // Eje Y (jugadores)
@@ -2676,7 +2671,7 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
     .attr('y', d => y(d.player))
     .attr('x', 0)
     .attr('height', y.bandwidth())
-    .attr('width', d => x(scale === 'percent' ? 100 : d.cumulative))
+    .attr('width', d => x(d.cumulative))
     .attr('fill', 'transparent')
     .style('cursor', 'pointer')
     .on('mouseover', function(event, d) {
@@ -2686,12 +2681,12 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
 
       activeCategories.forEach(cat => {
         const config = CATEGORY_CONFIG[cat];
-        const val = d[cat] || 0;
-        const pct = config.max > 0 ? Math.round((val / config.max) * 100) : 0;
+        const rawVal = d[cat + '_raw'] || 0;
+        const pct = config.max > 0 ? Math.round((rawVal / config.max) * 100) : 0;
         html += `<div style="display:flex;align-items:center;gap:8px;">`;
         html += `<span style="width:10px;height:10px;border-radius:2px;background:${config.color};display:inline-block;"></span>`;
         html += `<span style="flex:1;">${config.label}:</span>`;
-        html += `<span style="font-weight:700;">${val} pts</span>`;
+        html += `<span style="font-weight:700;">${rawVal} pts</span>`;
         html += `<span style="color:#7FD8FF;font-size:11px;">(${pct}%)</span>`;
         html += `</div>`;
       });
@@ -2741,9 +2736,8 @@ function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale)
     .style('text-anchor', 'middle')
     .style('font-size', '12px')
     .style('fill', '#888')
-    .text(scale === 'percent' ? 'Porcentaje sobre el máximo de cada categoría' : 'Puntos');
+    .text(scale === 'percent' ? 'Suma de % sobre el máximo de cada categoría' : 'Puntos');
 }
-
 function daRefreshCategoryChart() {
   if (!__categoryChartData) {
     daInitCategoryChart();
@@ -2933,14 +2927,14 @@ function daRenderCategoryPlayerCheckboxes() {
                   (__dailyPointsData ? __dailyPointsData.players : []);
   
   if (players.length === 0) return;
-  
+
   players.forEach((p, index) => {
     const id = 'dp-cat-player-' + index;
-    
+
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
     label.htmlFor = id;
-    
+
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = id;
@@ -2951,15 +2945,15 @@ function daRenderCategoryPlayerCheckboxes() {
       daUpdateCategoryPlayersToggleText();
       daRefreshCategoryChart();
     });
-    
+
     const span = document.createElement('span');
     span.textContent = p;
-    
+
     label.appendChild(cb);
     label.appendChild(span);
     container.appendChild(label);
   });
-  
+
   daUpdateCategorySelectAllCheckbox();
   daUpdateCategoryPlayersToggleText();
 }
