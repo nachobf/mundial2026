@@ -3031,9 +3031,8 @@ window.addEventListener('resize', function() {
     }, 300);
   }
 });
-
 /* ============================================================
-   RADAR CHART — Perfil de Jugador
+   RADAR CHART — Perfil de Jugador (v3 con selector de escala)
    ============================================================ */
 
 let RADAR_CHART_FIT_MODE = false;
@@ -3083,6 +3082,8 @@ function daUpdateRadarPlayersToggleText() {
 
   if (checked.length === 0) {
     text.textContent = 'Ninguno seleccionado';
+  } else if (checked.length === checkboxes.length) {
+    text.textContent = 'Todos seleccionados (' + checked.length + ')';
   } else if (checked.length === 1) {
     text.textContent = checked[0].dataset.player;
   } else {
@@ -3100,7 +3101,6 @@ function daRenderRadarPlayerCheckboxes() {
 
   if (players.length === 0) return;
 
-  // Preseleccionar top 3 por defecto (los primeros 3 del array ya están ordenados por score)
   players.forEach((p, index) => {
     const id = 'dp-radar-player-' + index;
 
@@ -3111,17 +3111,9 @@ function daRenderRadarPlayerCheckboxes() {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = id;
-    // Preseleccionar top 3
-    cb.checked = index < 3;
+    cb.checked = true;
     cb.dataset.player = p;
     cb.addEventListener('change', function() {
-      // Limitar a máximo 4 seleccionados
-      const allChecked = Array.from(document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]:checked'));
-      if (allChecked.length > 4) {
-        cb.checked = false;
-        showToast('Máximo 4 jugadores para el radar', true);
-        return;
-      }
       daUpdateRadarSelectAllCheckbox();
       daUpdateRadarPlayersToggleText();
       daRefreshRadarChart();
@@ -3155,17 +3147,9 @@ function daToggleSelectAllRadarPlayers() {
   const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
   const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]');
 
-  // Limitar a máximo 4 si se seleccionan todos
-  if (selectAllCb.checked) {
-    checkboxes.forEach((cb, idx) => {
-      cb.checked = idx < 4;
-    });
-    if (checkboxes.length > 4) {
-      showToast('Solo se muestran los 4 primeros jugadores', true);
-    }
-  } else {
-    checkboxes.forEach(cb => { cb.checked = false; });
-  }
+  checkboxes.forEach(cb => {
+    cb.checked = selectAllCb.checked;
+  });
 
   daUpdateRadarPlayersToggleText();
   daRefreshRadarChart();
@@ -3175,7 +3159,7 @@ function daGetSelectedRadarPlayers() {
   const checkboxes = document.querySelectorAll('#radarChartPlayersContainer input[type="checkbox"]:checked');
   const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
   return selected.length > 0 ? selected : 
-    (__radarChartPlayers ? __radarChartPlayers.slice(0, 3) : []);
+    (__radarChartPlayers ? __radarChartPlayers : []);
 }
 
 function daRefreshRadarChart() {
@@ -3185,10 +3169,11 @@ function daRefreshRadarChart() {
   }
 
   const selectedPlayers = daGetSelectedRadarPlayers();
-  daRenderRadarChart(__radarChartData, selectedPlayers);
+  const scale = document.getElementById('radarChartScale')?.value || 'percent';
+  daRenderRadarChart(__radarChartData, selectedPlayers, scale);
 }
 
-function daRenderRadarChart(data, selectedPlayers) {
+function daRenderRadarChart(data, selectedPlayers, scale) {
   const container = document.getElementById('radarChartContainer');
   const wrapper = document.getElementById('radarChartScrollWrapper');
   container.innerHTML = '';
@@ -3203,10 +3188,11 @@ function daRenderRadarChart(data, selectedPlayers) {
   const isMobile = window.innerWidth <= 768;
   const isFitMode = RADAR_CHART_FIT_MODE;
 
-  const margin = { top: 40, right: 80, bottom: 40, left: 80 };
+  const margin = { top: 60, right: 100, bottom: 60, left: 100 };
   const containerWidth = wrapper.clientWidth || 600;
+
   const size = Math.min(containerWidth - margin.left - margin.right, 
-                        isMobile ? 350 : 500);
+                        isMobile ? 500 : 520);
 
   const width = size;
   const height = size;
@@ -3231,38 +3217,38 @@ function daRenderRadarChart(data, selectedPlayers) {
     .append('g')
     .attr('transform', `translate(${svgWidth / 2},${svgHeight / 2})`);
 
-  // Configuración de ejes
   const categories = [
-    { key: 'exactResults', label: 'Resultados\nexactos', max: 360 },
+    { key: 'exactResults', label: 'Resultados exactos', max: 360 },
     { key: 'oneXTwo', label: '1X2', max: 72 },
-    { key: 'groupPositions', label: 'Posiciones\ngrupos', max: 240 },
-    { key: 'bestThirds', label: 'Mejores\nterceros', max: 8 },
-    { key: 'knockoutRounds', label: 'Fase final\n(hasta semis)', max: 356 },
-    { key: 'finalPositions', label: 'Campeón, finalista\n3º, 4º', max: 150 }
+    { key: 'groupPositions', label: 'Posiciones grupos', max: 240 },
+    { key: 'bestThirds', label: 'Mejores terceros', max: 8 },
+    { key: 'knockoutRounds', label: 'Fase final (hasta semis)', max: 356 },
+    { key: 'finalPositions', label: 'Campeón, finalista, 3º, 4º', max: 150 }
   ];
 
   const angleSlice = (Math.PI * 2) / categories.length;
 
-  // Escalas
-  const rScale = d3.scaleLinear().domain([0, 100]).range([0, radius]);
+  // Escala: % (0-100) o puntos (0-max de la categoría con más puntos)
+  const maxDomain = scale === 'percent' ? 100 : d3.max(categories, d => d.max);
+  const rScale = d3.scaleLinear().domain([0, maxDomain]).range([0, radius]);
 
   // Grid circular
-  const levels = [20, 40, 60, 80, 100];
+  const levels = scale === 'percent' ? [20, 40, 60, 80, 100] : [25, 50, 75, 100];
   levels.forEach(level => {
+    const val = scale === 'percent' ? level : Math.round((level / 100) * maxDomain);
     svg.append('circle')
-      .attr('r', rScale(level))
+      .attr('r', rScale(val))
       .attr('fill', 'none')
       .attr('stroke', '#e0e0e0')
       .attr('stroke-width', 1);
 
-    // Label del nivel
     svg.append('text')
       .attr('x', 4)
-      .attr('y', -rScale(level))
+      .attr('y', -rScale(val))
       .attr('dy', '0.35em')
       .style('font-size', '10px')
       .style('fill', '#aaa')
-      .text(level + '%');
+      .text(scale === 'percent' ? level + '%' : val);
   });
 
   // Ejes radiales
@@ -3279,23 +3265,26 @@ function daRenderRadarChart(data, selectedPlayers) {
       .attr('stroke', '#e0e0e0')
       .attr('stroke-width', 1);
 
-    // Labels de categorías
-    const labelX = Math.cos(angle) * (radius + 30);
-    const labelY = Math.sin(angle) * (radius + 30);
+    const labelDistance = radius + 45;
+    const labelX = Math.cos(angle) * labelDistance;
+    const labelY = Math.sin(angle) * labelDistance;
 
     svg.append('text')
       .attr('x', labelX)
       .attr('y', labelY)
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
-      .style('font-size', isMobile ? '10px' : '12px')
+      .style('font-size', isMobile ? '11px' : '13px')
       .style('font-weight', '600')
       .style('fill', '#444')
-      .text(cat.label.replace('\n', ' '));
+      .text(cat.label);
   });
 
-  // Colores para jugadores
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
+    '#FF8C42', '#6C5CE7', '#00B894', '#E17055', '#74B9FF', '#A29BFE',
+    '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
+  ];
 
   // Dibujar áreas de cada jugador
   chartData.forEach((playerData, idx) => {
@@ -3304,18 +3293,20 @@ function daRenderRadarChart(data, selectedPlayers) {
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
       const rawVal = playerData[cat.key] || 0;
-      const pct = cat.max > 0 ? (rawVal / cat.max) * 100 : 0;
-      const r = rScale(pct);
+      const displayVal = scale === 'percent' 
+        ? (cat.max > 0 ? (rawVal / cat.max) * 100 : 0)
+        : rawVal;
+      const r = rScale(displayVal);
       return {
         x: Math.cos(angle) * r,
         y: Math.sin(angle) * r,
         value: rawVal,
-        pct: Math.round(pct),
-        category: cat.label.replace('\n', ' ')
+        pct: cat.max > 0 ? Math.round((rawVal / cat.max) * 100) : 0,
+        category: cat.label,
+        max: cat.max
       };
     });
 
-    // Área rellena
     const lineGenerator = d3.line()
       .x(d => d.x)
       .y(d => d.y)
@@ -3325,12 +3316,11 @@ function daRenderRadarChart(data, selectedPlayers) {
       .datum(points)
       .attr('d', lineGenerator)
       .attr('fill', color)
-      .attr('fill-opacity', 0.15)
+      .attr('fill-opacity', 0.08)
       .attr('stroke', color)
-      .attr('stroke-width', 2.5)
-      .attr('stroke-opacity', 0.8);
+      .attr('stroke-width', 1.5)
+      .attr('stroke-opacity', 0.7);
 
-    // Puntos
     svg.selectAll('.radar-point-' + idx)
       .data(points)
       .enter()
@@ -3338,35 +3328,45 @@ function daRenderRadarChart(data, selectedPlayers) {
       .attr('class', 'radar-point-' + idx)
       .attr('cx', d => d.x)
       .attr('cy', d => d.y)
-      .attr('r', isMobile ? 4 : 5)
+      .attr('r', isMobile ? 3 : 4)
       .attr('fill', color)
       .attr('stroke', '#fff')
-      .attr('stroke-width', 2);
+      .attr('stroke-width', 1.5);
   });
 
-  // Leyenda
+  // Leyenda debajo del radar
+  const legendY = radius + 70;
+
   const legend = svg.append('g')
-    .attr('transform', `translate(${-radius}, ${-radius - 35})`);
+    .attr('transform', `translate(0, ${legendY})`);
+
+  const itemsPerRow = isMobile ? 4 : 8;
+  const itemWidth = isMobile ? 70 : 100;
 
   chartData.forEach((d, i) => {
     const color = colors[i % colors.length];
+    const row = Math.floor(i / itemsPerRow);
+    const col = i % itemsPerRow;
+    const totalRowWidth = Math.min(chartData.length - row * itemsPerRow, itemsPerRow) * itemWidth;
+    const startX = -totalRowWidth / 2 + col * itemWidth;
+
     const legendItem = legend.append('g')
-      .attr('transform', `translate(${i * (isMobile ? 70 : 110)}, 0)`);
+      .attr('transform', `translate(${startX}, ${row * 20})`);
 
     legendItem.append('rect')
-      .attr('width', 12)
-      .attr('height', 12)
-      .attr('rx', 3)
+      .attr('width', 10)
+      .attr('height', 10)
+      .attr('rx', 2)
       .attr('fill', color);
 
     legendItem.append('text')
-      .attr('x', 18)
-      .attr('y', 6)
+      .attr('x', 14)
+      .attr('y', 5)
       .attr('dy', '0.35em')
-      .style('font-size', isMobile ? '10px' : '12px')
-      .style('font-weight', '600')
-      .style('fill', '#444')
-      .text(d.player.length > (isMobile ? 8 : 12) ? d.player.substring(0, isMobile ? 6 : 10) + '...' : d.player);
+      .style('font-size', isMobile ? '9px' : '11px')
+      .style('font-weight', '500')
+      .style('fill', '#555')
+      .text(d.player.length > (isMobile ? 7 : 10) ? d.player.substring(0, isMobile ? 5 : 8) + '...' : d.player);
   });
 
   // Tooltip
@@ -3383,21 +3383,22 @@ function daRenderRadarChart(data, selectedPlayers) {
     .style('z-index', '10000')
     .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)');
 
-  // Interactividad en puntos
   chartData.forEach((playerData, idx) => {
     const color = colors[idx % colors.length];
 
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
       const rawVal = playerData[cat.key] || 0;
-      const pct = cat.max > 0 ? (rawVal / cat.max) * 100 : 0;
-      const r = rScale(pct);
+      const displayVal = scale === 'percent' 
+        ? (cat.max > 0 ? (rawVal / cat.max) * 100 : 0)
+        : rawVal;
+      const r = rScale(displayVal);
       return {
         x: Math.cos(angle) * r,
         y: Math.sin(angle) * r,
         value: rawVal,
-        pct: Math.round(pct),
-        category: cat.label.replace('\n', ' '),
+        pct: cat.max > 0 ? Math.round((rawVal / cat.max) * 100) : 0,
+        category: cat.label,
         player: playerData.player,
         max: cat.max
       };
@@ -3410,13 +3411,13 @@ function daRenderRadarChart(data, selectedPlayers) {
       .attr('class', 'radar-hit-' + idx)
       .attr('cx', d => d.x)
       .attr('cy', d => d.y)
-      .attr('r', isMobile ? 12 : 15)
+      .attr('r', isMobile ? 10 : 12)
       .attr('fill', 'transparent')
       .style('cursor', 'pointer')
       .on('mouseover', function(event, d) {
         d3.select(this.parentNode).selectAll('.radar-point-' + idx)
           .filter((p, i) => p.x === d.x && p.y === d.y)
-          .attr('r', isMobile ? 7 : 9);
+          .attr('r', isMobile ? 6 : 7);
 
         tooltip.transition().duration(150).style('opacity', 1);
         tooltip.html(`
@@ -3438,7 +3439,7 @@ function daRenderRadarChart(data, selectedPlayers) {
       })
       .on('mouseout', function() {
         d3.select(this.parentNode).selectAll('.radar-point-' + idx)
-          .attr('r', isMobile ? 4 : 5);
+          .attr('r', isMobile ? 3 : 4);
         tooltip.transition().duration(200).style('opacity', 0);
       });
   });
@@ -3518,11 +3519,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const toggleBtn = document.getElementById('btnToggleFitRadar');
   const playersToggleBtn = document.getElementById('btnRadarChartPlayersToggle');
   const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
+  const scaleSelect = document.getElementById('radarChartScale');
 
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshRadarChart);
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitRadar);
   if (playersToggleBtn) playersToggleBtn.addEventListener('click', daToggleRadarPlayersDropdown);
   if (selectAllCb) selectAllCb.addEventListener('change', daToggleSelectAllRadarPlayers);
+  if (scaleSelect) scaleSelect.addEventListener('change', daRefreshRadarChart);
 });
 
 window.addEventListener('resize', function() {
@@ -3537,7 +3540,7 @@ window.addEventListener('resize', function() {
 
 
 /* ============================================================
-   PODIUM CHART — Top 3 por Categoría
+   PODIUM CHART — Top 3 por Categoría (v3 con selector de escala)
    ============================================================ */
 
 let PODIUM_CHART_FIT_MODE = false;
@@ -3567,10 +3570,11 @@ function daRefreshPodiumChart() {
     return;
   }
 
-  daRenderPodiumChart(__podiumChartData);
+  const scale = document.getElementById('podiumChartScale')?.value || 'points';
+  daRenderPodiumChart(__podiumChartData, scale);
 }
 
-function daRenderPodiumChart(data) {
+function daRenderPodiumChart(data, scale) {
   const container = document.getElementById('podiumChartContainer');
   const wrapper = document.getElementById('podiumChartScrollWrapper');
   container.innerHTML = '';
@@ -3595,10 +3599,9 @@ function daRenderPodiumChart(data) {
   const margin = { top: 20, right: isMobile ? 10 : 20, bottom: 20, left: isMobile ? 10 : 20 };
   const containerWidth = wrapper.clientWidth || 800;
 
-  // Layout: 3 columnas en desktop, 2 en tablet, 1 en mobile
   const cols = isMobile ? 1 : (containerWidth < 900 ? 2 : 3);
   const cardWidth = isFitMode ? (containerWidth / cols - 20) : 280;
-  const cardHeight = 220;
+  const cardHeight = 240;
   const cardGapX = 16;
   const cardGapY = 16;
 
@@ -3640,7 +3643,7 @@ function daRenderPodiumChart(data) {
     const cardGroup = svg.append('g')
       .attr('transform', `translate(${x},${y})`);
 
-    // Fondo de la tarjeta
+    // Fondo
     cardGroup.append('rect')
       .attr('width', cardWidth)
       .attr('height', cardHeight)
@@ -3650,52 +3653,62 @@ function daRenderPodiumChart(data) {
       .attr('stroke', '#e0e0e0')
       .attr('stroke-width', 1);
 
-    // Header con color de categoría
+    // Header
     cardGroup.append('rect')
       .attr('width', cardWidth)
-      .attr('height', 36)
+      .attr('height', 48)
       .attr('rx', 12)
       .attr('ry', 12)
       .attr('fill', cat.color);
 
-    // Esquinas redondeadas solo arriba
     cardGroup.append('rect')
-      .attr('y', 18)
+      .attr('y', 24)
       .attr('width', cardWidth)
-      .attr('height', 18)
+      .attr('height', 24)
       .attr('fill', cat.color);
 
-    // Título de categoría
+    // Título
     cardGroup.append('text')
       .attr('x', cardWidth / 2)
-      .attr('y', 22)
+      .attr('y', 18)
       .attr('text-anchor', 'middle')
       .style('font-size', '13px')
       .style('font-weight', '700')
       .style('fill', '#fff')
       .text(cat.label);
 
-    // Top 3 de esta categoría
+    // Subtítulo con máximo
+    cardGroup.append('text')
+      .attr('x', cardWidth / 2)
+      .attr('y', 36)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '11px')
+      .style('font-weight', '500')
+      .style('fill', 'rgba(255,255,255,0.85)')
+      .text('Máx: ' + cat.max + ' pts');
+
+    // Top 3
     const catData = data.map(d => ({
       player: d.player,
       value: d[cat.key] || 0,
       pct: cat.max > 0 ? Math.round((d[cat.key] / cat.max) * 100) : 0
     })).sort((a, b) => b.value - a.value).slice(0, 3);
 
-    const barMax = Math.max(catData[0]?.value || 1, 1);
+    // Escala: barra proporcional al máximo de la categoría (siempre) o a puntos
+    const barMax = scale === 'percent' ? cat.max : Math.max(catData[0]?.value || 1, 1);
     const barHeight = 28;
-    const barStartY = 50;
+    const barStartY = 62;
     const barGap = 8;
     const maxBarWidth = cardWidth - 40;
 
-    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32']; // Oro, Plata, Bronce
+    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
     const medalEmojis = ['🥇', '🥈', '🥉'];
 
     catData.forEach((entry, idx) => {
       const barY = barStartY + idx * (barHeight + barGap);
       const barWidth = (entry.value / barMax) * maxBarWidth;
 
-      // Fondo de la barra
+      // Fondo
       cardGroup.append('rect')
         .attr('x', 20)
         .attr('y', barY)
@@ -3720,7 +3733,7 @@ function daRenderPodiumChart(data) {
         .delay(idx * 100)
         .attr('width', Math.max(barWidth, 4));
 
-      // Medal emoji
+      // Medal
       cardGroup.append('text')
         .attr('x', 12)
         .attr('y', barY + barHeight / 2)
@@ -3728,7 +3741,7 @@ function daRenderPodiumChart(data) {
         .style('font-size', '14px')
         .text(medalEmojis[idx]);
 
-      // Nombre del jugador
+      // Nombre
       cardGroup.append('text')
         .attr('x', 28)
         .attr('y', barY + barHeight / 2)
@@ -3738,7 +3751,8 @@ function daRenderPodiumChart(data) {
         .style('fill', '#333')
         .text(entry.player.length > 14 ? entry.player.substring(0, 12) + '...' : entry.player);
 
-      // Valor
+      // Valor (puntos o % según escala)
+      const displayValue = scale === 'percent' ? entry.pct + '%' : entry.value + ' pts';
       cardGroup.append('text')
         .attr('x', cardWidth - 12)
         .attr('y', barY + barHeight / 2)
@@ -3747,9 +3761,9 @@ function daRenderPodiumChart(data) {
         .style('font-size', '12px')
         .style('font-weight', '700')
         .style('fill', '#666')
-        .text(entry.value + ' pts');
+        .text(displayValue);
 
-      // Área invisible para tooltip
+      // Tooltip
       cardGroup.append('rect')
         .attr('x', 20)
         .attr('y', barY)
@@ -3856,9 +3870,11 @@ function daInitPodiumChart() {
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshPodiumChart');
   const toggleBtn = document.getElementById('btnToggleFitPodium');
+  const scaleSelect = document.getElementById('podiumChartScale');
 
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshPodiumChart);
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitPodium);
+  if (scaleSelect) scaleSelect.addEventListener('change', daRefreshPodiumChart);
 });
 
 window.addEventListener('resize', function() {
