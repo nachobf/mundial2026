@@ -1583,6 +1583,12 @@ function toggleDataAnalysisSection(sectionId) {
         if (typeof daInitDailyPoints === 'function') daInitDailyPoints();
       }, 50);
     }
+
+    if (sectionId === 'categoryChartSection') {
+      setTimeout(() => {
+        if (typeof daInitCategoryChart === 'function') daInitCategoryChart();
+      }, 50);
+    }
   } else {
     content.classList.remove('active');
     content.style.display = 'none';

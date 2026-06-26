@@ -634,7 +634,31 @@ function daApplyTimeFilter(dailyData, timeFilter) {
   if (timeFilter === 'week') {
     return daGroupByWeek(dailyData);
   }
+  if (timeFilter === 'total') {
+    return daGroupByTotal(dailyData);
+  }
   return dailyData;
+}
+
+/* -----------------------------------------------------------
+   AGRUPAR POR TOTAL (acumulado final)
+   ----------------------------------------------------------- */
+function daGroupByTotal(dailyData) {
+  const byPlayer = {};
+
+  dailyData.forEach(d => {
+    if (!byPlayer[d.player]) {
+      byPlayer[d.player] = { ...d };
+    } else {
+      // Acumular puntos, mantener el rank del último día
+      byPlayer[d.player].points += d.points;
+      byPlayer[d.player].score = d.score;
+      byPlayer[d.player].rank = d.rank;
+      byPlayer[d.player].sharedRank = d.sharedRank;
+    }
+  });
+
+  return Object.values(byPlayer);
 }
 
 /* -----------------------------------------------------------
@@ -1767,7 +1791,16 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
+  const catDropdown = document.getElementById('categoryChartPlayersDropdown');
+  if (catDropdown && !catDropdown.contains(e.target)) {
+    const menu = document.getElementById('categoryChartPlayersMenu');
+    const toggle = document.getElementById('btnCategoryChartPlayersToggle');
+    if (menu) menu.classList.remove('open');
+    if (toggle) toggle.classList.remove('active');
+  }
 });
+
+
 
 function daUpdateToggleText() {
   const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]');
@@ -1790,11 +1823,13 @@ function daUpdateToggleText() {
 function daRenderPlayerCheckboxes() {
   const container = document.getElementById('dailyPointsPlayersContainer');
   if (!container || !__dailyPointsData) return;
-  
+
   container.innerHTML = '';
   const players = __dailyPointsData.players;
-  
-  players.forEach((p,index) => {
+
+  players.forEach((p, index) => {
+    const id = 'dp-player-' + index;
+
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
     label.htmlFor = 'dp-player-' + index;
@@ -1802,22 +1837,22 @@ function daRenderPlayerCheckboxes() {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.id = 'dp-player-' + index;
-    cb.checked = true; // Todos seleccionados por defecto
+    cb.checked = true;
     cb.dataset.player = p;
     cb.addEventListener('change', function() {
       daUpdateSelectAllCheckbox();
       daUpdateToggleText();
       daRefreshDailyPoints();
     });
-    
+
     const span = document.createElement('span');
     span.textContent = p;
-    
+
     label.appendChild(cb);
     label.appendChild(span);
     container.appendChild(label);
   });
-  
+
   daUpdateSelectAllCheckbox();
   daUpdateToggleText();
 }
@@ -1854,8 +1889,107 @@ function daGetSelectedPlayersFromCheckboxes() {
   return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
 }
 
-function daGetSelectedPlayersFromCheckboxes() {
-  const checkboxes = document.querySelectorAll('#dailyPointsPlayersContainer input[type="checkbox"]:checked');
+/* ===== DROPDOWN MULTISELECT DE JUGADORES PARA CATEGORY CHART ===== */
+
+function daToggleCategoryPlayersDropdown(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('categoryChartPlayersMenu');
+  const toggle = document.getElementById('btnCategoryChartPlayersToggle');
+  
+  const isOpen = menu.classList.contains('open');
+  
+  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
+  
+  if (!isOpen) {
+    menu.classList.add('open');
+    toggle.classList.add('active');
+  }
+}
+
+function daUpdateCategoryPlayersToggleText() {
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+  const checked = Array.from(checkboxes).filter(cb => cb.checked);
+  const text = document.getElementById('dpCategoryPlayersToggleText');
+  
+  if (!text) return;
+  
+  if (checked.length === 0) {
+    text.textContent = 'Ninguno seleccionado';
+  } else if (checked.length === checkboxes.length) {
+    text.textContent = 'Todos seleccionados';
+  } else if (checked.length === 1) {
+    text.textContent = checked[0].dataset.player;
+  } else {
+    text.textContent = `${checked.length} seleccionados`;
+  }
+}
+
+function daRenderCategoryPlayerCheckboxes() {
+  const container = document.getElementById('categoryChartPlayersContainer');
+  if (!container || !__dailyPointsData) return;
+  
+  container.innerHTML = '';
+  const players = __dailyPointsData.players;
+  
+  players.forEach((p, index) => {
+    const id = 'dp-cat-player-' + index;
+    
+    const label = document.createElement('label');
+    label.className = 'dp-dropdown-item';
+    label.htmlFor = id;
+    
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = id;
+    cb.checked = true;
+    cb.dataset.player = p;
+    cb.addEventListener('change', function() {
+      daUpdateCategorySelectAllCheckbox();
+      daUpdateCategoryPlayersToggleText();
+      daRefreshCategoryChart();
+    });
+    
+    const span = document.createElement('span');
+    span.textContent = p;
+    
+    label.appendChild(cb);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+  
+  daUpdateCategorySelectAllCheckbox();
+  daUpdateCategoryPlayersToggleText();
+}
+
+function daUpdateCategorySelectAllCheckbox() {
+  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+  if (!selectAllCb || checkboxes.length === 0) return;
+  
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  const noneChecked = Array.from(checkboxes).every(cb => !cb.checked);
+  
+  selectAllCb.checked = allChecked;
+  selectAllCb.indeterminate = !allChecked && !noneChecked;
+}
+
+function daToggleSelectAllCategoryPlayers() {
+  const selectAllCb = document.getElementById('dpSelectAllCategoryCheckbox');
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]');
+  
+  const shouldCheck = selectAllCb.checked;
+  
+  checkboxes.forEach(cb => {
+    cb.checked = shouldCheck;
+  });
+  
+  daUpdateCategoryPlayersToggleText();
+  daRefreshCategoryChart();
+}
+
+function daGetSelectedCategoryPlayers() {
+  const checkboxes = document.querySelectorAll('#categoryChartPlayersContainer input[type="checkbox"]:checked');
   const selected = Array.from(checkboxes).map(cb => cb.dataset.player);
   return selected.length > 0 ? selected : (__dailyPointsData ? __dailyPointsData.players : []);
 }
@@ -2223,12 +2357,690 @@ document.addEventListener('DOMContentLoaded', function() {
   if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitDailyPoints);
 });
 
+/* ============================================================
+   CATEGORY CHART — Puntos por tipo de puntuación (barras horizontales apiladas)
+   ============================================================ */
+
+let CATEGORY_CHART_FIT_MODE = false;
+let __categoryChartData = null;
+
+const CATEGORY_CONFIG = {
+  exactResults: { label: 'Resultados exactos', max: 360, color: '#4CAF50' },
+  oneXTwo: { label: '1X2', max: 72, color: '#2196F3' },
+  groupPositions: { label: 'Posiciones grupos', max: 240, color: '#FF9800' },
+  bestThirds: { label: 'Mejores terceros', max: 8, color: '#9C27B0' },
+  knockoutRounds: { label: 'Fase final (hasta semis)', max: 356, color: '#F44336' },
+  finalPositions: { label: 'Campeón, finalista, 3º, 4º', max: 150, color: '#FFD700' }
+};
+
+const CATEGORY_ORDER = ['exactResults', 'oneXTwo', 'groupPositions', 'bestThirds', 'knockoutRounds', 'finalPositions'];
+
+/**
+ * Calcula los puntos por categoría para cada jugador
+ */
+function daCalculateCategoryScores(players, finishedMatches) {
+  const TOTAL_GROUP_MATCHES = 72;
+
+  const byCESTDate = {};
+  finishedMatches.forEach(m => {
+    const cest = daConvertToCEST(m.date, m.time);
+    if (!byCESTDate[cest.date]) byCESTDate[cest.date] = [];
+    byCESTDate[cest.date].push(m);
+  });
+
+  const dates = Object.keys(byCESTDate).sort();
+  const matchesSoFar = [];
+  let prevFaseGruposTerminada = false;
+
+  const playerCategories = {};
+  players.forEach(p => {
+    playerCategories[p.name] = {
+      player: p.name,
+      exactResults: 0,
+      oneXTwo: 0,
+      groupPositions: 0,
+      bestThirds: 0,
+      knockoutRounds: 0,
+      finalPositions: 0,
+      totalScore: 0
+    };
+  });
+
+  dates.forEach(date => {
+    if (byCESTDate[date]) {
+      matchesSoFar.push(...byCESTDate[date]);
+    }
+
+    const realPartial = daBuildPartialReal(matchesSoFar);
+    const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
+    const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
+
+    players.forEach(player => {
+      const prevTotal = playerCategories[player.name].totalScore;
+      const newTotal = daCalculateScore(player, realPartial, faseGruposTerminada);
+      const delta = newTotal - prevTotal;
+
+      if (delta > 0) {
+        // Determinar qué categorías contribuyeron al delta
+        // Necesitamos calcular cada componente por separado
+        const cats = daCalculateScoreByCategory(player, realPartial, faseGruposTerminada, prevFaseGruposTerminada);
+
+        playerCategories[player.name].exactResults += cats.exactResults;
+        playerCategories[player.name].oneXTwo += cats.oneXTwo;
+        playerCategories[player.name].groupPositions += cats.groupPositions;
+        playerCategories[player.name].bestThirds += cats.bestThirds;
+        playerCategories[player.name].knockoutRounds += cats.knockoutRounds;
+        playerCategories[player.name].finalPositions += cats.finalPositions;
+        playerCategories[player.name].totalScore = newTotal;
+      }
+    });
+
+    prevFaseGruposTerminada = faseGruposTerminada;
+  });
+
+  return Object.values(playerCategories);
+}
+
+/**
+ * Calcula la puntuación desglosada por categoría para un jugador
+ */
+function daCalculateScoreByCategory(player, real, faseGruposTerminada, prevFaseGruposTerminada) {
+  const cats = {
+    exactResults: 0,
+    oneXTwo: 0,
+    groupPositions: 0,
+    bestThirds: 0,
+    knockoutRounds: 0,
+    finalPositions: 0
+  };
+
+  // 1. Resultados exactos y 1X2 (solo de partidos NUEVOS con resultado real)
+  const predResults = player.groupMatchResults || {};
+  const realResults = real.groupMatchResults || {};
+
+  Object.keys(realResults).forEach(key => {
+    const pred = predResults[key];
+    const realResult = realResults[key];
+    if (!pred || pred.team1Goals === '' || pred.team2Goals === '') return;
+
+    const pG1 = Number(pred.team1Goals);
+    const pG2 = Number(pred.team2Goals);
+    const rG1 = Number(realResult.team1Goals);
+    const rG2 = Number(realResult.team2Goals);
+
+    if (isNaN(pG1) || isNaN(pG2) || isNaN(rG1) || isNaN(rG2)) return;
+
+    if (pG1 === rG1 && pG2 === rG2) {
+      cats.exactResults += 5;
+    }
+
+    const p1x2 = pG1 > pG2 ? '1' : pG1 < pG2 ? '2' : 'X';
+    const r1x2 = rG1 > rG2 ? '1' : rG2 > rG1 ? '2' : 'X';
+    if (p1x2 === r1x2) {
+      cats.oneXTwo += 1;
+    }
+  });
+
+  // 2. Posiciones de grupos (solo cuando la fase de grupos se completa por primera vez)
+  if (faseGruposTerminada && !prevFaseGruposTerminada) {
+    const groupNames = Object.keys(real.groups || {});
+    groupNames.forEach(group => {
+      const realOrder = real.groups[group] || [];
+      const predOrder = player.groups?.[group] || [];
+      for (let i = 0; i < 4; i++) {
+        if (predOrder[i] && realOrder[i] && predOrder[i] === realOrder[i]) {
+          cats.groupPositions += 5;
+        }
+      }
+    });
+  }
+
+  // 3. Mejores terceros (solo cuando la fase de grupos se completa por primera vez)
+  if (faseGruposTerminada && !prevFaseGruposTerminada) {
+    const realTP = new Set((real.thirdPlace || []).slice(0, 8));
+    const predTP = player.thirdPlace || [];
+    predTP.forEach(team => {
+      if (realTP.has(team)) cats.bestThirds += 1;
+    });
+  }
+
+  // 4. Eliminatorias
+  const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+
+  const teamRoundReal = {};
+  const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
+
+  koRounds.forEach(round => {
+    const matches = real.knockout?.matches?.[round] || [];
+    matches.forEach(m => {
+      if (m.winner) {
+        const loser = m.winner === m.team1 ? m.team2 : m.team1;
+        if (loser && !teamRoundReal[loser]) {
+          teamRoundReal[loser] = round;
+        }
+        if (round === 'final') {
+          teamRoundReal[m.winner] = 'champion';
+        } else if (round === 'thirdPlace') {
+          teamRoundReal[m.winner] = 'thirdPlace';
+        }
+      }
+    });
+  });
+
+  // Ajustar semifinalistas
+  const sfMatches = real.knockout?.matches?.semifinals || [];
+  if (sfMatches.length === 2) {
+    const sf1 = sfMatches[0], sf2 = sfMatches[1];
+    if (sf1?.winner && sf2?.winner) {
+      const tpMatch = real.knockout?.matches?.thirdPlace?.[0];
+      if (tpMatch?.winner) {
+        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
+        if (fourth) teamRoundReal[fourth] = 'fourthPlace';
+      }
+    }
+  }
+
+  const teamRoundPred = {};
+  const predKO = player.knockout?.matches || {};
+
+  koRounds.forEach(round => {
+    const matches = predKO[round] || [];
+    matches.forEach(m => {
+      if (m?.winner) {
+        const loser = m.winner === m.team1 ? m.team2 : m.team1;
+        if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = round;
+        if (round === 'final') teamRoundPred[m.winner] = 'champion';
+        if (round === 'thirdPlace') teamRoundPred[m.winner] = 'thirdPlace';
+      }
+    });
+  });
+
+  const predSF = predKO.semifinals || [];
+  if (predSF.length === 2) {
+    const sf1 = predSF[0], sf2 = predSF[1];
+    if (sf1?.winner && sf2?.winner) {
+      const tpMatch = predKO.thirdPlace?.[0];
+      if (tpMatch?.winner) {
+        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
+        if (fourth) teamRoundPred[fourth] = 'fourthPlace';
+      }
+    }
+  }
+
+  const allTeams = new Set([...Object.keys(teamRoundReal), ...Object.keys(teamRoundPred)]);
+
+  allTeams.forEach(team => {
+    const predRound = teamRoundPred[team];
+    const realRound = teamRoundReal[team];
+    if (predRound && realRound && predRound === realRound) {
+      const pts = roundPoints[predRound] || 0;
+      if (['round32', 'round16', 'quarterfinals', 'semifinals'].includes(predRound)) {
+        cats.knockoutRounds += pts;
+      } else if (['champion', 'finalist', 'thirdPlace', 'fourthPlace'].includes(predRound)) {
+        cats.finalPositions += pts;
+      }
+    }
+  });
+
+  return cats;
+}
+
+
 window.addEventListener('resize', function() {
   const tab = document.getElementById('tab-data-analysis');
   if (tab && tab.classList.contains('active') && __dailyPointsData) {
     clearTimeout(window.__dailyPointsResizeTimer);
     window.__dailyPointsResizeTimer = setTimeout(function() {
       daRefreshDailyPoints();
+    }, 300);
+  }
+});
+
+/* -----------------------------------------------------------
+   TOGGLE FIT MODE — CATEGORY CHART
+   ----------------------------------------------------------- */
+function daToggleFitCategory() {
+  CATEGORY_CHART_FIT_MODE = !CATEGORY_CHART_FIT_MODE;
+  const wrapper = document.getElementById('categoryChartScrollWrapper');
+  const btn = document.getElementById('btnToggleFitCategory');
+
+  if (CATEGORY_CHART_FIT_MODE) {
+    wrapper.classList.add('fit-mode');
+    btn.textContent = '🔍 Zoom normal';
+    btn.style.background = '#1a1a2e';
+  } else {
+    wrapper.classList.remove('fit-mode');
+    btn.textContent = '↔️ Ajustar al ancho';
+    btn.style.background = '#6c757d';
+  }
+
+  daRefreshCategoryChart();
+}
+
+/* -----------------------------------------------------------
+   RENDERIZADO DEL CATEGORY CHART (barras horizontales apiladas)
+   ----------------------------------------------------------- */
+function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale) {
+  const container = document.getElementById('categoryChartContainer');
+  const wrapper = document.getElementById('categoryChartScrollWrapper');
+  container.innerHTML = '';
+
+  let chartData = data.filter(d => selectedPlayers.includes(d.player));
+
+  // Ordenar por puntuación total descendente
+  chartData.sort((a, b) => b.totalScore - a.totalScore);
+
+  if (chartData.length === 0) {
+    container.innerHTML = '<p class="note-text">Ningún jugador seleccionado tiene datos.</p>';
+    return;
+  }
+
+  const isMobile = window.innerWidth <= 768;
+  const isFitMode = CATEGORY_CHART_FIT_MODE;
+
+  const margin = { 
+    top: 30, 
+    right: isMobile ? 20 : 60, 
+    bottom: 40, 
+    left: isMobile ? (isFitMode ? 100 : 120) : 150 
+  };
+
+  const barHeight = isMobile ? 24 : 32;
+  const barGap = isMobile ? 4 : 6;
+  const containerWidth = wrapper.clientWidth || 800;
+  const calculatedHeight = Math.max(chartData.length * (barHeight + barGap) + margin.top + margin.bottom, 400);
+
+  let width, svgWidth;
+
+  if (isFitMode) {
+    svgWidth = Math.max(containerWidth, 300);
+    width = Math.max(svgWidth - margin.left - margin.right, 200);
+  } else {
+    svgWidth = Math.max(containerWidth, 600);
+    width = svgWidth - margin.left - margin.right;
+  }
+
+  const height = calculatedHeight;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.height = height + 'px';
+  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
+
+  const svg = d3.select('#categoryChartContainer')
+    .append('svg')
+    .attr('width', isFitMode ? '100%' : svgWidth)
+    .attr('height', height)
+    .attr('viewBox', `0 0 ${svgWidth} ${height}`)
+    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .style('display', 'block')
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Calcular máximos por categoría seleccionada
+  const activeCategories = selectedCategories.length > 0 ? selectedCategories : CATEGORY_ORDER;
+
+  const maxValues = {};
+  activeCategories.forEach(cat => {
+    maxValues[cat] = CATEGORY_CONFIG[cat].max;
+  });
+
+  // Preparar datos apilados
+  const stackData = chartData.map(d => {
+    const obj = { player: d.player, totalScore: d.totalScore };
+    let cumulative = 0;
+    activeCategories.forEach(cat => {
+      const val = d[cat] || 0;
+      obj[cat] = val;
+      obj[cat + '_start'] = cumulative;
+      cumulative += val;
+    });
+    obj.cumulative = cumulative;
+    return obj;
+  });
+
+  const maxTotal = scale === 'percent' 
+    ? 100 
+    : d3.max(stackData, d => d.cumulative) * 1.05;
+
+  const x = d3.scaleLinear()
+    .domain([0, maxTotal || 1])
+    .range([0, width]);
+
+  const y = d3.scaleBand()
+    .domain(stackData.map(d => d.player))
+    .range([0, innerHeight])
+    .padding(0.15);
+
+  // Grid vertical
+  svg.append('g')
+    .attr('class', 'grid-x')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).ticks(5).tickSize(-innerHeight).tickFormat(''))
+    .selectAll('line')
+    .attr('stroke', '#f0f0f0')
+    .attr('stroke-dasharray', '3,3');
+  svg.select('.grid-x').select('.domain').remove();
+
+  // Barras apiladas
+  activeCategories.forEach(cat => {
+    const config = CATEGORY_CONFIG[cat];
+
+    svg.selectAll('.cat-bar-' + cat)
+      .data(stackData)
+      .enter()
+      .append('rect')
+      .attr('class', 'cat-bar cat-bar-' + cat)
+      .attr('y', d => y(d.player))
+      .attr('x', d => x(scale === 'percent' ? (d[cat + '_start'] / d.cumulative * 100) : d[cat + '_start']))
+      .attr('height', y.bandwidth())
+      .attr('width', 0)
+      .attr('fill', config.color)
+      .attr('rx', 3)
+      .attr('ry', 3)
+      .attr('opacity', 0.9)
+      .transition()
+      .duration(600)
+      .delay((d, i) => i * 50)
+      .attr('width', d => {
+        if (scale === 'percent') {
+          return d.cumulative > 0 ? x((d[cat] / d.cumulative) * 100) : 0;
+        }
+        return x(d[cat]);
+      });
+  });
+
+  // Eje Y (jugadores)
+  const yAxis = svg.append('g')
+    .call(d3.axisLeft(y).tickFormat(d => {
+      const name = d;
+      return isMobile && name.length > 10 ? name.substring(0, 8) + '...' : name;
+    }));
+
+  yAxis.selectAll('text')
+    .style('font-size', isMobile ? '10px' : '12px')
+    .style('fill', '#444')
+    .style('font-weight', '500');
+  yAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Eje X
+  const xAxis = svg.append('g')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d => {
+      if (scale === 'percent') return d + '%';
+      return d + ' pts';
+    }));
+
+  xAxis.selectAll('text')
+    .style('font-size', isMobile ? '10px' : '11px')
+    .style('fill', '#666');
+  xAxis.select('.domain').attr('stroke', '#ddd');
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div')
+    .attr('class', 'category-tooltip')
+    .style('opacity', 0)
+    .style('position', 'absolute')
+    .style('background', 'rgba(26,26,46,0.95)')
+    .style('color', '#fff')
+    .style('padding', '12px 16px')
+    .style('border-radius', '10px')
+    .style('font-size', '13px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 20px rgba(0,0,0,0.3)')
+    .style('max-width', '280px');
+
+  // Overlay invisible para tooltip en cada barra completa
+  svg.selectAll('.cat-bar-overlay')
+    .data(stackData)
+    .enter()
+    .append('rect')
+    .attr('class', 'cat-bar-overlay')
+    .attr('y', d => y(d.player))
+    .attr('x', 0)
+    .attr('height', y.bandwidth())
+    .attr('width', d => x(scale === 'percent' ? 100 : d.cumulative))
+    .attr('fill', 'transparent')
+    .style('cursor', 'pointer')
+    .on('mouseover', function(event, d) {
+      let html = `<div style="font-weight:700;margin-bottom:8px;font-size:15px;">${d.player}</div>`;
+      html += `<div style="color:#aaa;font-size:12px;margin-bottom:10px;">Total: ${d.totalScore} pts</div>`;
+      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+
+      activeCategories.forEach(cat => {
+        const config = CATEGORY_CONFIG[cat];
+        const val = d[cat] || 0;
+        const pct = config.max > 0 ? Math.round((val / config.max) * 100) : 0;
+        html += `<div style="display:flex;align-items:center;gap:8px;">`;
+        html += `<span style="width:10px;height:10px;border-radius:2px;background:${config.color};display:inline-block;"></span>`;
+        html += `<span style="flex:1;">${config.label}:</span>`;
+        html += `<span style="font-weight:700;">${val} pts</span>`;
+        html += `<span style="color:#7FD8FF;font-size:11px;">(${pct}%)</span>`;
+        html += `</div>`;
+      });
+
+      html += '</div>';
+
+      tooltip.transition().duration(150).style('opacity', 1);
+      tooltip.html(html);
+      tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+    })
+    .on('mousemove', function(event) {
+      tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
+    })
+    .on('mouseout', function() {
+      tooltip.transition().duration(200).style('opacity', 0);
+    });
+
+  // Leyenda
+  const legend = svg.append('g')
+    .attr('transform', `translate(0, ${-margin.top + 5})`);
+
+  let legendX = 0;
+  activeCategories.forEach((cat, i) => {
+    const config = CATEGORY_CONFIG[cat];
+
+    legend.append('rect')
+      .attr('x', legendX)
+      .attr('y', 0)
+      .attr('width', 12)
+      .attr('height', 12)
+      .attr('fill', config.color)
+      .attr('rx', 2);
+
+    legend.append('text')
+      .attr('x', legendX + 16)
+      .attr('y', 10)
+      .style('font-size', '11px')
+      .style('fill', '#666')
+      .text(config.label);
+
+    legendX += (config.label.length * 7) + 30;
+  });
+
+  // Título eje X
+  svg.append('text')
+    .attr('transform', `translate(${width / 2}, ${innerHeight + 35})`)
+    .style('text-anchor', 'middle')
+    .style('font-size', '12px')
+    .style('fill', '#888')
+    .text(scale === 'percent' ? 'Porcentaje sobre el máximo de cada categoría' : 'Puntos');
+}
+
+function daRefreshCategoryChart() {
+  if (!__categoryChartData) {
+    daInitCategoryChart();
+    return;
+  }
+
+  const selectedPlayers = daGetSelectedCategoryPlayers();
+  const selectedCategories = daGetSelectedCategories();
+  const scale = document.getElementById('categoryChartScale')?.value || 'points';
+
+  daRenderCategoryChart(__categoryChartData, selectedPlayers, selectedCategories, scale);
+}
+
+function daInitCategoryChart() {
+  const container = document.getElementById('categoryChartContainer');
+  if (!container) {
+    console.error('[CategoryChart] No existe #categoryChartContainer');
+    return;
+  }
+
+  if (__categoryChartData) {
+    daRefreshCategoryChart();
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    __categoryChartData = daCalculateCategoryScores(players, finished);
+    daRenderCategoryCheckboxes();
+    daRenderCategoryPlayerCheckboxes();
+    daRefreshCategoryChart();
+
+  }).catch(err => {
+    console.error('[CategoryChart] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
+/* ===== CHECKBOXES DE CATEGORÍAS ===== */
+function daRenderCategoryCheckboxes() {
+  const container = document.getElementById('categoryChartCategoriesContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  CATEGORY_ORDER.forEach(cat => {
+    const config = CATEGORY_CONFIG[cat];
+    const label = document.createElement('label');
+    label.className = 'dp-dropdown-item';
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.category = cat;
+    cb.addEventListener('change', daRefreshCategoryChart);
+
+    const colorDot = document.createElement('span');
+    colorDot.style.cssText = `width:10px;height:10px;border-radius:2px;background:${config.color};display:inline-block;flex-shrink:0;`;
+
+    const span = document.createElement('span');
+    span.textContent = config.label + ' (max ' + config.max + ')';
+    span.style.flex = '1';
+
+    label.appendChild(cb);
+    label.appendChild(colorDot);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+}
+
+function daToggleCategoriesDropdown(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('categoryChartCategoriesMenu');
+  const toggle = document.getElementById('btnCategoryChartCategoriesToggle');
+
+  const isOpen = menu.classList.contains('open');
+
+  document.querySelectorAll('.dp-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.dp-dropdown-toggle.active').forEach(t => t.classList.remove('active'));
+
+  if (!isOpen) {
+    menu.classList.add('open');
+    toggle.classList.add('active');
+  }
+}
+
+function daToggleSelectAllCategories() {
+  const selectAllCb = document.getElementById('dpSelectAllCategoriesCheckbox');
+  const checkboxes = document.querySelectorAll('#categoryChartCategoriesContainer input[type="checkbox"]');
+
+  checkboxes.forEach(cb => {
+    cb.checked = selectAllCb.checked;
+  });
+
+  daRefreshCategoryChart();
+}
+
+function daGetSelectedCategories() {
+  const checkboxes = document.querySelectorAll('#categoryChartCategoriesContainer input[type="checkbox"]:checked');
+  return Array.from(checkboxes).map(cb => cb.dataset.category);
+}
+
+/* -----------------------------------------------------------
+   CONTROLES DEL CATEGORY CHART
+   ----------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function() {
+  const refreshBtn = document.getElementById('btnRefreshCategoryChart');
+  const scaleSelect = document.getElementById('categoryChartScale');
+  const toggleBtn = document.getElementById('btnToggleFitCategory');
+  if (catPlayersToggleBtn) catPlayersToggleBtn.addEventListener('click', daToggleCategoryPlayersDropdown);
+  if (selectAllCatPlayersCb) selectAllCatPlayersCb.addEventListener('change', daToggleSelectAllCategoryPlayers);
+  const catToggleBtn = document.getElementById('btnCategoryChartCategoriesToggle');
+  const selectAllCatCb = document.getElementById('dpSelectAllCategoriesCheckbox');
+
+  if (refreshBtn) refreshBtn.addEventListener('click', daRefreshCategoryChart);
+  if (scaleSelect) scaleSelect.addEventListener('change', daRefreshCategoryChart);
+  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitCategory);
+  if (catPlayersToggleBtn) catPlayersToggleBtn.addEventListener('click', daToggleCategoryPlayersDropdown);
+  if (selectAllCatPlayersCb) selectAllCatPlayersCb.addEventListener('change', daToggleSelectAllCategoryPlayers);
+  if (catToggleBtn) catToggleBtn.addEventListener('click', daToggleCategoriesDropdown);
+  if (selectAllCatCb) selectAllCatCb.addEventListener('change', daToggleSelectAllCategories);
+});
+
+window.addEventListener('resize', function() {
+  const tab = document.getElementById('tab-data-analysis');
+  if (tab && tab.classList.contains('active') && __categoryChartData) {
+    clearTimeout(window.__categoryChartResizeTimer);
+    window.__categoryChartResizeTimer = setTimeout(function() {
+      daRefreshCategoryChart();
     }, 300);
   }
 });

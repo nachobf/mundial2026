@@ -264,7 +264,82 @@
             </div>
           </div>
         </section>
-      </div>
+              <!-- CATEGORY CHART (Barras horizontales apiladas por tipo de puntuación) -->
+        <section class="section">
+          <div class="da-collapsible-section" id="categoryChartSection">
+            <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('categoryChartSection')">
+              <h2>📊 Puntos por Categoría</h2>
+              <span class="arrow">▶</span>
+            </div>
+            <div class="da-collapsible-content">
+              <p class="section-hint">Desglose de puntos obtenidos por tipo de puntuación: resultados exactos, 1X2, posiciones de grupos, mejores terceros, fase final y posiciones finales.</p>
+
+              <!-- Fila 1: Jugadores (dropdown multiselect) -->
+              <div class="dp-players-row">
+                <span class="dp-label">Jugadores:</span>
+                <div class="dp-dropdown" id="categoryChartPlayersDropdown">
+                  <button type="button" class="dp-dropdown-toggle" id="btnCategoryChartPlayersToggle" onclick="daTogglePlayersDropdown(event)">
+                    <span id="dpPlayersToggleText">Todos seleccionados</span>
+                    <span class="dp-dropdown-arrow">▼</span>
+                  </button>
+                  <div class="dp-dropdown-menu" id="dailyPointsPlayersMenu">
+                    <label class="dp-dropdown-item">
+                      <input type="checkbox" id="dpSelectAllCheckbox" checked onchange="daToggleSelectAllPlayers()">
+                      <span>Seleccionar todos</span>
+                    </label>
+                    <div class="dp-dropdown-divider"></div>
+                    <div id="dailyPointsPlayersContainer">
+                      <!-- Se llena dinámicamente (comparte el mismo contenedor que daily points) -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fila 2: Categorías (dropdown multiselect) -->
+              <div class="dp-players-row">
+                <span class="dp-label">Categorías:</span>
+                <div class="dp-dropdown" id="categoryChartCategoriesDropdown">
+                  <button type="button" class="dp-dropdown-toggle" id="btnCategoryChartPlayersToggle" onclick="daToggleCategoryPlayersDropdown(event)">
+                    <span id="dpCategoryPlayersToggleText">Todos seleccionados</span>
+                    <span class="dp-dropdown-arrow">▼</span>
+                  </button>
+                  <div class="dp-dropdown-menu" id="categoryChartPlayersMenu">
+                    <label class="dp-dropdown-item">
+                      <input type="checkbox" id="dpSelectAllCategoryCheckbox" checked onchange="daToggleSelectAllCategoryPlayers()">
+                      <span>Seleccionar todos</span>
+                    </label>
+                    <div class="dp-dropdown-divider"></div>
+                    <div id="categoryChartPlayersContainer">
+                      <!-- Se llena dinámicamente -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fila 3: Escala -->
+              <div class="dp-filters-row">
+                <label>Escala
+                  <select id="categoryChartScale">
+                    <option value="points" selected>Puntos</option>
+                    <option value="percent">%</option>
+                  </select>
+                </label>
+              </div>
+
+              <!-- Fila 4: Botones -->
+              <div class="dp-buttons-row">
+                <button id="btnRefreshCategoryChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
+                <button id="btnToggleFitCategory" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+              </div>
+
+              <div id="categoryChartScrollWrapper" class="da-chart-scroll-wrapper">
+                <div id="categoryChartContainer" style="min-height:400px;position:relative;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+</div>
 
       <div id="tab-como-jugar" class="tab-content">
         <section class="section help-section">
