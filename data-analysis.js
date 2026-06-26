@@ -1791,7 +1791,7 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
-  
+
   const catDropdown = document.getElementById('categoryChartPlayersDropdown');
   const catToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
   if (catDropdown && !catDropdown.contains(e.target) && e.target !== catToggleBtn && !catToggleBtn.contains(e.target)) {
@@ -1832,11 +1832,11 @@ function daRenderPlayerCheckboxes() {
 
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
-    label.htmlFor = 'dp-player-' + index;
-    
+    label.htmlFor = id;
+
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.id = 'dp-player-' + index;
+    cb.id = id;
     cb.checked = true;
     cb.dataset.player = p;
     cb.addEventListener('change', function() {

@@ -2367,6 +2367,10 @@ function createCollapsibleSection(title, id) {
 // --- 5. BOTÓN RECARGAR PUNTUACIONES ---
 function initReloadButton() {
   const rankingTab = document.getElementById('tab-ranking');
+  if (!rankingTab) {
+    setTimeout(initReloadButton, 1000);
+    return;
+  }
   if (document.getElementById('btnReloadScores')) return;
 
   const btn = document.createElement('button');
@@ -2397,7 +2401,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(async function() {
     await loadRealResultsFromBackend();
     initReloadButton();
-  }, 3000);
+  }, 0);
 });
 
 // Registro del Service Worker para PWA
