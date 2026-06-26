@@ -1580,6 +1580,7 @@ body {
   font-size: 13px;
   color: #333;
   transition: background 0.1s;
+  user-select: none;
 }
 
 .dp-dropdown-item:hover {
@@ -1599,6 +1600,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .dp-dropdown-divider {

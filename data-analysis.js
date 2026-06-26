@@ -204,7 +204,6 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   });
 
   window.__bumpChartData = dailyScores;
-  console.log('[Init] Bump chart precalculado:', dailyScores.length, 'puntos, fechas CEST:', dates);
 }
 
 /* -----------------------------------------------------------
@@ -1798,9 +1797,11 @@ function daRenderPlayerCheckboxes() {
   players.forEach(p => {
     const label = document.createElement('label');
     label.className = 'dp-dropdown-item';
+    label.htmlFor = 'dp-player-' + index;
     
     const cb = document.createElement('input');
     cb.type = 'checkbox';
+    cb.id = 'dp-player-' + index;
     cb.checked = true; // Todos seleccionados por defecto
     cb.dataset.player = p;
     cb.addEventListener('change', function() {
@@ -1815,16 +1816,6 @@ function daRenderPlayerCheckboxes() {
     label.appendChild(cb);
     label.appendChild(span);
     container.appendChild(label);
-    
-    // Click en el label también togglea (pero no si es el checkbox)
-    label.addEventListener('click', function(e) {
-      if (e.target !== cb) {
-        cb.checked = !cb.checked;
-        daUpdateSelectAllCheckbox();
-        daUpdateToggleText();
-        daRefreshDailyPoints();
-      }
-    });
   });
   
   daUpdateSelectAllCheckbox();
