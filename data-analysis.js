@@ -1791,8 +1791,10 @@ document.addEventListener('click', function(e) {
     if (menu) menu.classList.remove('open');
     if (toggle) toggle.classList.remove('active');
   }
+  
   const catDropdown = document.getElementById('categoryChartPlayersDropdown');
-  if (catDropdown && !catDropdown.contains(e.target)) {
+  const catToggleBtn = document.getElementById('btnCategoryChartPlayersToggle');
+  if (catDropdown && !catDropdown.contains(e.target) && e.target !== catToggleBtn && !catToggleBtn.contains(e.target)) {
     const menu = document.getElementById('categoryChartPlayersMenu');
     const toggle = document.getElementById('btnCategoryChartPlayersToggle');
     if (menu) menu.classList.remove('open');
