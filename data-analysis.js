@@ -101,6 +101,27 @@ function daConvertToCEST(dateStr, timeStr) {
   };
 }
 
+/**
+ * Obtiene la fecha actual en CEST (Europe/Madrid) de forma robusta.
+ * Reemplaza el antiguo new Date().toISOString() que daba la fecha UTC.
+ */
+function daGetTodayCEST() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(now);
+  const y = parts.find(p => p.type === 'year').value;
+  const m = parts.find(p => p.type === 'month').value;
+  const d = parts.find(p => p.type === 'day').value;
+  return `${y}-${m}-${d}`;
+}
+
+
+
 function daPrecalcularBumpChart(players, finishedMatches) {
   const TOTAL_GROUP_MATCHES = 72;
 
@@ -1582,7 +1603,7 @@ function daCalculateDailyPoints(players, finishedMatches) {
 
   if (!byCESTDate[todayCEST] && dates.length > 0) {
     const lastDate = dates[dates.length - 1];
-    if (new Date(todayCEST + 'T00:00:00') > new Date(lastDate + 'T00:00:00')) {
+    if (new Date(lastDate + 'T00:00:00') > new Date(todayCEST + 'T00:00:00')) {
       dates.push(todayCEST);
     }
   }
