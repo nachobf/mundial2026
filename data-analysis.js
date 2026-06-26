@@ -3204,7 +3204,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const isMobile = window.innerWidth <= 768;
   const isFitMode = RADAR_CHART_FIT_MODE;
 
-  const margin = { top: 60, right: 100, bottom: 60, left: 100 };
+  const margin = { top: isMobile ? 40 : 60, right: isMobile ? 60 : 100, bottom: isMobile ? 80 : 60, left: isMobile ? 60 : 100 };
   const containerWidth = wrapper.clientWidth || 600;
 
   const size = Math.min(containerWidth - margin.left - margin.right, 
@@ -3214,7 +3214,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const height = size;
   const svgWidth = isFitMode ? Math.max(containerWidth, 300) : width + margin.left + margin.right;
   const svgHeight = height + margin.top + margin.bottom;
-  const radius = Math.min(width, height) / 2 - 20;
+  const radius = Math.min(width, height) / 2 - (isMobile ? 10 : 20);
 
   container.style.width = isFitMode ? '100%' : svgWidth + 'px';
   container.style.height = svgHeight + 'px';
@@ -3264,7 +3264,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('x', 4)
       .attr('y', -rScale(val))
       .attr('dy', '0.35em')
-      .style('font-size', '10px')
+      .style('font-size', isMobile ? '8px' : '10px')
       .style('fill', '#aaa')
       .text(scale === 'percent' ? level + '%' : val);
   });
@@ -3283,7 +3283,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('stroke', '#e0e0e0')
       .attr('stroke-width', 1);
 
-    const labelDistance = radius + 45;
+    const labelDistance = isMobile ? radius + 25 : radius + 45;
     const labelX = Math.cos(angle) * labelDistance;
     const labelY = Math.sin(angle) * labelDistance;
 
@@ -3292,7 +3292,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('y', labelY)
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
-      .style('font-size', isMobile ? '11px' : '13px')
+      .style('font-size', isMobile ? '9px' : '13px')
       .style('font-weight', '600')
       .style('fill', '#444')
       .text(cat.label);
