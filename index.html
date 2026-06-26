@@ -338,7 +338,8 @@
             </div>
           </div>
         </section>
-                <!-- RADAR CHART -->
+        
+        <!-- RADAR CHART -->
         <section class="section">
           <div class="da-collapsible-section" id="radarChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('radarChartSection')">
@@ -346,19 +347,19 @@
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
-              <p class="section-hint">Compara el rendimiento de hasta 4 jugadores en las 6 categorías de puntuación.</p>
+              <p class="section-hint">Compara el rendimiento de los jugadores en las 6 categorías de puntuación.</p>
               
-              <!-- Fila 1: Jugadores (dropdown multiselect) -->
+              <!-- Fila 1: Jugadores (dropdown multiselect) + Escala -->
               <div class="dp-players-row">
-                <span class="dp-label">Jugadores (máx 4):</span>
+                <span class="dp-label">Jugadores:</span>
                 <div class="dp-dropdown" id="radarChartPlayersDropdown">
                   <button type="button" class="dp-dropdown-toggle" id="btnRadarChartPlayersToggle">
-                    <span id="dpRadarPlayersToggleText">Top 3 seleccionados</span>
+                    <span id="dpRadarPlayersToggleText">Todos seleccionados</span>
                     <span class="dp-dropdown-arrow">▼</span>
                   </button>
                   <div class="dp-dropdown-menu" id="radarChartPlayersMenu">
                     <label class="dp-dropdown-item">
-                      <input type="checkbox" id="dpSelectAllRadarCheckbox" onchange="daToggleSelectAllRadarPlayers()">
+                      <input type="checkbox" id="dpSelectAllRadarCheckbox" checked onchange="daToggleSelectAllRadarPlayers()">
                       <span>Seleccionar todos</span>
                     </label>
                     <div class="dp-dropdown-divider"></div>
@@ -367,6 +368,13 @@
                     </div>
                   </div>
                 </div>
+                
+                <label style="margin-left: 12px;">Escala
+                  <select id="radarChartScale">
+                    <option value="percent" selected>%</option>
+                    <option value="points">Puntos</option>
+                  </select>
+                </label>
               </div>
               
               <!-- Fila 2: Botones -->
@@ -392,7 +400,17 @@
             <div class="da-collapsible-content">
               <p class="section-hint">Top 3 jugadores en cada una de las 6 categorías de puntuación.</p>
               
-              <!-- Fila 1: Botones -->
+              <!-- Fila 1: Escala -->
+              <div class="dp-players-row">
+                <label>Escala
+                  <select id="podiumChartScale">
+                    <option value="points" selected>Puntos</option>
+                    <option value="percent">%</option>
+                  </select>
+                </label>
+              </div>
+              
+              <!-- Fila 2: Botones -->
               <div class="dp-buttons-row">
                 <button id="btnRefreshPodiumChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
                 <button id="btnToggleFitPodium" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
