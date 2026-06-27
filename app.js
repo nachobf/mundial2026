@@ -1,7 +1,7 @@
 /* ============================================================
  2026 FIFA World Cup Prediction Game - app.js
  ============================================================ */
-const LOCAL_STORAGE_VERSION = '108';
+const LOCAL_STORAGE_VERSION = '109';
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8M51mQ860o7z8T9RkpOlcyS_vSwO6uP-9JIMGdC8BxcQgQ4zw9gStg6cFDHNNMsOH/exec';
