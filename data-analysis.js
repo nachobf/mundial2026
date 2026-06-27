@@ -3352,10 +3352,6 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   container.style.justifyContent = 'center';
   container.style.alignItems = 'center';
 
-  // Aplicar factor de zoom al viewBox
-  const zoomFactor = 100 / RADAR_CHART_ZOOM; // 100/500 = 0.2 (zoom in 5x)
-  
-
   // Centro del viewBox (siempre el centro del SVG)
   const centerX = baseWidth / 2;
   const centerY = baseHeight / 2;
