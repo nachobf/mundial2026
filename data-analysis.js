@@ -3216,6 +3216,8 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const width = size;
   const height = size;
   const radius = Math.min(width, height) / 2 - (isMobile ? 10 : 20);
+  const baseWidth = width + margin.left + margin.right;
+  const baseHeight = height + margin.top + margin.bottom;
   const svgWidth = baseWidth;
   const svgHeight = baseHeight;
 
@@ -3228,8 +3230,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
 
   // Aplicar factor de zoom al viewBox
   const zoomFactor = 100 / RADAR_CHART_ZOOM; // 100/500 = 0.2 (zoom in 5x)
-  const baseWidth = width + margin.left + margin.right;
-  const baseHeight = height + margin.top + margin.bottom;
+  
 
   // Centro del viewBox (siempre el centro del SVG)
   const centerX = baseWidth / 2;
