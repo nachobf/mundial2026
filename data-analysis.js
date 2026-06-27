@@ -3630,6 +3630,72 @@ function daInitPanOnContainer(container) {
   };
 }
 
+function daInitRadarChart() {
+  const container = document.getElementById('radarChartContainer');
+  if (!container) {
+    console.error('[RadarChart] No existe #radarChartContainer');
+    return;
+  }
+
+  if (__radarChartData) {
+    daRenderRadarPlayerCheckboxes();
+    daRefreshRadarChart();
+    return;
+  }
+
+  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+
+  const wcPromise = window.__worldCupData 
+    ? Promise.resolve(window.__worldCupData) 
+    : daLoadWorldCupData();
+
+  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
+    ? Promise.resolve(window.__leaderboardData)
+    : loadLeaderboard();
+
+  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (!wcData || !wcData.matches) {
+      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
+      return;
+    }
+
+    const rawPlayers = lbData?.players || [];
+
+    const players = rawPlayers.map(p => {
+      const pred = p.prediction || p;
+      return { 
+        name: p.name || pred.name || 'Anónimo', 
+        ...pred 
+      };
+    }).filter(p => {
+      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
+    });
+
+    if (players.length === 0) {
+      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
+      return;
+    }
+
+    const finished = (wcData.matches || []).filter(m =>
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
+    );
+
+    if (finished.length === 0) {
+      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
+      return;
+    }
+
+    __radarChartData = daCalculateCategoryScores(players, finished);
+    __radarChartPlayers = players.map(p => p.name);
+    daRenderRadarPlayerCheckboxes();
+    daRefreshRadarChart();
+
+  }).catch(err => {
+    console.error('[RadarChart] Error:', err);
+    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
+  });
+}
+
 /* ============================================================
    CONTROLES DEL RADAR CHART
    ============================================================ */
