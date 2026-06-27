@@ -3215,8 +3215,6 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
 
   const width = size;
   const height = size;
-  const svgWidth = isFitMode ? Math.max(containerWidth, 300) : width + margin.left + margin.right;
-  const svgHeight = height + margin.top + margin.bottom;
   const radius = Math.min(width, height) / 2 - (isMobile ? 10 : 20);
 
   container.style.width = '100%';
