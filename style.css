@@ -1891,3 +1891,41 @@ body {
   background: #eee;
   margin: 6px 0;
 }
+
+.da-chart-scroll-wrapper.fit-mode {
+  overflow-x: hidden;
+}
+
+.radar-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.radar-zoom-controls button {
+  background: #1a1a2e;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.radar-zoom-controls button:hover {
+  background: #2d2d44;
+}
+
+.radar-zoom-controls button:active {
+  background: #444;
+}
+
+#radarZoomText {
+  color: #e0e0e0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mejorar visibilidad en modo oscuro para las cards de líderes */
+.podium-tooltip {
+  background: rgba(26,26,46,0.98) !important;
+  border: 1px solid rgba(255,255,255,0.1);
+}

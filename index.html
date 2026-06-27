@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <script>
     (function() {
-      var DEPLOY_VERSION = '107'; //CAMBIAR PARA ACTUALIZAR
+      var DEPLOY_VERSION = '108'; //CAMBIAR PARA ACTUALIZAR
       var saved = localStorage.getItem('wc_deploy_v');
       
       if (saved !== DEPLOY_VERSION) {
@@ -338,7 +338,7 @@
             </div>
           </div>
         </section>
-        
+
         <!-- RADAR CHART -->
         <section class="section">
           <div class="da-collapsible-section" id="radarChartSection">
@@ -380,28 +380,42 @@
               <!-- Fila 2: Botones -->
               <div class="dp-buttons-row">
                 <button id="btnRefreshRadarChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
-                <button id="btnToggleFitRadar" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
+                <div class="radar-zoom-controls" style="display:flex;align-items:center;gap:8px;">
+                  <button id="btnRadarZoomOut" class="modal-btn" style="padding:6px 12px;font-size:16px;">−</button>
+                  <span id="radarZoomText" style="font-size:14px;font-weight:600;min-width:45px;text-align:center;">100%</span>
+                  <button id="btnRadarZoomIn" class="modal-btn" style="padding:6px 12px;font-size:16px;">+</button>
+                  <button id="btnRadarZoomReset" class="modal-btn" style="padding:6px 10px;font-size:12px;">↺</button>
+                </div>
               </div>
               
-              <div id="radarChartScrollWrapper" class="da-chart-scroll-wrapper">
+              <div id="radarChartScrollWrapper" class="da-chart-scroll-wrapper fit-mode">
                 <div id="radarChartContainer" style="min-height:400px;position:relative;"></div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- PODIUM CHART -->
+        <!-- LEADERS CHART -->
         <section class="section">
           <div class="da-collapsible-section" id="podiumChartSection">
             <div class="da-collapsible-header" onclick="toggleDataAnalysisSection('podiumChartSection')">
-              <h2>🏆 Podium por Categoría</h2>
+              <h2>🏆 Líderes por Categoría</h2>
               <span class="arrow">▶</span>
             </div>
             <div class="da-collapsible-content">
-              <p class="section-hint">Top 3 jugadores en cada una de las 6 categorías de puntuación.</p>
-              
-              <!-- Fila 1: Escala -->
+              <p class="section-hint">Top jugadores en cada una de las 6 categorías de puntuación.</p>
+
+              <!-- Fila 1: Filtros -->
               <div class="dp-players-row">
+                <label>Mostrar top
+                  <select id="podiumChartTopN">
+                    <option value="1">Top 1</option>
+                    <option value="3" selected>Top 3</option>
+                    <option value="5">Top 5</option>
+                    <option value="10">Top 10</option>
+                    <option value="999">Todos</option>
+                  </select>
+                </label>
                 <label>Escala
                   <select id="podiumChartScale">
                     <option value="points" selected>Puntos</option>
@@ -409,21 +423,19 @@
                   </select>
                 </label>
               </div>
-              
+
               <!-- Fila 2: Botones -->
               <div class="dp-buttons-row">
                 <button id="btnRefreshPodiumChart" class="modal-btn confirm-btn">🔄 Actualizar</button>
-                <button id="btnToggleFitPodium" class="modal-btn da-btn-toggle">↔️ Ajustar al ancho</button>
               </div>
-              
-              <div id="podiumChartScrollWrapper" class="da-chart-scroll-wrapper">
+
+              <div id="podiumChartScrollWrapper" class="da-chart-scroll-wrapper fit-mode">
                 <div id="podiumChartContainer" style="min-height:400px;position:relative;"></div>
               </div>
             </div>
           </div>
         </section>
-
-</div>
+      </div>
 
       <div id="tab-como-jugar" class="tab-content">
         <section class="section help-section">

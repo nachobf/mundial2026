@@ -3036,7 +3036,11 @@ window.addEventListener('resize', function() {
    RADAR CHART — Perfil de Jugador (v4 final)
    ============================================================ */
 
-let RADAR_CHART_FIT_MODE = false;
+let RADAR_CHART_FIT_MODE = true;
+let RADAR_CHART_ZOOM = 100;
+const RADAR_CHART_ZOOM_MIN = 100;
+const RADAR_CHART_ZOOM_MAX = 500;
+const RADAR_CHART_ZOOM_STEP = 50;
 let __radarChartData = null;
 let __radarChartPlayers = [];
 
@@ -3047,22 +3051,11 @@ const RADAR_COLORS = [
   '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
 ];
 
-function daToggleFitRadar() {
-  RADAR_CHART_FIT_MODE = !RADAR_CHART_FIT_MODE;
-  const wrapper = document.getElementById('radarChartScrollWrapper');
-  const btn = document.getElementById('btnToggleFitRadar');
-
-  if (RADAR_CHART_FIT_MODE) {
-    wrapper.classList.add('fit-mode');
-    btn.textContent = '🔍 Zoom normal';
-    btn.style.background = '#1a1a2e';
-  } else {
-    wrapper.classList.remove('fit-mode');
-    btn.textContent = '↔️ Ajustar al ancho';
-    btn.style.background = '#6c757d';
-  }
-
+function daResetRadarZoom() {
+  RADAR_CHART_ZOOM = 100;
   daRefreshRadarChart();
+  const zoomText = document.getElementById('radarZoomText');
+  if (zoomText) zoomText.textContent = '100%';
 }
 
 function daToggleRadarPlayersDropdown(event) {
@@ -3223,12 +3216,19 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   container.style.justifyContent = 'center';
   container.style.alignItems = 'center';
 
+  // Aplicar factor de zoom al viewBox
+  const zoomFactor = RADAR_CHART_ZOOM / 100;
+  const viewBoxWidth = svgWidth * zoomFactor;
+  const viewBoxHeight = svgHeight * zoomFactor;
+  const viewBoxX = (svgWidth - viewBoxWidth) / 2;
+  const viewBoxY = (svgHeight - viewBoxHeight) / 2;
+
   const svg = d3.select('#radarChartContainer')
     .append('svg')
-    .attr('width', isFitMode ? '100%' : svgWidth)
+    .attr('width', '100%')
     .attr('height', svgHeight)
-    .attr('viewBox', `0 0 ${svgWidth} ${svgHeight}`)
-    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('display', 'block')
     .append('g')
     .attr('transform', `translate(${svgWidth / 2},${svgHeight / 2})`);
@@ -3528,16 +3528,20 @@ function daInitRadarChart() {
    ----------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshRadarChart');
-  const toggleBtn = document.getElementById('btnToggleFitRadar');
   const playersToggleBtn = document.getElementById('btnRadarChartPlayersToggle');
   const selectAllCb = document.getElementById('dpSelectAllRadarCheckbox');
   const scaleSelect = document.getElementById('radarChartScale');
+  const zoomInBtn = document.getElementById('btnRadarZoomIn');
+  const zoomOutBtn = document.getElementById('btnRadarZoomOut');
+  const zoomResetBtn = document.getElementById('btnRadarZoomReset');
 
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshRadarChart);
-  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitRadar);
   if (playersToggleBtn) playersToggleBtn.addEventListener('click', daToggleRadarPlayersDropdown);
   if (selectAllCb) selectAllCb.addEventListener('change', daToggleSelectAllRadarPlayers);
   if (scaleSelect) scaleSelect.addEventListener('change', daRefreshRadarChart);
+  if (zoomInBtn) zoomInBtn.addEventListener('click', () => daZoomRadarChart(RADAR_CHART_ZOOM_STEP));
+  if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => daZoomRadarChart(-RADAR_CHART_ZOOM_STEP));
+  if (zoomResetBtn) zoomResetBtn.addEventListener('click', daResetRadarZoom);
 });
 
 window.addEventListener('resize', function() {
@@ -3555,38 +3559,21 @@ window.addEventListener('resize', function() {
    PODIUM CHART — Top 3 por Categoría (v4 con selector de escala)
    ============================================================ */
 
-let PODIUM_CHART_FIT_MODE = false;
+let PODIUM_CHART_FIT_MODE = true;
 let __podiumChartData = null;
-
-function daToggleFitPodium() {
-  PODIUM_CHART_FIT_MODE = !PODIUM_CHART_FIT_MODE;
-  const wrapper = document.getElementById('podiumChartScrollWrapper');
-  const btn = document.getElementById('btnToggleFitPodium');
-
-  if (PODIUM_CHART_FIT_MODE) {
-    wrapper.classList.add('fit-mode');
-    btn.textContent = '🔍 Zoom normal';
-    btn.style.background = '#1a1a2e';
-  } else {
-    wrapper.classList.remove('fit-mode');
-    btn.textContent = '↔️ Ajustar al ancho';
-    btn.style.background = '#6c757d';
-  }
-
-  daRefreshPodiumChart();
-}
+let PODIUM_TOP_N = 3; 
 
 function daRefreshPodiumChart() {
   if (!__podiumChartData) {
     daInitPodiumChart();
     return;
   }
-
   const scale = document.getElementById('podiumChartScale')?.value || 'points';
-  daRenderPodiumChart(__podiumChartData, scale);
+  const topN = parseInt(document.getElementById('podiumChartTopN')?.value || '3', 10);
+  daRenderPodiumChart(__podiumChartData, scale, topN);
 }
 
-function daRenderPodiumChart(data, scale) {
+function daRenderPodiumChart(data, scale, topN) {
   const container = document.getElementById('podiumChartContainer');
   const wrapper = document.getElementById('podiumChartScrollWrapper');
   container.innerHTML = '';
@@ -3597,7 +3584,6 @@ function daRenderPodiumChart(data, scale) {
   }
 
   const isMobile = window.innerWidth <= 768;
-  const isFitMode = PODIUM_CHART_FIT_MODE;
 
   const categories = [
     { key: 'exactResults', label: 'Resultados exactos', color: '#4CAF50', max: 360 },
@@ -3612,7 +3598,7 @@ function daRenderPodiumChart(data, scale) {
   const containerWidth = wrapper.clientWidth || 800;
 
   const cols = isMobile ? 1 : (containerWidth < 900 ? 2 : 3);
-  const cardWidth = isFitMode ? (containerWidth / cols - 20) : 280;
+  const cardWidth = (containerWidth / cols) - 20;
   const cardHeight = 240;
   const cardGapX = 16;
   const cardGapY = 16;
@@ -3621,16 +3607,16 @@ function daRenderPodiumChart(data, scale) {
   const totalWidth = cols * cardWidth + (cols - 1) * cardGapX + margin.left + margin.right;
   const totalHeight = rows * cardHeight + (rows - 1) * cardGapY + margin.top + margin.bottom;
 
-  container.style.width = isFitMode ? '100%' : totalWidth + 'px';
+  container.style.width = '100%';
   container.style.height = totalHeight + 'px';
-  container.style.minWidth = isFitMode ? '0' : totalWidth + 'px';
+  container.style.minWidth = '0';
 
   const svg = d3.select('#podiumChartContainer')
     .append('svg')
-    .attr('width', isFitMode ? '100%' : totalWidth)
+    .attr('width', '100%')
     .attr('height', totalHeight)
     .attr('viewBox', `0 0 ${totalWidth} ${totalHeight}`)
-    .attr('preserveAspectRatio', isFitMode ? 'xMidYMid meet' : 'xMinYMin meet')
+    .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('display', 'block');
 
   const tooltip = d3.select('body').append('div')
@@ -3655,17 +3641,21 @@ function daRenderPodiumChart(data, scale) {
     const cardGroup = svg.append('g')
       .attr('transform', `translate(${x},${y})`);
 
-    // Fondo
+    // Fondo con color sombreado (no blanco) para modo oscuro
+    const bgColor = d3.color(cat.color).copy({opacity: 0.12});
+    const bgColorStr = bgColor.formatHex8 ? bgColor.formatHex8() : bgColor.toString();
+
     cardGroup.append('rect')
       .attr('width', cardWidth)
       .attr('height', cardHeight)
       .attr('rx', 12)
       .attr('ry', 12)
-      .attr('fill', '#fafafa')
-      .attr('stroke', '#e0e0e0')
-      .attr('stroke-width', 1);
+      .attr('fill', bgColorStr)
+      .attr('stroke', cat.color)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-opacity', 0.3);
 
-    // Header
+    // Header con color sólido
     cardGroup.append('rect')
       .attr('width', cardWidth)
       .attr('height', 48)
@@ -3699,28 +3689,27 @@ function daRenderPodiumChart(data, scale) {
       .style('fill', 'rgba(255,255,255,0.85)')
       .text('Máx: ' + cat.max + ' pts');
 
-    // Top 3
+    // Top N (filtrado por topN)
     const catData = data.map(d => ({
       player: d.player,
       value: d[cat.key] || 0,
       pct: cat.max > 0 ? Math.round((d[cat.key] / cat.max) * 100) : 0
-    })).sort((a, b) => b.value - a.value).slice(0, 3);
+    })).sort((a, b) => b.value - a.value).slice(0, topN);
 
-    // Escala: barra proporcional al máximo de la categoría (siempre) o a puntos
     const barMax = scale === 'percent' ? cat.max : Math.max(catData[0]?.value || 1, 1);
     const barHeight = 28;
     const barStartY = 62;
     const barGap = 8;
     const maxBarWidth = cardWidth - 40;
 
-    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
-    const medalEmojis = ['🥇', '🥈', '🥉'];
+    const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5'];
+    const medalEmojis = ['🥇', '🥈', '🥉', '4', '5', '6', '7', '8', '9', '10'];
 
     catData.forEach((entry, idx) => {
       const barY = barStartY + idx * (barHeight + barGap);
       const barWidth = (entry.value / barMax) * maxBarWidth;
 
-      // Fondo
+      // Fondo de barra semi-transparente
       cardGroup.append('rect')
         .attr('x', 20)
         .attr('y', barY)
@@ -3728,7 +3717,7 @@ function daRenderPodiumChart(data, scale) {
         .attr('height', barHeight)
         .attr('rx', 6)
         .attr('ry', 6)
-        .attr('fill', '#f0f0f0');
+        .attr('fill', d3.color(cat.color).copy({opacity: 0.08}).toString());
 
       // Barra de valor
       cardGroup.append('rect')
@@ -3739,7 +3728,7 @@ function daRenderPodiumChart(data, scale) {
         .attr('rx', 6)
         .attr('ry', 6)
         .attr('fill', cat.color)
-        .attr('fill-opacity', 0.7 + (idx * 0.1))
+        .attr('fill-opacity', 0.7 + (idx * 0.05))
         .transition()
         .duration(600)
         .delay(idx * 100)
@@ -3751,7 +3740,7 @@ function daRenderPodiumChart(data, scale) {
         .attr('y', barY + barHeight / 2)
         .attr('dy', '0.35em')
         .style('font-size', '14px')
-        .text(medalEmojis[idx]);
+        .text(medalEmojis[idx] || (idx + 1));
 
       // Nombre
       cardGroup.append('text')
@@ -3760,10 +3749,10 @@ function daRenderPodiumChart(data, scale) {
         .attr('dy', '0.35em')
         .style('font-size', '12px')
         .style('font-weight', '600')
-        .style('fill', '#333')
+        .style('fill', '#e0e0e0')  // color claro para modo oscuro
         .text(entry.player.length > 14 ? entry.player.substring(0, 12) + '...' : entry.player);
 
-      // Valor (puntos o % según escala)
+      // Valor
       const displayValue = scale === 'percent' ? entry.pct + '%' : entry.value + ' pts';
       cardGroup.append('text')
         .attr('x', cardWidth - 12)
@@ -3772,10 +3761,10 @@ function daRenderPodiumChart(data, scale) {
         .attr('dy', '0.35em')
         .style('font-size', '12px')
         .style('font-weight', '700')
-        .style('fill', '#666')
+        .style('fill', '#ccc')  // color claro para modo oscuro
         .text(displayValue);
 
-      // Tooltip
+      // Tooltip hit area
       cardGroup.append('rect')
         .attr('x', 20)
         .attr('y', barY)
@@ -3798,7 +3787,7 @@ function daRenderPodiumChart(data, scale) {
             </div>
             <div style="display:flex;justify-content:space-between;gap:16px;margin-top:4px;">
               <span>Posición:</span>
-              <span style="font-weight:700;color:${medalColors[idx]};">${medalEmojis[idx]} #${idx + 1}</span>
+              <span style="font-weight:700;color:${medalColors[idx] || '#888'};">${medalEmojis[idx] || (idx + 1)} #${idx + 1}</span>
             </div>
           `);
           tooltip.style('left', (event.pageX + 12) + 'px').style('top', (event.pageY - 12) + 'px');
@@ -3812,6 +3801,7 @@ function daRenderPodiumChart(data, scale) {
     });
   });
 }
+
 
 function daInitPodiumChart() {
   const container = document.getElementById('podiumChartContainer');
@@ -3881,12 +3871,12 @@ function daInitPodiumChart() {
    ----------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshPodiumChart');
-  const toggleBtn = document.getElementById('btnToggleFitPodium');
   const scaleSelect = document.getElementById('podiumChartScale');
+  const topNSelect = document.getElementById('podiumChartTopN');
 
   if (refreshBtn) refreshBtn.addEventListener('click', daRefreshPodiumChart);
-  if (toggleBtn) toggleBtn.addEventListener('click', daToggleFitPodium);
   if (scaleSelect) scaleSelect.addEventListener('change', daRefreshPodiumChart);
+  if (topNSelect) topNSelect.addEventListener('change', daRefreshPodiumChart);
 });
 
 window.addEventListener('resize', function() {
