@@ -3033,7 +3033,7 @@ window.addEventListener('resize', function() {
 });
 
 /* ============================================================
-   RADAR CHART — Perfil de Jugador (v4 final)
+   RADAR CHART — ZOOM + PAN/DRAG + TOOLTIPS (sin colisiones)
    ============================================================ */
 
 let RADAR_CHART_FIT_MODE = true;
@@ -3054,25 +3054,17 @@ const RADAR_COLORS = [
 
 // Estado del viewBox para pan
 let RADAR_VIEWBOX = {
-  x: 0,
-  y: 0,
-  width: 0,
-  height: 0,
-  baseWidth: 0,
-  baseHeight: 0,
-  isDragging: false,
-  lastMouseX: 0,
-  lastMouseY: 0
+  x: 0, y: 0, width: 0, height: 0,
+  baseWidth: 0, baseHeight: 0,
+  isDragging: false, lastMouseX: 0, lastMouseY: 0
 };
 
 function daZoomRadarChart(delta) {
   RADAR_CHART_ZOOM = Math.max(RADAR_CHART_ZOOM_MIN, Math.min(RADAR_CHART_ZOOM_MAX, RADAR_CHART_ZOOM + delta));
-  // Resetear pan al cambiar zoom para centrar
   daRefreshRadarChart();
   const zoomText = document.getElementById('radarZoomText');
   if (zoomText) zoomText.textContent = RADAR_CHART_ZOOM + '%';
 }
-
 
 function daResetRadarZoom() {
   RADAR_CHART_ZOOM = 100;
@@ -3084,8 +3076,6 @@ function daResetRadarZoom() {
 }
 
 function daApplyPan(dx, dy) {
-  // dx, dy son en coordenadas del viewBox actual
-  // Necesitamos convertir del viewport al viewBox
   const container = document.getElementById('radarChartContainer');
   const svg = container.querySelector('svg');
   if (!svg) return;
@@ -3097,100 +3087,14 @@ function daApplyPan(dx, dy) {
   RADAR_VIEWBOX.x -= dx * scaleX;
   RADAR_VIEWBOX.y -= dy * scaleY;
 
-  // Limitar pan para no salirse de los límites del canvas base
-  const maxX = RADAR_VIEWBOX.baseWidth - RADAR_VIEWBOX.width;
-  const maxY = RADAR_VIEWBOX.baseHeight - RADAR_VIEWBOX.height;
+  const maxX = Math.max(0, RADAR_VIEWBOX.baseWidth - RADAR_VIEWBOX.width);
+  const maxY = Math.max(0, RADAR_VIEWBOX.baseHeight - RADAR_VIEWBOX.height);
 
   RADAR_VIEWBOX.x = Math.max(0, Math.min(maxX, RADAR_VIEWBOX.x));
   RADAR_VIEWBOX.y = Math.max(0, Math.min(maxY, RADAR_VIEWBOX.y));
 
   svg.setAttribute('viewBox',
     `${RADAR_VIEWBOX.x} ${RADAR_VIEWBOX.y} ${RADAR_VIEWBOX.width} ${RADAR_VIEWBOX.height}`);
-}
-
-function daInitPanListeners(svgElement) {
-  if (!svgElement) return;
-
-  const container = document.getElementById('radarChartContainer');
-
-  // Estilo cursor
-  svgElement.style.cursor = RADAR_CHART_ZOOM > 100 ? 'grab' : 'default';
-
-  const onMouseDown = (e) => {
-    if (RADAR_CHART_ZOOM <= 100) return; // Solo pan cuando hay zoom
-    RADAR_VIEWBOX.isDragging = true;
-    RADAR_VIEWBOX.lastMouseX = e.clientX;
-    RADAR_VIEWBOX.lastMouseY = e.clientY;
-    svgElement.style.cursor = 'grabbing';
-    e.preventDefault();
-  };
-
-  const onMouseMove = (e) => {
-    if (!RADAR_VIEWBOX.isDragging) return;
-    const dx = e.clientX - RADAR_VIEWBOX.lastMouseX;
-    const dy = e.clientY - RADAR_VIEWBOX.lastMouseY;
-    RADAR_VIEWBOX.lastMouseX = e.clientX;
-    RADAR_VIEWBOX.lastMouseY = e.clientY;
-    daApplyPan(dx, dy);
-  };
-
-  const onMouseUp = () => {
-    RADAR_VIEWBOX.isDragging = false;
-    if (RADAR_CHART_ZOOM > 100) {
-      svgElement.style.cursor = 'grab';
-    }
-  };
-
-  const onMouseLeave = () => {
-    RADAR_VIEWBOX.isDragging = false;
-    if (RADAR_CHART_ZOOM > 100) {
-      svgElement.style.cursor = 'grab';
-    }
-  };
-
-  // Touch support
-  const onTouchStart = (e) => {
-    if (RADAR_CHART_ZOOM <= 100) return;
-    if (e.touches.length === 1) {
-      RADAR_VIEWBOX.isDragging = true;
-      RADAR_VIEWBOX.lastMouseX = e.touches[0].clientX;
-      RADAR_VIEWBOX.lastMouseY = e.touches[0].clientY;
-      e.preventDefault();
-    }
-  };
-
-  const onTouchMove = (e) => {
-    if (!RADAR_VIEWBOX.isDragging) return;
-    if (e.touches.length === 1) {
-      const dx = e.touches[0].clientX - RADAR_VIEWBOX.lastMouseX;
-      const dy = e.touches[0].clientY - RADAR_VIEWBOX.lastMouseY;
-      RADAR_VIEWBOX.lastMouseX = e.touches[0].clientX;
-      RADAR_VIEWBOX.lastMouseY = e.touches[0].clientY;
-      daApplyPan(dx, dy);
-      e.preventDefault();
-    }
-  };
-
-  const onTouchEnd = () => {
-    RADAR_VIEWBOX.isDragging = false;
-  };
-
-  // Limpiar listeners previos para evitar duplicados
-  svgElement.removeEventListener('mousedown', onMouseDown);
-  svgElement.removeEventListener('mousemove', onMouseMove);
-  svgElement.removeEventListener('mouseup', onMouseUp);
-  svgElement.removeEventListener('mouseleave', onMouseLeave);
-  svgElement.removeEventListener('touchstart', onTouchStart);
-  svgElement.removeEventListener('touchmove', onTouchMove);
-  svgElement.removeEventListener('touchend', onTouchEnd);
-
-  svgElement.addEventListener('mousedown', onMouseDown);
-  svgElement.addEventListener('mousemove', onMouseMove);
-  svgElement.addEventListener('mouseup', onMouseUp);
-  svgElement.addEventListener('mouseleave', onMouseLeave);
-  svgElement.addEventListener('touchstart', onTouchStart, { passive: false });
-  svgElement.addEventListener('touchmove', onTouchMove, { passive: false });
-  svgElement.addEventListener('touchend', onTouchEnd);
 }
 
 function daToggleRadarPlayersDropdown(event) {
@@ -3317,7 +3221,6 @@ function daRefreshRadarChart() {
   daRenderRadarChart(__radarChartData, selectedPlayers, scale);
 }
 
-
 function daRenderRadarChart(data, selectedPlayers, scale) {
   const container = document.getElementById('radarChartContainer');
   const wrapper = document.getElementById('radarChartScrollWrapper');
@@ -3331,12 +3234,11 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   }
 
   const isMobile = window.innerWidth <= 768;
-  const isFitMode = RADAR_CHART_FIT_MODE;
 
   const margin = { top: isMobile ? 40 : 60, right: isMobile ? 60 : 100, bottom: isMobile ? 80 : 60, left: isMobile ? 60 : 100 };
   const containerWidth = wrapper.clientWidth || 600;
 
-  const size = Math.min(containerWidth - margin.left - margin.right, 
+  const size = Math.min(containerWidth - margin.left - margin.right,
                         isMobile ? 500 : 520);
 
   const width = size;
@@ -3345,18 +3247,6 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const baseWidth = width + margin.left + margin.right;
   const baseHeight = height + margin.top + margin.bottom;
 
-  container.style.width = '100%';
-  container.style.height = baseHeight + 'px';
-  container.style.minWidth = '0';
-  container.style.display = 'flex';
-  container.style.justifyContent = 'center';
-  container.style.alignItems = 'center';
-
-  // Centro del viewBox (siempre el centro del SVG)
-  const centerX = baseWidth / 2;
-  const centerY = baseHeight / 2;
-
-  // Dimensiones del viewBox según zoom
   // === ZOOM: viewBox más pequeño = zoom in ===
   const zoomFactor = 100 / RADAR_CHART_ZOOM;
 
@@ -3369,11 +3259,11 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       RADAR_VIEWBOX.width !== viewBoxWidth ||
       RADAR_VIEWBOX.height !== viewBoxHeight) {
 
-    const maxX = baseWidth - viewBoxWidth;
-    const maxY = baseHeight - viewBoxHeight;
+    const maxX = Math.max(0, baseWidth - viewBoxWidth);
+    const maxY = Math.max(0, baseHeight - viewBoxHeight);
 
     RADAR_VIEWBOX = {
-      x: maxX / 2,  // centrado por defecto
+      x: maxX / 2,
       y: maxY / 2,
       width: viewBoxWidth,
       height: viewBoxHeight,
@@ -3384,8 +3274,14 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       lastMouseY: 0
     };
   }
-  const viewBoxX = centerX - (viewBoxWidth / 2);
-  const viewBoxY = centerY - (viewBoxHeight / 2);
+
+  container.style.width = '100%';
+  container.style.height = baseHeight + 'px';
+  container.style.minWidth = '0';
+  container.style.display = 'flex';
+  container.style.justifyContent = 'center';
+  container.style.alignItems = 'center';
+  container.style.position = 'relative';  // necesario para el overlay absoluto
 
   const svg = d3.select('#radarChartContainer')
     .append('svg')
@@ -3394,16 +3290,10 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     .attr('viewBox', `${RADAR_VIEWBOX.x} ${RADAR_VIEWBOX.y} ${RADAR_VIEWBOX.width} ${RADAR_VIEWBOX.height}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('display', 'block')
-    .style('cursor', RADAR_CHART_ZOOM > 100 ? 'grab' : 'default')
     .append('g')
     .attr('transform', `translate(${baseWidth / 2},${baseHeight / 2})`);
 
-  // Guardar referencia al elemento SVG para los listeners de pan
-  const svgElement = container.querySelector('svg');
-  if (svgElement) {
-    daInitPanListeners(svgElement);
-  }
-
+  
   const categories = [
     { key: 'exactResults', label: 'Resultados exactos', max: 360 },
     { key: 'oneXTwo', label: '1X2', max: 72 },
@@ -3414,8 +3304,6 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   ];
 
   const angleSlice = (Math.PI * 2) / categories.length;
-
-  // Escala: % (0-100) o puntos (0-max de la categoría con más puntos)
   const maxDomain = scale === 'percent' ? 100 : d3.max(chartData, d => {
     return d3.max(categories, c => d[c.key] || 0);
   });
@@ -3447,10 +3335,8 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     const y = Math.sin(angle) * radius;
 
     svg.append('line')
-      .attr('x1', 0)
-      .attr('y1', 0)
-      .attr('x2', x)
-      .attr('y2', y)
+      .attr('x1', 0).attr('y1', 0)
+      .attr('x2', x).attr('y2', y)
       .attr('stroke', '#e0e0e0')
       .attr('stroke-width', 1);
 
@@ -3459,8 +3345,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     const labelY = Math.sin(angle) * labelDistance;
 
     svg.append('text')
-      .attr('x', labelX)
-      .attr('y', labelY)
+      .attr('x', labelX).attr('y', labelY)
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
       .style('font-size', isMobile ? '9px' : '13px')
@@ -3476,7 +3361,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
       const rawVal = playerData[cat.key] || 0;
-      const displayVal = scale === 'percent' 
+      const displayVal = scale === 'percent'
         ? (cat.max > 0 ? (rawVal / cat.max) * 100 : 0)
         : rawVal;
       const r = rScale(displayVal);
@@ -3517,9 +3402,8 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('stroke-width', 1.5);
   });
 
-  // Leyenda debajo del radar
+  // Leyenda
   const legendY = radius + 70;
-
   const legend = svg.append('g')
     .attr('transform', `translate(0, ${legendY})`);
 
@@ -3537,14 +3421,12 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('transform', `translate(${startX}, ${row * 20})`);
 
     legendItem.append('rect')
-      .attr('width', 10)
-      .attr('height', 10)
+      .attr('width', 10).attr('height', 10)
       .attr('rx', 2)
       .attr('fill', color);
 
     legendItem.append('text')
-      .attr('x', 14)
-      .attr('y', 5)
+      .attr('x', 14).attr('y', 5)
       .attr('dy', '0.35em')
       .style('font-size', isMobile ? '9px' : '11px')
       .style('font-weight', '500')
@@ -3572,7 +3454,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
     const points = categories.map((cat, i) => {
       const angle = angleSlice * i - Math.PI / 2;
       const rawVal = playerData[cat.key] || 0;
-      const displayVal = scale === 'percent' 
+      const displayVal = scale === 'percent'
         ? (cat.max > 0 ? (rawVal / cat.max) * 100 : 0)
         : rawVal;
       const r = rScale(displayVal);
@@ -3597,6 +3479,7 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
       .attr('r', isMobile ? 10 : 12)
       .attr('fill', 'transparent')
       .style('cursor', 'pointer')
+      .style('pointer-events', 'all')
       .on('mouseover', function(event, d) {
         d3.select(this.parentNode).selectAll('.radar-point-' + idx)
           .filter((p, i) => p.x === d.x && p.y === d.y)
@@ -3626,77 +3509,130 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
         tooltip.transition().duration(200).style('opacity', 0);
       });
   });
+  daInitPanOnContainer(container);
 }
 
-function daInitRadarChart() {
-  const container = document.getElementById('radarChartContainer');
-  if (!container) {
-    console.error('[RadarChart] No existe #radarChartContainer');
+/* ============================================================
+   PAN EN EL CONTENEDOR PADRE (no bloquea tooltips del SVG)
+   ============================================================
+
+   El contenedor captura mousedown. Si el target es un vértice
+   (circle con clase radar-hit-*), no iniciamos drag → tooltip funciona.
+   Si el target es el fondo, iniciamos drag → pan funciona.
+
+   Para que esto funcione, el SVG debe estar ENCIMA del overlay
+   en el z-index, o no debe haber overlay. En su lugar, usamos
+   el contenedor como área de captura y verificamos el target.
+   ============================================================ */
+
+function daInitPanOnContainer(container) {
+  // Eliminar listeners previos para evitar duplicados
+  if (container._panCleanup) {
+    container._panCleanup();
+  }
+
+  // Solo activar pan cuando hay zoom (>100%)
+  if (RADAR_CHART_ZOOM <= 100) {
+    container.style.cursor = 'default';
     return;
   }
 
-  if (__radarChartData) {
-    daRenderRadarPlayerCheckboxes();
-    daRefreshRadarChart();
-    return;
-  }
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
 
-  container.innerHTML = '<p class="note-text">Cargando datos...</p>';
+  const onMouseDown = (e) => {
+    // Verificar si el click fue en un vértice del radar (tooltip)
+    const target = e.target;
+    const isVertex = target.tagName === 'circle' && 
+                     target.classList && 
+                     Array.from(target.classList).some(c => c.startsWith('radar-hit-'));
 
-  const wcPromise = window.__worldCupData 
-    ? Promise.resolve(window.__worldCupData) 
-    : daLoadWorldCupData();
+    // Si es un vértice, NO iniciar drag (dejar que el tooltip de D3 funcione)
+    if (isVertex) return;
 
-  const lbPromise = window.__leaderboardData && window.__leaderboardData.players
-    ? Promise.resolve(window.__leaderboardData)
-    : loadLeaderboard();
+    // Si es el fondo, iniciar drag
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    container.style.cursor = 'grabbing';
+    e.preventDefault();
+  };
 
-  Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
-    if (!wcData || !wcData.matches) {
-      container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
-      return;
-    }
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    daApplyPan(dx, dy);
+  };
 
-    const rawPlayers = lbData?.players || [];
+  const onMouseUp = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    container.style.cursor = 'grab';
+  };
 
-    const players = rawPlayers.map(p => {
-      const pred = p.prediction || p;
-      return { 
-        name: p.name || pred.name || 'Anónimo', 
-        ...pred 
-      };
-    }).filter(p => {
-      return p.groups && typeof p.groups === 'object' && Object.keys(p.groups).length > 0;
-    });
+  const onMouseLeave = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    container.style.cursor = 'grab';
+  };
 
-    if (players.length === 0) {
-      container.innerHTML = '<p class="note-text">Ningún jugador tiene predicción válida.</p>';
-      return;
-    }
+  // Touch support
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    const target = e.target;
+    const isVertex = target.tagName === 'circle' && 
+                     target.classList && 
+                     Array.from(target.classList).some(c => c.startsWith('radar-hit-'));
+    if (isVertex) return;
 
-    const finished = (wcData.matches || []).filter(m =>
-      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2 && m.date
-    );
+    isDragging = true;
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+    e.preventDefault();
+  };
 
-    if (finished.length === 0) {
-      container.innerHTML = '<p class="note-text">El torneo aún no ha empezado.</p>';
-      return;
-    }
+  const onTouchMove = (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - lastX;
+    const dy = e.touches[0].clientY - lastY;
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+    daApplyPan(dx, dy);
+    e.preventDefault();
+  };
 
-    __radarChartData = daCalculateCategoryScores(players, finished);
-    __radarChartPlayers = players.map(p => p.name);
-    daRenderRadarPlayerCheckboxes();
-    daRefreshRadarChart();
+  const onTouchEnd = () => {
+    isDragging = false;
+  };
 
-  }).catch(err => {
-    console.error('[RadarChart] Error:', err);
-    container.innerHTML = '<p class="note-text" style="color:#f44336;">Error: ' + err.message + '</p>';
-  });
+  container.addEventListener('mousedown', onMouseDown);
+  container.addEventListener('mousemove', onMouseMove);
+  container.addEventListener('mouseup', onMouseUp);
+  container.addEventListener('mouseleave', onMouseLeave);
+  container.addEventListener('touchstart', onTouchStart, { passive: false });
+  container.addEventListener('touchmove', onTouchMove, { passive: false });
+  container.addEventListener('touchend', onTouchEnd);
+
+  container.style.cursor = 'grab';
+
+  // Guardar función de cleanup
+  container._panCleanup = () => {
+    container.removeEventListener('mousedown', onMouseDown);
+    container.removeEventListener('mousemove', onMouseMove);
+    container.removeEventListener('mouseup', onMouseUp);
+    container.removeEventListener('mouseleave', onMouseLeave);
+    container.removeEventListener('touchstart', onTouchStart);
+    container.removeEventListener('touchmove', onTouchMove);
+    container.removeEventListener('touchend', onTouchEnd);
+  };
 }
 
-/* -----------------------------------------------------------
+/* ============================================================
    CONTROLES DEL RADAR CHART
-   ----------------------------------------------------------- */
+   ============================================================ */
 document.addEventListener('DOMContentLoaded', function() {
   const refreshBtn = document.getElementById('btnRefreshRadarChart');
   const playersToggleBtn = document.getElementById('btnRadarChartPlayersToggle');
@@ -3713,16 +3649,6 @@ document.addEventListener('DOMContentLoaded', function() {
   if (zoomInBtn) zoomInBtn.addEventListener('click', () => daZoomRadarChart(RADAR_CHART_ZOOM_STEP));
   if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => daZoomRadarChart(-RADAR_CHART_ZOOM_STEP));
   if (zoomResetBtn) zoomResetBtn.addEventListener('click', daResetRadarZoom);
-});
-
-window.addEventListener('resize', function() {
-  const tab = document.getElementById('tab-data-analysis');
-  if (tab && tab.classList.contains('active') && __radarChartData) {
-    clearTimeout(window.__radarChartResizeTimer);
-    window.__radarChartResizeTimer = setTimeout(function() {
-      daRefreshRadarChart();
-    }, 300);
-  }
 });
 
 
