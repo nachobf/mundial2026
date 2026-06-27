@@ -3052,10 +3052,23 @@ const RADAR_COLORS = [
   '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
 ];
 
+// Estado del viewBox para pan
+let RADAR_VIEWBOX = {
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  baseWidth: 0,
+  baseHeight: 0,
+  isDragging: false,
+  lastMouseX: 0,
+  lastMouseY: 0
+};
+
 function daZoomRadarChart(delta) {
   RADAR_CHART_ZOOM = Math.max(RADAR_CHART_ZOOM_MIN, Math.min(RADAR_CHART_ZOOM_MAX, RADAR_CHART_ZOOM + delta));
+  // Resetear pan al cambiar zoom para centrar
   daRefreshRadarChart();
-
   const zoomText = document.getElementById('radarZoomText');
   if (zoomText) zoomText.textContent = RADAR_CHART_ZOOM + '%';
 }
@@ -3063,9 +3076,121 @@ function daZoomRadarChart(delta) {
 
 function daResetRadarZoom() {
   RADAR_CHART_ZOOM = 100;
+  RADAR_VIEWBOX.x = 0;
+  RADAR_VIEWBOX.y = 0;
   daRefreshRadarChart();
   const zoomText = document.getElementById('radarZoomText');
   if (zoomText) zoomText.textContent = '100%';
+}
+
+function daApplyPan(dx, dy) {
+  // dx, dy son en coordenadas del viewBox actual
+  // Necesitamos convertir del viewport al viewBox
+  const container = document.getElementById('radarChartContainer');
+  const svg = container.querySelector('svg');
+  if (!svg) return;
+
+  const rect = svg.getBoundingClientRect();
+  const scaleX = RADAR_VIEWBOX.width / rect.width;
+  const scaleY = RADAR_VIEWBOX.height / rect.height;
+
+  RADAR_VIEWBOX.x -= dx * scaleX;
+  RADAR_VIEWBOX.y -= dy * scaleY;
+
+  // Limitar pan para no salirse de los límites del canvas base
+  const maxX = RADAR_VIEWBOX.baseWidth - RADAR_VIEWBOX.width;
+  const maxY = RADAR_VIEWBOX.baseHeight - RADAR_VIEWBOX.height;
+
+  RADAR_VIEWBOX.x = Math.max(0, Math.min(maxX, RADAR_VIEWBOX.x));
+  RADAR_VIEWBOX.y = Math.max(0, Math.min(maxY, RADAR_VIEWBOX.y));
+
+  svg.setAttribute('viewBox',
+    `${RADAR_VIEWBOX.x} ${RADAR_VIEWBOX.y} ${RADAR_VIEWBOX.width} ${RADAR_VIEWBOX.height}`);
+}
+
+function daInitPanListeners(svgElement) {
+  if (!svgElement) return;
+
+  const container = document.getElementById('radarChartContainer');
+
+  // Estilo cursor
+  svgElement.style.cursor = RADAR_CHART_ZOOM > 100 ? 'grab' : 'default';
+
+  const onMouseDown = (e) => {
+    if (RADAR_CHART_ZOOM <= 100) return; // Solo pan cuando hay zoom
+    RADAR_VIEWBOX.isDragging = true;
+    RADAR_VIEWBOX.lastMouseX = e.clientX;
+    RADAR_VIEWBOX.lastMouseY = e.clientY;
+    svgElement.style.cursor = 'grabbing';
+    e.preventDefault();
+  };
+
+  const onMouseMove = (e) => {
+    if (!RADAR_VIEWBOX.isDragging) return;
+    const dx = e.clientX - RADAR_VIEWBOX.lastMouseX;
+    const dy = e.clientY - RADAR_VIEWBOX.lastMouseY;
+    RADAR_VIEWBOX.lastMouseX = e.clientX;
+    RADAR_VIEWBOX.lastMouseY = e.clientY;
+    daApplyPan(dx, dy);
+  };
+
+  const onMouseUp = () => {
+    RADAR_VIEWBOX.isDragging = false;
+    if (RADAR_CHART_ZOOM > 100) {
+      svgElement.style.cursor = 'grab';
+    }
+  };
+
+  const onMouseLeave = () => {
+    RADAR_VIEWBOX.isDragging = false;
+    if (RADAR_CHART_ZOOM > 100) {
+      svgElement.style.cursor = 'grab';
+    }
+  };
+
+  // Touch support
+  const onTouchStart = (e) => {
+    if (RADAR_CHART_ZOOM <= 100) return;
+    if (e.touches.length === 1) {
+      RADAR_VIEWBOX.isDragging = true;
+      RADAR_VIEWBOX.lastMouseX = e.touches[0].clientX;
+      RADAR_VIEWBOX.lastMouseY = e.touches[0].clientY;
+      e.preventDefault();
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (!RADAR_VIEWBOX.isDragging) return;
+    if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - RADAR_VIEWBOX.lastMouseX;
+      const dy = e.touches[0].clientY - RADAR_VIEWBOX.lastMouseY;
+      RADAR_VIEWBOX.lastMouseX = e.touches[0].clientX;
+      RADAR_VIEWBOX.lastMouseY = e.touches[0].clientY;
+      daApplyPan(dx, dy);
+      e.preventDefault();
+    }
+  };
+
+  const onTouchEnd = () => {
+    RADAR_VIEWBOX.isDragging = false;
+  };
+
+  // Limpiar listeners previos para evitar duplicados
+  svgElement.removeEventListener('mousedown', onMouseDown);
+  svgElement.removeEventListener('mousemove', onMouseMove);
+  svgElement.removeEventListener('mouseup', onMouseUp);
+  svgElement.removeEventListener('mouseleave', onMouseLeave);
+  svgElement.removeEventListener('touchstart', onTouchStart);
+  svgElement.removeEventListener('touchmove', onTouchMove);
+  svgElement.removeEventListener('touchend', onTouchEnd);
+
+  svgElement.addEventListener('mousedown', onMouseDown);
+  svgElement.addEventListener('mousemove', onMouseMove);
+  svgElement.addEventListener('mouseup', onMouseUp);
+  svgElement.addEventListener('mouseleave', onMouseLeave);
+  svgElement.addEventListener('touchstart', onTouchStart, { passive: false });
+  svgElement.addEventListener('touchmove', onTouchMove, { passive: false });
+  svgElement.addEventListener('touchend', onTouchEnd);
 }
 
 function daToggleRadarPlayersDropdown(event) {
@@ -3192,6 +3317,7 @@ function daRefreshRadarChart() {
   daRenderRadarChart(__radarChartData, selectedPlayers, scale);
 }
 
+
 function daRenderRadarChart(data, selectedPlayers, scale) {
   const container = document.getElementById('radarChartContainer');
   const wrapper = document.getElementById('radarChartScrollWrapper');
@@ -3218,11 +3344,9 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const radius = Math.min(width, height) / 2 - (isMobile ? 10 : 20);
   const baseWidth = width + margin.left + margin.right;
   const baseHeight = height + margin.top + margin.bottom;
-  const svgWidth = baseWidth;
-  const svgHeight = baseHeight;
 
   container.style.width = '100%';
-  container.style.height = svgHeight + 'px';
+  container.style.height = baseHeight + 'px';
   container.style.minWidth = '0';
   container.style.display = 'flex';
   container.style.justifyContent = 'center';
@@ -3237,20 +3361,52 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const centerY = baseHeight / 2;
 
   // Dimensiones del viewBox según zoom
+  // === ZOOM: viewBox más pequeño = zoom in ===
+  const zoomFactor = 100 / RADAR_CHART_ZOOM;
+
   const viewBoxWidth = baseWidth * zoomFactor;
   const viewBoxHeight = baseHeight * zoomFactor;
+
+  // Si es la primera vez o zoom cambió, centrar el viewBox
+  if (RADAR_VIEWBOX.baseWidth !== baseWidth ||
+      RADAR_VIEWBOX.baseHeight !== baseHeight ||
+      RADAR_VIEWBOX.width !== viewBoxWidth ||
+      RADAR_VIEWBOX.height !== viewBoxHeight) {
+
+    const maxX = baseWidth - viewBoxWidth;
+    const maxY = baseHeight - viewBoxHeight;
+
+    RADAR_VIEWBOX = {
+      x: maxX / 2,  // centrado por defecto
+      y: maxY / 2,
+      width: viewBoxWidth,
+      height: viewBoxHeight,
+      baseWidth: baseWidth,
+      baseHeight: baseHeight,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+  }
   const viewBoxX = centerX - (viewBoxWidth / 2);
   const viewBoxY = centerY - (viewBoxHeight / 2);
 
   const svg = d3.select('#radarChartContainer')
     .append('svg')
     .attr('width', '100%')
-    .attr('height', svgHeight)
-    .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
+    .attr('height', baseHeight)
+    .attr('viewBox', `${RADAR_VIEWBOX.x} ${RADAR_VIEWBOX.y} ${RADAR_VIEWBOX.width} ${RADAR_VIEWBOX.height}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('display', 'block')
+    .style('cursor', RADAR_CHART_ZOOM > 100 ? 'grab' : 'default')
     .append('g')
-    .attr('transform', `translate(${svgWidth / 2},${svgHeight / 2})`);
+    .attr('transform', `translate(${baseWidth / 2},${baseHeight / 2})`);
+
+  // Guardar referencia al elemento SVG para los listeners de pan
+  const svgElement = container.querySelector('svg');
+  if (svgElement) {
+    daInitPanListeners(svgElement);
+  }
 
   const categories = [
     { key: 'exactResults', label: 'Resultados exactos', max: 360 },
