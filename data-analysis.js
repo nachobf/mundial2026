@@ -3051,6 +3051,14 @@ const RADAR_COLORS = [
   '#FD79A8', '#FDCB6E', '#55A3FF', '#00CEC9'
 ];
 
+function daZoomRadarChart(delta) {
+  RADAR_CHART_ZOOM = Math.max(RADAR_CHART_ZOOM_MIN, Math.min(RADAR_CHART_ZOOM_MAX, RADAR_CHART_ZOOM + delta));
+  daRefreshRadarChart();
+  // Actualizar texto del zoom
+  const zoomText = document.getElementById('radarZoomText');
+  if (zoomText) zoomText.textContent = RADAR_CHART_ZOOM + '%';
+}
+
 function daResetRadarZoom() {
   RADAR_CHART_ZOOM = 100;
   daRefreshRadarChart();
@@ -3598,10 +3606,23 @@ function daRenderPodiumChart(data, scale, topN) {
   const containerWidth = wrapper.clientWidth || 800;
 
   const cols = isMobile ? 1 : (containerWidth < 900 ? 2 : 3);
-  const cardWidth = (containerWidth / cols) - 20;
-  const cardHeight = 240;
   const cardGapX = 16;
   const cardGapY = 16;
+
+  // === ALTURA DINÁMICA SEGÚN TOP N ===
+  const headerHeight = 48;
+  const barHeight = 28;
+  const barGap = 8;
+  const paddingTop = 14;    // espacio entre header y primera barra
+  const paddingBottom = 14; // espacio debajo de última barra
+
+  // Calcular altura necesaria por card según cuántos items se muestran
+  const itemsPerCard = Math.min(topN, data.length); // máximo de jugadores por categoría
+  const cardContentHeight = paddingTop + (itemsPerCard * barHeight) + ((itemsPerCard - 1) * barGap) + paddingBottom;
+  const cardHeight = Math.max(headerHeight + cardContentHeight, 120); // mínimo 120px
+  // ====================================
+
+  const cardWidth = (containerWidth / cols) - cardGapX;
 
   const rows = Math.ceil(categories.length / cols);
   const totalWidth = cols * cardWidth + (cols - 1) * cardGapX + margin.left + margin.right;
@@ -3658,15 +3679,15 @@ function daRenderPodiumChart(data, scale, topN) {
     // Header con color sólido
     cardGroup.append('rect')
       .attr('width', cardWidth)
-      .attr('height', 48)
+      .attr('height', headerHeight)
       .attr('rx', 12)
       .attr('ry', 12)
       .attr('fill', cat.color);
 
     cardGroup.append('rect')
-      .attr('y', 24)
+      .attr('y', headerHeight / 2)
       .attr('width', cardWidth)
-      .attr('height', 24)
+      .attr('height', headerHeight / 2)
       .attr('fill', cat.color);
 
     // Título
@@ -3697,9 +3718,7 @@ function daRenderPodiumChart(data, scale, topN) {
     })).sort((a, b) => b.value - a.value).slice(0, topN);
 
     const barMax = scale === 'percent' ? cat.max : Math.max(catData[0]?.value || 1, 1);
-    const barHeight = 28;
-    const barStartY = 62;
-    const barGap = 8;
+    const barStartY = headerHeight + paddingTop;
     const maxBarWidth = cardWidth - 40;
 
     const medalColors = ['#FFD700', '#C0C0C0', '#CD7F32', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5', '#B0BEC5'];
@@ -3749,7 +3768,7 @@ function daRenderPodiumChart(data, scale, topN) {
         .attr('dy', '0.35em')
         .style('font-size', '12px')
         .style('font-weight', '600')
-        .style('fill', '#e0e0e0')  // color claro para modo oscuro
+        .style('fill', '#e0e0e0')
         .text(entry.player.length > 14 ? entry.player.substring(0, 12) + '...' : entry.player);
 
       // Valor
@@ -3761,7 +3780,7 @@ function daRenderPodiumChart(data, scale, topN) {
         .attr('dy', '0.35em')
         .style('font-size', '12px')
         .style('font-weight', '700')
-        .style('fill', '#ccc')  // color claro para modo oscuro
+        .style('fill', '#ccc')
         .text(displayValue);
 
       // Tooltip hit area
