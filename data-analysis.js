@@ -3038,11 +3038,12 @@ window.addEventListener('resize', function() {
 
 let RADAR_CHART_FIT_MODE = true;
 let RADAR_CHART_ZOOM = 100;
-const RADAR_CHART_ZOOM_MIN = 100;
+const RADAR_CHART_ZOOM_MIN = 50;
 const RADAR_CHART_ZOOM_MAX = 500;
 const RADAR_CHART_ZOOM_STEP = 50;
 let __radarChartData = null;
 let __radarChartPlayers = [];
+
 
 // Paleta de colores para jugadores (compartida)
 const RADAR_COLORS = [
@@ -3054,10 +3055,11 @@ const RADAR_COLORS = [
 function daZoomRadarChart(delta) {
   RADAR_CHART_ZOOM = Math.max(RADAR_CHART_ZOOM_MIN, Math.min(RADAR_CHART_ZOOM_MAX, RADAR_CHART_ZOOM + delta));
   daRefreshRadarChart();
-  // Actualizar texto del zoom
+
   const zoomText = document.getElementById('radarZoomText');
   if (zoomText) zoomText.textContent = RADAR_CHART_ZOOM + '%';
 }
+
 
 function daResetRadarZoom() {
   RADAR_CHART_ZOOM = 100;
@@ -3217,19 +3219,30 @@ function daRenderRadarChart(data, selectedPlayers, scale) {
   const svgHeight = height + margin.top + margin.bottom;
   const radius = Math.min(width, height) / 2 - (isMobile ? 10 : 20);
 
-  container.style.width = isFitMode ? '100%' : svgWidth + 'px';
+  container.style.width = '100%';
   container.style.height = svgHeight + 'px';
-  container.style.minWidth = isFitMode ? '0' : svgWidth + 'px';
+  container.style.minWidth = '0';
   container.style.display = 'flex';
   container.style.justifyContent = 'center';
   container.style.alignItems = 'center';
 
   // Aplicar factor de zoom al viewBox
-  const zoomFactor = RADAR_CHART_ZOOM / 100;
-  const viewBoxWidth = svgWidth * zoomFactor;
-  const viewBoxHeight = svgHeight * zoomFactor;
-  const viewBoxX = (svgWidth - viewBoxWidth) / 2;
-  const viewBoxY = (svgHeight - viewBoxHeight) / 2;
+  const zoomFactor = 100 / RADAR_CHART_ZOOM; // 100/500 = 0.2 (zoom in 5x)
+  const baseWidth = width + margin.left + margin.right;
+  const baseHeight = height + margin.top + margin.bottom;
+
+  const svgWidth = baseWidth;
+  const svgHeight = baseHeight;
+
+  // Centro del viewBox (siempre el centro del SVG)
+  const centerX = baseWidth / 2;
+  const centerY = baseHeight / 2;
+
+  // Dimensiones del viewBox según zoom
+  const viewBoxWidth = baseWidth * zoomFactor;
+  const viewBoxHeight = baseHeight * zoomFactor;
+  const viewBoxX = centerX - (viewBoxWidth / 2);
+  const viewBoxY = centerY - (viewBoxHeight / 2);
 
   const svg = d3.select('#radarChartContainer')
     .append('svg')
