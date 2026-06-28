@@ -4,7 +4,7 @@
 const LOCAL_STORAGE_VERSION = '110';
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8M51mQ860o7z8T9RkpOlcyS_vSwO6uP-9JIMGdC8BxcQgQ4zw9gStg6cFDHNNMsOH/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6PENjI64W4rPUuk2AqeZ6oUbDokz_agTuxpmagEJe63hxUEduatI-UjYXRWLXTeqP/exec';
 const FORM_ID = '1adfqTWvoY5CTLAkAYJ8clWP5lyeajZNVtRxRObdUFjI';
 const ENTRY_ID = 'entry.1802893754';
 
