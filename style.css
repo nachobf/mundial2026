@@ -57,15 +57,59 @@ body {
 
 /* Header */
 .app-header {
+  position: relative;
   text-align: center;
-  padding: 24px 16px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  padding: 48px 16px 32px;
   color: white;
   border-radius: 16px;
   margin-bottom: 16px;
+  overflow: hidden;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
-.app-header h1 { font-size: 28px; margin-bottom: 8px; }
-.app-header .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 16px; }
+
+.app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('https://isleofwight.co.uk/wp-content/uploads/2022/11/World-Cup-2026.jpg') center center / cover no-repeat;
+  filter: brightness(0.35) saturate(0.7) contrast(1.1);
+  transform: scale(1.05);
+  z-index: 0;
+}
+
+.app-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 100%);
+  z-index: 1;
+}
+
+.app-header h1,
+.app-header .subtitle,
+.app-header .countdowns {
+  position: relative;
+  z-index: 2;
+}
+
+.app-header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1.05;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 30px rgba(0,0,0,0.5);
+}
+
+.app-header .subtitle {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 20px;
+}
 .countdowns {
   display: flex;
   justify-content: center;
@@ -78,8 +122,8 @@ body {
   border-radius: 12px;
   min-width: 140px;
 }
-.countdown-label { display: block; font-size: 11px; opacity: 0.7; text-transform: uppercase; }
-.countdown-value { display: block; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.countdown-label { display: block; font-size: 10px; opacity: 0.7; text-transform: uppercase; }
+.countdown-value { display: block; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .countdown-finished { color: #ff6b6b; }
 
 /* Tabs */
