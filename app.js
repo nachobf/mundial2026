@@ -64,7 +64,7 @@ const TEAM_NAME_ES = {
   'Algeria': 'Argelia', 'Argentina': 'Argentina', 'Australia': 'Australia',
   'Austria': 'Austria', 'Belgium': 'Belgica', 'Bosnia & Herzegovina': 'Bosnia y Herzegovina',
   'Brazil': 'Brasil', 'Canada': 'Canada', 'Cape Verde': 'Cabo Verde',
-  'Colombia': 'Colombia', 'Croatia': 'Croacia', 'Curacao': 'Curazao',
+  'Colombia': 'Colombia', 'Croatia': 'Croacia', 'Curacao': 'Curazao', 'Curaçao': 'Curazao',
   'Czech Republic': 'Republica Checa', 'DR Congo': 'RD del Congo', 'Ecuador': 'Ecuador',
   'Egypt': 'Egipto', 'England': 'Inglaterra', 'France': 'Francia',
   'Germany': 'Alemania', 'Ghana': 'Ghana', 'Haiti': 'Haiti',
