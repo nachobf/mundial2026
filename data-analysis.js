@@ -2379,7 +2379,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
   // 3. Mejores terceros (solo si fase de grupos terminada)
   if (faseGruposTerminada) {
     const realTP = new Set((real.thirdPlace || []).slice(0, 8));
-    const predTP = player.thirdPlace || [];
+    const predTP = (player.thirdPlace || []).slice(0, 8);
     predTP.forEach(team => {
       if (realTP.has(team)) cats.bestThirds += 1;
     });
