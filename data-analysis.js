@@ -2338,6 +2338,14 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
   }
 
   // 4. Eliminatorias — ronda alcanzada progresivamente
+  const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+
+  // Construir mapa de rondas reales
+  const teamRoundReal = {};
+  const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
   const allTeams = new Set();
   Object.keys(player.groups || {}).forEach(g => {
     const order = player.groups[g] || [];
