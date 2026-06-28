@@ -628,48 +628,55 @@ function calculatePlayerScore(player, real) {
 
 function getTeamRoundFromPlayer(team, player, precomputedThirdPlace) {
   if (!team || !player) return null;
+  
   const kr = {};
   if (player.knockout?.matches) {
-    Object.values(player.knockout.matches).flat().forEach(m => { if (m?.match && m?.winner) kr[m.match] = m.winner; });
-  }
-  const mt = {};
-  const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
-  const tpAlloc = {};
-  const candidates = GROUP_NAMES.map(g => ({ group: g, team: player.groups?.[g]?.[2] || null })).filter(c => c.team);
-  const qualified = (precomputedThirdPlace || player.thirdPlace || calculateThirdPlaceForPlayer(player)).slice(0, 8);
-  const byGroup = {};
-  qualified.forEach(t => { const g = candidates.find(c => c.team === t)?.group; if (g) byGroup[g] = t; });
-  if (Object.keys(byGroup).length === 8) {
-    const groups = Object.keys(byGroup).sort();
-    const key = groups.join("");
-    const order = TP_TABLE[key];
-    if (order) {
-      TP_COLUMNS.forEach((mn, idx) => {
-        const g = String(order[idx]).replace(/^3/, "");
-        tpAlloc[mn] = byGroup[g] || null;
-      });
-    }
-  }
-  rounds.forEach(round => {
-    (KO_TREE?.[round] || []).forEach(match => {
-      const t1 = resolveSlotFromPlayer(match.slot1, match.num, player, kr, tpAlloc);
-      const t2 = resolveSlotFromPlayer(match.slot2, match.num, player, kr, tpAlloc);
-      mt[match.num] = { team1: t1, team2: t2 };
+    Object.values(player.knockout.matches).flat().forEach(m => {
+      if (m?.match && m?.winner) kr[m.match] = m.winner;
     });
-  });
+  }
+  
+  // Campeón
   if (kr[104] === team) return 'champion';
+  
+  // Tercer puesto
   if (kr[103] === team) return 'thirdPlace';
-  const loser103 = getMatchLoserFromData(103, kr, mt);
-  if (loser103 === team) return 'fourthPlace';
-  const loser101 = getMatchLoserFromData(101, kr, mt);
-  const loser102 = getMatchLoserFromData(102, kr, mt);
-  if (loser101 === team || loser102 === team) return 'semifinals';
-  const losersQF = [97,98,99,100].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersQF.includes(team)) return 'quarterfinals';
-  const losersR16 = [89,90,91,92,93,94,95,96].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersR16.includes(team)) return 'round16';
-  const losersR32 = [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88].map(n => getMatchLoserFromData(n, kr, mt)).filter(Boolean);
-  if (losersR32.includes(team)) return 'round32';
+  
+  // Cuarto (perdedor del 3er puesto)
+  const tpMatch = player.knockout?.matches?.thirdPlace?.[0];
+  if (tpMatch) {
+    const loser103 = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
+    if (loser103 === team) return 'fourthPlace';
+  }
+  
+  // Semifinalistas perdedores
+  const sfMatches = player.knockout?.matches?.semifinals || [];
+  for (const m of sfMatches) {
+    const loser = m.winner === m.team1 ? m.team2 : m.team1;
+    if (loser === team) return 'semifinals';
+  }
+  
+  // Cuartos perdedores
+  const qfMatches = player.knockout?.matches?.quarterfinals || [];
+  for (const m of qfMatches) {
+    const loser = m.winner === m.team1 ? m.team2 : m.team1;
+    if (loser === team) return 'quarterfinals';
+  }
+  
+  // Octavos perdedores
+  const r16Matches = player.knockout?.matches?.round16 || [];
+  for (const m of r16Matches) {
+    const loser = m.winner === m.team1 ? m.team2 : m.team1;
+    if (loser === team) return 'round16';
+  }
+  
+  // Dieciseisavos perdedores
+  const r32Matches = player.knockout?.matches?.round32 || [];
+  for (const m of r32Matches) {
+    const loser = m.winner === m.team1 ? m.team2 : m.team1;
+    if (loser === team) return 'round32';
+  }
+  
   return null;
 }
 
@@ -1455,7 +1462,7 @@ function openKnockoutMatchModal(matchNum, round) {
   modal.style.display = 'flex';
 }
 
- function resolveSlotFromPlayer(slot, matchNum, player, kr, tpAlloc) {
+function resolveSlotFromPlayer(slot, matchNum, player, kr, tpAlloc) {
   if (!slot) return null;
   if (slot.type === 'winner') return (player.groups?.[slot.group] || [])[0] || null;
   if (slot.type === 'runner_up') return (player.groups?.[slot.group] || [])[1] || null;
@@ -1463,34 +1470,12 @@ function openKnockoutMatchModal(matchNum, round) {
   if (slot.type === 'winner_of') return kr[slot.matchNum] || null;
   if (slot.type === 'loser_of') {
     const winner = kr[slot.matchNum];
-    const mt = {};
-    const rounds = ['round32','round16','quarterfinals','semifinals','thirdPlace','final'];
-    rounds.forEach(round => {
-      (KO_TREE?.[round] || []).forEach(match => {
-        const candidates = GROUP_NAMES.map(g => ({ group: g, team: player.groups?.[g]?.[2] || null })).filter(c => c.team);
-        const qualified = (player.thirdPlace || []).slice(0, 8);
-        const byGroup = {};
-        qualified.forEach(t => { const g = candidates.find(c => c.team === t)?.group; if (g) byGroup[g] = t; });
-        const tpA = {};
-        if (Object.keys(byGroup).length === 8) {
-          const groups = Object.keys(byGroup).sort();
-          const key = groups.join("");
-          const order = TP_TABLE[key];
-          if (order) {
-            TP_COLUMNS.forEach((mn, idx) => {
-              const g = String(order[idx]).replace(/^3/, "");
-              tpA[mn] = byGroup[g] || null;
-            });
-          }
-        }
-        mt[match.num] = {
-          team1: resolveSlotFromPlayer(match.slot1, match.num, player, kr, tpA),
-          team2: resolveSlotFromPlayer(match.slot2, match.num, player, kr, tpA)
-        };
-      });
-    });
-    const teams = mt[slot.matchNum] || {};
-    if (winner && teams.team1 && teams.team2) return winner === teams.team1 ? teams.team2 : teams.team1;
+    // Buscar el match en el bracket del jugador
+    const allMatches = Object.values(player.knockout?.matches || {}).flat();
+    const match = allMatches.find(m => m.match === slot.matchNum);
+    if (match && winner && match.team1 && match.team2) {
+      return winner === match.team1 ? match.team2 : match.team1;
+    }
     return null;
   }
   return null;
