@@ -2250,7 +2250,7 @@ function showPlayerPrediction(entry){
     const sectionTP = createCollapsibleSection('🥉 Mejores Terceros', 'section-tp');
     const contentTP = sectionTP.content;
 
-    const predTP = prediction.thirdPlace;
+    const predTP = (prediction.thirdPlace || []).slice(0,8);
     const realTP = real.thirdPlace || [];
     const realTPSet = new Set(realTP.slice(0, 8));
 
