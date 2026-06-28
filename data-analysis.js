@@ -2341,6 +2341,11 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
     finalPositions: 0
   };
 
+  const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+
   // 1. Resultados exactos y 1X2
   const predResults = player.groupMatchResults || {};
   const realResults = real.groupMatchResults || {};
@@ -2716,10 +2721,6 @@ function daRefreshCategoryChart() {
 }
 
 function daInitCategoryChart() {
-  const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
-  };
   const container = document.getElementById('categoryChartContainer');
   if (!container) {
     console.error('[CategoryChart] No existe #categoryChartContainer');
