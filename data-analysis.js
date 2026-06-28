@@ -219,26 +219,28 @@ function daGetTeamRoundReached(team, data, faseGruposTerminada) {
   const rounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
 
   // 1. Buscar en knockout matches la ronda más alta confirmada
-  const ko = data.knockout?.matches || {};
+  const ko = (data.knockout && data.knockout.matches) ? data.knockout.matches : {};
   let highestPlayed = null;
 
-  for (const round of rounds) {
+  for (let i = 0; i < rounds.length; i++) {
+    const round = rounds[i];
     const matches = ko[round] || [];
-    for (const m of matches) {
+    for (let j = 0; j < matches.length; j++) {
+      const m = matches[j];
       if (m.team1 === team || m.team2 === team) {
         if (m.winner) {
           if (m.winner === team) {
-            if (round === 'final') highestPlayed = 'champion';
-            else if (round === 'thirdPlace') highestPlayed = 'thirdPlace';
-            else {
-              const nextIdx = rounds.indexOf(round) + 1;
-              highestPlayed = rounds[nextIdx] || round;
+            if (round === 'final') {
+              highestPlayed = 'champion';
+            } else if (round === 'thirdPlace') {
+              highestPlayed = 'thirdPlace';
+            } else {
+              highestPlayed = rounds[i + 1] || round;
             }
           } else {
             highestPlayed = round;
           }
         } else {
-          // Partido programado sin jugar → está en esta ronda
           highestPlayed = round;
         }
       }
@@ -250,12 +252,16 @@ function daGetTeamRoundReached(team, data, faseGruposTerminada) {
   //    verificar clasificación (1º, 2º o mejor tercero)
   if (faseGruposTerminada) {
     const groups = data.groups || {};
-    for (const g of Object.keys(groups)) {
+    const groupKeys = Object.keys(groups);
+    for (let i = 0; i < groupKeys.length; i++) {
+      const g = groupKeys[i];
       const order = groups[g] || [];
       if (order[0] === team || order[1] === team) return 'round32';
       if (order[2] === team) {
         const tp = (data.thirdPlace || []).slice(0, 8);
-        if (tp.includes(team)) return 'round32';
+        for (let j = 0; j < tp.length; j++) {
+          if (tp[j] === team) return 'round32';
+        }
       }
     }
   }
@@ -321,14 +327,24 @@ function daCalculateScore(player, real, faseGruposTerminada) {
 
   // NUEVO: Calcular ronda alcanzada incrementalmente
   const allTeams = new Set();
+  
+  // Equipos de grupos del jugador
   Object.keys(player.groups || {}).forEach(g => {
     const order = player.groups[g] || [];
-    order.forEach(t => { if (t) allTeams.add(t); });
+    for (let i = 0; i < order.length; i++) {
+      if (order[i]) allTeams.add(order[i]);
+    }
   });
+  
+  // Equipos de grupos reales
   Object.keys(real.groups || {}).forEach(g => {
     const order = real.groups[g] || [];
-    order.forEach(t => { if (t) allTeams.add(t); });
+    for (let i = 0; i < order.length; i++) {
+      if (order[i]) allTeams.add(order[i]);
+    }
   });
+  
+  // Mejores terceros
   (player.thirdPlace || []).forEach(t => { if (t) allTeams.add(t); });
   (real.thirdPlace || []).forEach(t => { if (t) allTeams.add(t); });
 
@@ -438,42 +454,27 @@ function daBuildPartialReal(matchesWithResults) {
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
-    const roundMap = {
+  const roundMap = {
     'Round of 32': 'round32', 'Round of 16': 'round16',
     'Quarter-final': 'quarterfinals', 'Semi-final': 'semifinals',
     'Match for third place': 'thirdPlace', 'Final': 'final'
   };
 
-  matchesWithResults.forEach(m => {
-    const roundName = roundMap[m.round];
-    if (!roundName) return;
-    const t1Raw = m.team1, t2Raw = m.team2;
-    const isPlaceholder = /^[WL]\d+$/.test(t1Raw) || /^[WL]\d+$/.test(t2Raw) || /^\d+[A-Z]$/.test(t1Raw) || /^\d+[A-Z]$/.test(t2Raw);
-    if (isPlaceholder) return;
-
-    const t1 = (typeof translateTeamName === 'function') ? translateTeamName(t1Raw) : t1Raw;
-    const t2 = (typeof translateTeamName === 'function') ? translateTeamName(t2Raw) : t2Raw;
-
-    // NUEVO: Incluir partido aunque no tenga resultado todavía
-    const g1 = m.score && m.score.ft && Array.isArray(m.score.ft) ? parseInt(m.score.ft[0], 10) : null;
-    const g2 = m.score && m.score.ft && Array.isArray(m.score.ft) ? parseInt(m.score.ft[1], 10) : null;
-    const winner = (g1 !== null && g2 !== null) ? (g1 > g2 ? t1 : t2) : null;
-
-    real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
-  });
-
-  // NUEVO: Fusionar con datos ya procesados por el backend (más fiable)
+  // NUEVO: Usar SIEMPRE los datos del backend si están disponibles
+  // El backend ya procesó correctamente los partidos de KO (incluidos programados)
   if (window.__leaderboardData && window.__leaderboardData.realResults) {
     const br = window.__leaderboardData.realResults;
     
     if (br.knockout && br.knockout.matches) {
       for (const round of Object.keys(br.knockout.matches)) {
-        if (!real.knockout.matches[round]) real.knockout.matches[round] = [];
-        const existingKeys = new Set(real.knockout.matches[round].map(m => m.match));
+        real.knockout.matches[round] = [];
         for (const m of br.knockout.matches[round]) {
-          if (!existingKeys.has(m.match)) {
-            real.knockout.matches[round].push(m);
-          }
+          real.knockout.matches[round].push({
+            match: m.match,
+            team1: m.team1,
+            team2: m.team2,
+            winner: m.winner
+          });
         }
       }
     }
@@ -493,7 +494,27 @@ function daBuildPartialReal(matchesWithResults) {
         real.groupMatchResults[key] = br.groupMatchResults[key];
       }
     }
+    
+    return real;
   }
+
+  // Fallback: reconstruir desde matchesWithResults (solo si no hay datos del backend)
+  matchesWithResults.forEach(m => {
+    const roundName = roundMap[m.round];
+    if (!roundName) return;
+    const t1Raw = m.team1, t2Raw = m.team2;
+    const isPlaceholder = /^[WL]\d+$/.test(t1Raw) || /^[WL]\d+$/.test(t2Raw) || /^\d+[A-Z]$/.test(t1Raw) || /^\d+[A-Z]$/.test(t2Raw);
+    if (isPlaceholder) return;
+
+    const t1 = (typeof translateTeamName === 'function') ? translateTeamName(t1Raw) : t1Raw;
+    const t2 = (typeof translateTeamName === 'function') ? translateTeamName(t2Raw) : t2Raw;
+
+    const g1 = m.score && m.score.ft && Array.isArray(m.score.ft) ? parseInt(m.score.ft[0], 10) : null;
+    const g2 = m.score && m.score.ft && Array.isArray(m.score.ft) ? parseInt(m.score.ft[1], 10) : null;
+    const winner = (g1 !== null && g2 !== null) ? (g1 > g2 ? t1 : t2) : null;
+
+    real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
+  });
 
   return real;
 }
@@ -1319,6 +1340,7 @@ function daInitLineRanking() {
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (lbData) window.__leaderboardData = lbData;
     if (!wcData || !wcData.matches) {
       container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
@@ -2204,6 +2226,7 @@ function daInitDailyPoints() {
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (lbData) window.__leaderboardData = lbData;
     if (!wcData || !wcData.matches) {
       container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
@@ -2369,20 +2392,19 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
   }
 
   // 4. Eliminatorias — ronda alcanzada incrementalmente
-
-  const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
-  };
-  
   const allTeams = new Set();
+  
   Object.keys(player.groups || {}).forEach(g => {
     const order = player.groups[g] || [];
-    order.forEach(t => { if (t) allTeams.add(t); });
+    for (let i = 0; i < order.length; i++) {
+      if (order[i]) allTeams.add(order[i]);
+    }
   });
   Object.keys(real.groups || {}).forEach(g => {
     const order = real.groups[g] || [];
-    order.forEach(t => { if (t) allTeams.add(t); });
+    for (let i = 0; i < order.length; i++) {
+      if (order[i]) allTeams.add(order[i]);
+    }
   });
   (player.thirdPlace || []).forEach(t => { if (t) allTeams.add(t); });
   (real.thirdPlace || []).forEach(t => { if (t) allTeams.add(t); });
@@ -2716,6 +2738,7 @@ function daInitCategoryChart() {
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (lbData) window.__leaderboardData = lbData;
     if (!wcData || !wcData.matches) {
       container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
@@ -3585,6 +3608,7 @@ function daInitRadarChart() {
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (lbData) window.__leaderboardData = lbData;
     if (!wcData || !wcData.matches) {
       container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
@@ -3931,6 +3955,7 @@ function daInitPodiumChart() {
     : loadLeaderboard();
 
   Promise.all([wcPromise, lbPromise]).then(([wcData, lbData]) => {
+    if (lbData) window.__leaderboardData = lbData;
     if (!wcData || !wcData.matches) {
       container.innerHTML = '<p class="note-text">No se pudieron cargar los datos del torneo.</p>';
       return;
