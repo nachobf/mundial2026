@@ -2537,34 +2537,6 @@ const BRACKET_STRUCTURE = {
   final: {num: 104, label: 'W101 vs W102'}
 };
 
-function buildGoalTooltip(num) {
-  const m = matchMap[num];
-  if (!m) return '';
-
-  const goals1 = m.goals1 || [];
-  const goals2 = m.goals2 || [];
-
-  if (goals1.length === 0 && goals2.length === 0) {
-    return '<em>Sin goles registrados</em>';
-  }
-
-  let html = '<div class="goal-tooltip-content">';
-  html += `<strong>${displayTeamName(translateTeamName(m.team1))} ${m.score ? m.score.ft[0] : ''}</strong><br>`;
-  goals1.forEach(g => {
-    html += `⚽ ${g.name} ${g.minute}'<br>`;
-  });
-  if (goals1.length === 0) html += '<span style="color:#aaa">—</span><br>';
-
-  html += `<strong>${displayTeamName(translateTeamName(m.team2))} ${m.score ? m.score.ft[1] : ''}</strong><br>`;
-  goals2.forEach(g => {
-    html += `⚽ ${g.name} ${g.minute}'<br>`;
-  });
-  if (goals2.length === 0) html += '<span style="color:#aaa">—</span><br>';
-
-  html += '</div>';
-  return html;
-}
-
 function initBracket() {
   const container = document.getElementById('bracketContainerFull');
   if (!container) return;
@@ -2765,6 +2737,34 @@ function initBracket() {
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
+
+  function buildGoalTooltip(num) {
+    const m = matchMap[num];
+    if (!m) return '';
+
+    const goals1 = m.goals1 || [];
+    const goals2 = m.goals2 || [];
+
+    if (goals1.length === 0 && goals2.length === 0) {
+      return '<em>Sin goles registrados</em>';
+    }
+
+    let html = '<div class="goal-tooltip-content">';
+    html += `<strong>${displayTeamName(translateTeamName(m.team1))} ${m.score ? m.score.ft[0] : ''}</strong><br>`;
+    goals1.forEach(g => {
+      html += `⚽ ${g.name} ${g.minute}'<br>`;
+    });
+    if (goals1.length === 0) html += '<span style="color:#aaa">—</span><br>';
+
+    html += `<strong>${displayTeamName(translateTeamName(m.team2))} ${m.score ? m.score.ft[1] : ''}</strong><br>`;
+    goals2.forEach(g => {
+      html += `⚽ ${g.name} ${g.minute}'<br>`;
+    });
+    if (goals2.length === 0) html += '<span style="color:#aaa">—</span><br>';
+
+    html += '</div>';
+    return html;
+  }
 
   // Tooltip para goleadores
   const tooltip = document.createElement('div');
