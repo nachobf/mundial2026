@@ -1977,38 +1977,97 @@ body {
 /* ===== BRACKET ===== */
 .bracket-wrapper {
   overflow-x: auto;
-  padding: 1rem;
+  padding: 1rem 0.5rem;
   display: flex;
   justify-content: center;
-  min-height: 600px;
 }
 
 .bracket-table {
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   font-size: 0.8rem;
-  width: 100%;
-  max-width: 1200px;
+  width: auto;
 }
 
 .bracket-table th {
   text-align: center;
-  padding: 0.5rem 0.25rem;
+  padding: 0.6rem 0.3rem;
   font-size: 0.7rem;
   font-weight: 600;
   color: #aaa;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 2px solid #333;
+  white-space: nowrap;
+}
+
+.bracket-table th.col-connector {
+  width: 16px;
+  padding: 0;
+  border-bottom: 2px solid transparent;
 }
 
 .bracket-table td {
   vertical-align: middle;
-  padding: 0.5rem 0.25rem;
+  padding: 0.4rem 0.3rem;
   position: relative;
 }
 
-/* Celda de partido */
+/* Celda de conexión */
+.bracket-table td.conn-down,
+.bracket-table td.conn-up,
+.bracket-table td.conn-both {
+  width: 16px;
+  padding: 0;
+  position: relative;
+}
+
+/* Línea horizontal base */
+.bracket-table td.conn-down::after,
+.bracket-table td.conn-up::after,
+.bracket-table td.conn-both::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: #555;
+}
+
+/* Línea vertical - baja desde el centro */
+.bracket-table td.conn-down::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 50%;
+  background: #555;
+}
+
+/* Línea vertical - sube desde el centro */
+.bracket-table td.conn-up::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 2px;
+  height: 50%;
+  background: #555;
+}
+
+/* Línea vertical - ambas direcciones */
+.bracket-table td.conn-both::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #555;
+}
+
+/* Caja de partido */
 .match-box {
   background: #1e1e2e;
   border: 1px solid #333;
@@ -2017,8 +2076,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  min-width: 140px;
-  position: relative;
+  min-width: 150px;
+  max-width: 180px;
 }
 
 .match-box .team-row {
@@ -2057,59 +2116,6 @@ body {
   margin-top: 0.2rem;
 }
 
-/* Líneas de conexión entre rondas */
-.connector-cell {
-  width: 20px;
-  position: relative;
-}
-
-/* Línea horizontal */
-.connector-cell::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 2px;
-  background: #444;
-}
-
-/* Línea vertical para unir dos partidos */
-.connector-cell.join-down::before {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 50%;
-  bottom: -50%;
-  width: 2px;
-  background: #444;
-}
-
-.connector-cell.join-up::before {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 50%;
-  top: -50%;
-  width: 2px;
-  background: #444;
-}
-
-.connector-cell.join-both::before {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: -50%;
-  bottom: -50%;
-  width: 2px;
-  background: #444;
-}
-
-/* Espaciado entre filas de partidos */
-.spacer-row td {
-  height: 8px;
-}
-
 /* Final y 3er puesto destacados */
 .final-box {
   background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
@@ -2126,13 +2132,15 @@ body {
     padding: 0.5rem;
   }
   .match-box {
-    min-width: 110px;
+    min-width: 120px;
+    max-width: 150px;
     padding: 0.3rem 0.4rem;
   }
   .match-box .team-name {
     font-size: 0.7rem;
   }
-  .connector-cell {
-    width: 12px;
+  .bracket-table th {
+    font-size: 0.6rem;
+    padding: 0.4rem 0.2rem;
   }
 }
