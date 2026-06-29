@@ -2029,6 +2029,32 @@ function showPlayerPrediction(entry){
   const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
   const prediction = entry.prediction || entry;
   const real = window.REAL_RESULTS || {};
+  const ROUND_POINTS = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
+    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+  };
+  const BASIC_ROUNDS = ['round32', 'round16', 'quarterfinals', 'semifinals'];
+
+  function getRoundsForTerminal(terminal) {
+    if (BASIC_ROUNDS.includes(terminal)) {
+      const idx = BASIC_ROUNDS.indexOf(terminal);
+      return BASIC_ROUNDS.slice(0, idx + 1);
+    }
+    return BASIC_ROUNDS.concat(terminal);
+  }
+
+  function computeTeamRoundPoints(team, roundKey, predData, realData, realFaseGrupos) {
+    const predRound = getTeamRoundFromPlayer(team, predData, true);
+    const realRound = getTeamRoundFromPlayer(team, realData, realFaseGrupos);
+    if (!predRound || !realRound) return 0;
+
+    const realRounds = getRoundsForTerminal(realRound);
+    const predRounds = getRoundsForTerminal(predRound);
+    if (realRounds.includes(roundKey) && predRounds.includes(roundKey)) {
+      return ROUND_POINTS[roundKey] || 0;
+    }
+    return 0;
+  }
   const hasRealResults = real.groups && Object.keys(real.groups).length > 0;
 
   // Puntuación total
@@ -2040,182 +2066,132 @@ function showPlayerPrediction(entry){
     scoreDiv.innerHTML = '<p class="prediction-score">Puntuación: <strong>En curso</strong> (el torneo está en progreso)</p>';
   }
   viewer.appendChild(scoreDiv);
+  // ============================================================
+  // 1. ELIMINATORIAS ACTUALES + PENDIENTES (nuevo orden)
+  // ============================================================
+  if (prediction.knockout && prediction.knockout.matches) {
+    const roundsDef = [
+      { key: 'round32', name: 'Dieciseisavos de Final' },
+      { key: 'round16', name: 'Octavos de Final' },
+      { key: 'quarterfinals', name: 'Cuartos de Final' },
+      { key: 'semifinals', name: 'Semifinales' },
+      { key: 'thirdPlace', name: 'Tercer Puesto' },
+      { key: 'final', name: 'Final' }
+    ];
 
-  // ============================================================
-  // SECCIÓN 1: RESULTADOS 1X2 (colapsable, ordenados por fecha)
-  // ============================================================
-  const gmr = prediction.groupMatchResults || {};
-  if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
-    
-    // Separar partidos en pasados (con resultado real) y próximos (sin resultado real)
-    const matchesWithPred = QUINIELA_1X2_MATCHES.filter(m => gmr[m.key]);
-    
-    const pastMatches = [];
-    const upcomingMatches = [];
-    
-    matchesWithPred.forEach(m => {
-      const realResult = real.groupMatchResults?.[m.key];
-      if (realResult && realResult.team1Goals !== '' && realResult.team2Goals !== '') {
-        pastMatches.push(m);
+    const realGroupMatchesCount = Object.keys(real.groupMatchResults || {}).length;
+    const realFaseGrupos = realGroupMatchesCount >= 72;
+
+    // Clasificar rondas en "actuales" (algún partido ya jugado) y "pendientes"
+    const actualRounds = [];
+    const pendingRounds = [];
+    for (const rd of roundsDef) {
+      const matches = real.knockout?.matches?.[rd.key] || [];
+      const algunaJugada = matches.some(m => m.winner !== null && m.winner !== undefined);
+      if (algunaJugada) {
+        actualRounds.push(rd);
       } else {
-        upcomingMatches.push(m);
+        pendingRounds.push(rd);
       }
-    });
-
-    // --- SECCIÓN 1A: PARTIDOS PASADOS (orden inverso: más reciente primero) ---
-    if (pastMatches.length > 0) {
-      // Ordenar por fecha inversa (más reciente primero)
-      pastMatches.sort((a, b) => {
-        const dateA = String(a.date || '0000-00-00') + String(a.time || '00:00');
-        const dateB = String(b.date || '0000-00-00') + String(b.time || '00:00');
-        return dateB.localeCompare(dateA); // Invertido para orden inverso
-      });
-
-      const sectionPast = createCollapsibleSection('⚽ Partidos Finalizados (' + pastMatches.length + ')', 'section-past');
-      const contentPast = sectionPast.content;
-
-      pastMatches.forEach(m => {
-        const pred = gmr[m.key];
-        const realResult = real.groupMatchResults?.[m.key];
-
-        const isInverted = INVERTED_KEYS.has(m.key);
-        let t1 = isInverted ? m.team1 : m.team1;
-        let t2 = isInverted ? m.team2 : m.team2;
-
-        const matchDiv = document.createElement('div');
-        matchDiv.className = 'prediction-match';
-        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
-
-        let html = '';
-
-        // Info línea: fecha · jornada · lugar · GRUPO
-        const dateLabel = formatMatchDateTime(m);
-        const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
-        const groundLabel = m.ground || '';
-        let infoParts = [];
-        if (dateLabel) infoParts.push(dateLabel);
-        if (roundLabel) infoParts.push(roundLabel);
-        if (groundLabel) infoParts.push(groundLabel);
-        infoParts.push('GRUPO ' + m.group);
-        
-        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
-
-        // LOCAL
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t1)) + '</span>';
-        html += '</div>';
-
-        // Score (predicción)
-        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
-        html += '<span style="color:#888;">-</span>';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
-        html += '</div>';
-
-        // VISITANTE
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t2)) + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '</div>';
-
-        // Resultado real + puntos
-        if (realResult) {
-          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
-          const p1x2 = get1x2FromResult(pred);
-          const r1x2 = get1x2FromResult(realResult);
-          const quinielaOk = p1x2 === r1x2;
-
-          html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
-          html += '<span style="color:#888;">Resultado real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
-          if (exact) {
-            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
-          } else if (quinielaOk) {
-            html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
-          } else {
-            html += ' <span style="color:#ff6b6b;font-weight:700;background:#fff0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
-          }
-          html += '</div>';
-        }
-
-        matchDiv.innerHTML = html;
-        contentPast.appendChild(matchDiv);
-      });
-
-      viewer.appendChild(sectionPast.wrapper);
     }
 
-    // --- SECCIÓN 1B: PRÓXIMOS PARTIDOS (orden cronológico) ---
-    if (upcomingMatches.length > 0) {
-      // Ordenar por fecha cronológica
-      upcomingMatches.sort((a, b) => {
-        const dateA = String(a.date || '9999-99-99') + String(a.time || '99:99');
-        const dateB = String(b.date || '9999-99-99') + String(b.time || '99:99');
-        return dateA.localeCompare(dateB);
+    // Función para renderizar un partido
+    function renderMatch(match, roundKey) {
+      const t1 = match.team1 || '?';
+      const t2 = match.team2 || '?';
+      const pts1 = computeTeamRoundPoints(t1, roundKey, prediction, real, realFaseGrupos);
+      const pts2 = computeTeamRoundPoints(t2, roundKey, prediction, real, realFaseGrupos);
+
+      const matchDiv = document.createElement('div');
+      matchDiv.className = 'prediction-ko-match';
+      matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
+
+      let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+
+      // Equipo 1
+      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
+      html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+      html += '<span style="' + (match.winner === t1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t1)) + '</span>';
+      if (pts1 > 0) {
+        html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:1px 6px;border-radius:8px;font-size:12px;">+' + pts1 + ' pts</span>';
+      }
+      html += '</div>';
+
+      html += '<span style="color:#888;font-weight:700;">vs</span>';
+
+      // Equipo 2
+      html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
+      html += '<span style="' + (match.winner === t2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t2)) + '</span>';
+      html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+      if (pts2 > 0) {
+        html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:1px 6px;border-radius:8px;font-size:12px;">+' + pts2 + ' pts</span>';
+      }
+      html += '</div>';
+
+      html += '</div>';
+
+      // Ganador predicho
+      if (match.winner && match.winner !== '?') {
+        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
+        html += 'Ganador elegido: <strong>' + escapeHtml(displayTeamName(match.winner)) + '</strong>';
+        html += '</div>';
+      }
+
+      matchDiv.innerHTML = html;
+      return matchDiv;
+    }
+
+    // --- Sección 1A: Eliminatorias actuales (orden inverso) ---
+    if (actualRounds.length > 0) {
+      const sectionActual = createCollapsibleSection('🏆 Eliminatorias actuales', 'section-ko-actual');
+      const contentActual = sectionActual.content;
+
+      // Ordenar de más reciente a más antigua (final → round32)
+      const reversedRounds = [...actualRounds].reverse();
+      reversedRounds.forEach(rd => {
+        const matches = prediction.knockout.matches[rd.key] || [];
+        if (!matches.length) return;
+
+        const roundDiv = document.createElement('div');
+        roundDiv.className = 'prediction-round';
+        roundDiv.innerHTML = '<h5 style="color:#1a1a2e;margin:12px 0 6px;font-size:15px;">' + rd.name + '</h5>';
+
+        matches.forEach(match => {
+          roundDiv.appendChild(renderMatch(match, rd.key));
+        });
+
+        contentActual.appendChild(roundDiv);
       });
 
-      const sectionUpcoming = createCollapsibleSection('📅 Próximos Partidos (' + upcomingMatches.length + ')', 'section-upcoming');
-      const contentUpcoming = sectionUpcoming.content;
+      viewer.appendChild(sectionActual.wrapper);
+    }
 
-      upcomingMatches.forEach(m => {
-        const pred = gmr[m.key];
+    // --- Sección 1B: Eliminatorias pendientes (orden natural) ---
+    if (pendingRounds.length > 0) {
+      const sectionPend = createCollapsibleSection('📅 Eliminatorias pendientes', 'section-ko-pend');
+      const contentPend = sectionPend.content;
 
-        const isInverted = INVERTED_KEYS.has(m.key);
-        let t1 = isInverted ? m.team1 : m.team1;
-        let t2 = isInverted ? m.team2 : m.team2;
+      pendingRounds.forEach(rd => {
+        const matches = prediction.knockout.matches[rd.key] || [];
+        if (!matches.length) return;
 
-        const matchDiv = document.createElement('div');
-        matchDiv.className = 'prediction-match';
-        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#fff3e0;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
+        const roundDiv = document.createElement('div');
+        roundDiv.className = 'prediction-round';
+        roundDiv.innerHTML = '<h5 style="color:#1a1a2e;margin:12px 0 6px;font-size:15px;">' + rd.name + '</h5>';
 
-        let html = '';
+        matches.forEach(match => {
+          roundDiv.appendChild(renderMatch(match, rd.key));
+        });
 
-        // Info línea: fecha · jornada · lugar · GRUPO
-        const dateLabel = formatMatchDateTime(m);
-        const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
-        const groundLabel = m.ground || '';
-        let infoParts = [];
-        if (dateLabel) infoParts.push(dateLabel);
-        if (roundLabel) infoParts.push(roundLabel);
-        if (groundLabel) infoParts.push(groundLabel);
-        infoParts.push('GRUPO ' + m.group);
-        
-        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
-
-        // LOCAL
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t1)) + '</span>';
-        html += '</div>';
-
-        // Score (predicción)
-        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
-        html += '<span style="color:#888;">-</span>';
-        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
-        html += '</div>';
-
-        // VISITANTE
-        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t2)) + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '</div>';
-
-        // Badge "Pendiente"
-        html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
-        html += '<span style="color:#f57c00;font-weight:700;background:#fff8e1;padding:2px 8px;border-radius:10px;">⏳ Pendiente</span>';
-        html += '</div>';
-
-        matchDiv.innerHTML = html;
-        contentUpcoming.appendChild(matchDiv);
+        contentPend.appendChild(roundDiv);
       });
 
-      viewer.appendChild(sectionUpcoming.wrapper);
+      viewer.appendChild(sectionPend.wrapper);
     }
   }
 
   // ============================================================
-  // SECCIÓN 2: FASE DE GRUPOS (colapsable)
+  // 2. FASE DE GRUPOS
   // ============================================================
   if (prediction.groups && typeof prediction.groups === 'object') {
     const sectionGroups = createCollapsibleSection('🌍 Fase de Grupos', 'section-groups');
@@ -2249,7 +2225,7 @@ function showPlayerPrediction(entry){
   }
 
   // ============================================================
-  // SECCIÓN 3: MEJORES TERCEROS
+  // 3. MEJORES TERCEROS
   // ============================================================
   if (prediction.thirdPlace && prediction.thirdPlace.length) {
     const sectionTP = createCollapsibleSection('🥉 Mejores Terceros', 'section-tp');
@@ -2277,79 +2253,163 @@ function showPlayerPrediction(entry){
   }
 
   // ============================================================
-  // SECCIÓN 4: ELIMINATORIAS (colapsable)
+  // 4. PARTIDOS DE GRUPOS FINALIZADOS (pasados + próximos)
   // ============================================================
-  if (prediction.knockout && prediction.knockout.matches) {
-    const sectionKO = createCollapsibleSection('🏆 Eliminatorias', 'section-ko');
-    const contentKO = sectionKO.content;
+  const gmr = prediction.groupMatchResults || {};
+  if (Object.keys(gmr).length > 0 && QUINIELA_1X2_MATCHES.length > 0) {
+    
+    const matchesWithPred = QUINIELA_1X2_MATCHES.filter(m => gmr[m.key]);
+    
+    const pastMatches = [];
+    const upcomingMatches = [];
+    
+    matchesWithPred.forEach(m => {
+      const realResult = real.groupMatchResults?.[m.key];
+      if (realResult && realResult.team1Goals !== '' && realResult.team2Goals !== '') {
+        pastMatches.push(m);
+      } else {
+        upcomingMatches.push(m);
+      }
+    });
 
-    const rounds = [
-      { key: 'round32', name: 'Dieciseisavos de Final' },
-      { key: 'round16', name: 'Octavos de Final' },
-      { key: 'quarterfinals', name: 'Cuartos de Final' },
-      { key: 'semifinals', name: 'Semifinales' },
-      { key: 'thirdPlace', name: 'Tercer Puesto' },
-      { key: 'final', name: 'Final' }
-    ];
+    // --- Pasados (orden inverso) ---
+    if (pastMatches.length > 0) {
+      pastMatches.sort((a, b) => {
+        const dateA = String(a.date || '0000-00-00') + String(a.time || '00:00');
+        const dateB = String(b.date || '0000-00-00') + String(b.time || '00:00');
+        return dateB.localeCompare(dateA);
+      });
 
-    const roundPointsMap = {
-      round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-      finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
-    };
+      const sectionPast = createCollapsibleSection('⚽ Partidos Finalizados (' + pastMatches.length + ')', 'section-past');
+      const contentPast = sectionPast.content;
 
-    rounds.forEach(round => {
-      const matches = prediction.knockout.matches[round.key] || [];
-      const realMatches = real.knockout?.matches?.[round.key] || [];
+      pastMatches.forEach(m => {
+        const pred = gmr[m.key];
+        const realResult = real.groupMatchResults?.[m.key];
 
-      if (!matches.length) return;
-
-      const roundDiv = document.createElement('div');
-      roundDiv.className = 'prediction-round';
-      roundDiv.innerHTML = '<h5 style="color:#1a1a2e;margin:12px 0 6px;font-size:15px;">' + round.name + '</h5>';
-
-      matches.forEach(match => {
-        const realMatch = realMatches.find(m => m.match === match.match);
-        const isCorrect = realMatch && realMatch.winner && match.winner === realMatch.winner;
+        const isInverted = INVERTED_KEYS.has(m.key);
+        let t1 = isInverted ? m.team1 : m.team1;
+        let t2 = isInverted ? m.team2 : m.team2;
 
         const matchDiv = document.createElement('div');
-        matchDiv.className = 'prediction-ko-match ' + (isCorrect ? 'correct' : '');
-        matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
+        matchDiv.className = 'prediction-match';
+        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#f8f9fa;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
 
-        let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+        let html = '';
+        const dateLabel = formatMatchDateTime(m);
+        const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
+        const groundLabel = m.ground || '';
+        let infoParts = [];
+        if (dateLabel) infoParts.push(dateLabel);
+        if (roundLabel) infoParts.push(roundLabel);
+        if (groundLabel) infoParts.push(groundLabel);
+        infoParts.push('GRUPO ' + m.group);
+        
+        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
 
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
-        html += '<span class="team-flag ' + getTeamFlagClass(match.team1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-        html += '<span class="' + (match.winner === match.team1 ? 'winner' : '') + '" style="' + (match.winner === match.team1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(match.team1 || '?')) + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t1)) + '</span>';
         html += '</div>';
 
-        html += '<span style="color:#888;font-weight:700;">vs</span>';
+        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
+        html += '<span style="color:#888;">-</span>';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
+        html += '</div>';
 
         html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-        html += '<span class="' + (match.winner === match.team2 ? 'winner' : '') + '" style="' + (match.winner === match.team2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(match.team2 || '?')) + '</span>';
-        html += '<span class="team-flag ' + getTeamFlagClass(match.team2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t2)) + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
         html += '</div>';
 
-        html += '</div>';
+        if (realResult) {
+          const exact = pred.team1Goals === realResult.team1Goals && pred.team2Goals === realResult.team2Goals;
+          const p1x2 = get1x2FromResult(pred);
+          const r1x2 = get1x2FromResult(realResult);
+          const quinielaOk = p1x2 === r1x2;
 
-        html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
-        html += 'Ganador: <span class="team-flag ' + getTeamFlagClass(match.winner) + '" style="width:16px;height:12px;margin-left:4px;"></span> <strong>' + escapeHtml(displayTeamName(match.winner || '?')) + '</strong>';
-
-        if (isCorrect) {
-          const pts = roundPointsMap[round.key] || 0;
-          html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">✓ +' + pts + ' pts</span>';
+          html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
+          html += '<span style="color:#888;">Resultado real: ' + realResult.team1Goals + ' - ' + realResult.team2Goals + '</span>';
+          if (exact) {
+            html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:2px 8px;border-radius:10px;">Resultado exacto +5 pts</span>';
+          } else if (quinielaOk) {
+            html += ' <span style="color:#f9a825;font-weight:700;background:#fffde7;padding:2px 8px;border-radius:10px;">1X2 +1 pt</span>';
+          } else {
+            html += ' <span style="color:#ff6b6b;font-weight:700;background:#fff0f0;padding:2px 8px;border-radius:10px;">Fallado</span>';
+          }
+          html += '</div>';
         }
+
+        matchDiv.innerHTML = html;
+        contentPast.appendChild(matchDiv);
+      });
+
+      viewer.appendChild(sectionPast.wrapper);
+    }
+
+    // --- Próximos (orden cronológico) ---
+    if (upcomingMatches.length > 0) {
+      upcomingMatches.sort((a, b) => {
+        const dateA = String(a.date || '9999-99-99') + String(a.time || '99:99');
+        const dateB = String(b.date || '9999-99-99') + String(b.time || '99:99');
+        return dateA.localeCompare(dateB);
+      });
+
+      const sectionUpcoming = createCollapsibleSection('📅 Próximos Partidos (' + upcomingMatches.length + ')', 'section-upcoming');
+      const contentUpcoming = sectionUpcoming.content;
+
+      upcomingMatches.forEach(m => {
+        const pred = gmr[m.key];
+        const isInverted = INVERTED_KEYS.has(m.key);
+        let t1 = isInverted ? m.team1 : m.team1;
+        let t2 = isInverted ? m.team2 : m.team2;
+
+        const matchDiv = document.createElement('div');
+        matchDiv.className = 'prediction-match';
+        matchDiv.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;background:#fff3e0;border-radius:8px;margin:4px 0;flex-wrap:wrap;';
+
+        let html = '';
+        const dateLabel = formatMatchDateTime(m);
+        const roundLabel = m.round ? 'Jornada ' + getMatchdayNumber(m, 0) : '';
+        const groundLabel = m.ground || '';
+        let infoParts = [];
+        if (dateLabel) infoParts.push(dateLabel);
+        if (roundLabel) infoParts.push(roundLabel);
+        if (groundLabel) infoParts.push(groundLabel);
+        infoParts.push('GRUPO ' + m.group);
+        
+        html += '<div style="width:100%;font-size:11px;color:#888;margin-bottom:4px;">' + escapeHtml(infoParts.join(' · ')) + '</div>';
+
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
+        html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t1)) + '</span>';
+        html += '</div>';
+
+        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-weight:700;">';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team1Goals + '</span>';
+        html += '<span style="color:#888;">-</span>';
+        html += '<span style="background:#e3f2fd;padding:4px 10px;border-radius:6px;">' + pred.team2Goals + '</span>';
+        html += '</div>';
+
+        html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">' + escapeHtml(displayTeamName(t2)) + '</span>';
+        html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
+        html += '</div>';
+
+        html += '<div style="width:100%;margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
+        html += '<span style="color:#f57c00;font-weight:700;background:#fff8e1;padding:2px 8px;border-radius:10px;">⏳ Pendiente</span>';
         html += '</div>';
 
         matchDiv.innerHTML = html;
-        roundDiv.appendChild(matchDiv);
+        contentUpcoming.appendChild(matchDiv);
       });
 
-      contentKO.appendChild(roundDiv);
-    });
-
-    viewer.appendChild(sectionKO.wrapper);
+      viewer.appendChild(sectionUpcoming.wrapper);
+    }
   }
 
+  // Mostrar modal
   modal.style.display = 'flex';
 }
 
