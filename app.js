@@ -2497,32 +2497,87 @@ window.loadRealResultsFromBackend = loadRealResultsFromBackend;
 
 
 /* ============================================================
-   CUADRO DE ELIMINATORIAS - V2 (Tabla con conexiones)
+   CUADRO DE ELIMINATORIAS - V3 (Estructura fija, datos dinámicos)
    ============================================================ */
 
-function initBracket() {
-  if (!window.__worldCupData) {
-    setTimeout(initBracket, 500);
-    return;
-  }
+// Estructura fija del bracket del Mundial 2026
+// Cada entrada: [numPartido, ronda, equipo1Placeholder, equipo2Placeholder]
+const BRACKET_STRUCTURE = {
+  round32: [
+    [73, '1A vs 2B'], [74, '1C vs 2D'], [75, '1E vs 2F'], [76, '1G vs 2H'],
+    [77, '1I vs 2J'], [78, '1K vs 2L'], [79, '1B vs 2A'], [80, '1D vs 2C'],
+    [81, '1F vs 2E'], [82, '1H vs 2G'], [83, '1J vs 2I'], [84, '1L vs 2K'],
+    [85, '3D vs 3B vs 3F vs 3H'], [86, '3A vs 3C vs 3E vs 3G'],
+    [87, '3I vs 3K vs 3J vs 3L'], [88, '3H vs 3F vs 3B vs 3D']
+  ],
+  round16: [
+    [89, 'W73 vs W74'], [90, 'W75 vs W76'], [91, 'W77 vs W78'], [92, 'W79 vs W80'],
+    [93, 'W81 vs W82'], [94, 'W83 vs W84'], [95, 'W85 vs W86'], [96, 'W87 vs W88']
+  ],
+  quarterfinals: [
+    [97, 'W89 vs W90'], [98, 'W91 vs W92'], [99, 'W93 vs W94'], [100, 'W95 vs W96']
+  ],
+  semifinals: [
+    [101, 'W97 vs W98'], [102, 'W99 vs W100']
+  ],
+  thirdPlace: [103, 'L101 vs L102'],
+  final: [104, 'W101 vs W102']
+};
 
+function initBracket() {
   const container = document.getElementById('bracketContainerFull');
   if (!container) return;
 
-  // Obtener datos de partidos
+  // Obtener datos de partidos del JSON
   const matchMap = {};
-  const koMatches = window.__worldCupData.matches.filter(m =>
-    ['Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final'].includes(m.round)
-  );
-  koMatches.forEach(m => matchMap[m.num] = m);
+  if (window.__worldCupData && window.__worldCupData.matches) {
+    const koMatches = window.__worldCupData.matches.filter(m =>
+      ['Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final'].includes(m.round)
+    );
+    koMatches.forEach(m => matchMap[m.num] = m);
+  }
 
-  // Función para obtener ganador (de REAL_RESULTS o del JSON)
+  // Obtener resultados reales del backend si existen
+  const realResults = window.__leaderboardData?.realResults || window.REAL_RESULTS || null;
+
+  // Función para obtener el nombre de un equipo (real o placeholder)
+  function getTeamName(num, teamIdx) {
+    // 1. Si hay resultados reales con winner, usar equipos reales
+    if (realResults && realResults.knockout && realResults.knockout.matches) {
+      for (const round in realResults.knockout.matches) {
+        const found = realResults.knockout.matches[round].find(m => m.match === num);
+        if (found) {
+          return teamIdx === 1 ? found.team1 : found.team2;
+        }
+      }
+    }
+    
+    // 2. Si el JSON tiene el partido con equipos reales (no placeholders)
+    const m = matchMap[num];
+    if (m) {
+      const t1 = translateTeamName(m.team1);
+      const t2 = translateTeamName(m.team2);
+      // Solo usar si no es placeholder
+      if (!/^[WL]\d+$/.test(m.team1) && !/^\d+[A-Z]$/.test(m.team1)) {
+        return teamIdx === 1 ? t1 : t2;
+      }
+    }
+    
+    // 3. Fallback: placeholder
+    const struct = findStructure(num);
+    if (struct) {
+      const parts = struct[1].split(' vs ');
+      return teamIdx === 1 ? parts[0] : (parts[1] || parts[0]);
+    }
+    return '?';
+  }
+
+  // Función para obtener ganador
   function getWinner(num) {
-    if (window.REAL_RESULTS && window.REAL_RESULTS.knockout) {
-      const rounds = window.REAL_RESULTS.knockout.matches;
-      for (const round in rounds) {
-        const found = rounds[round].find(m => m.match === num);
-        if (found) return found.winner;
+    if (realResults && realResults.knockout && realResults.knockout.matches) {
+      for (const round in realResults.knockout.matches) {
+        const found = realResults.knockout.matches[round].find(m => m.match === num);
+        if (found && found.winner) return found.winner;
       }
     }
     const m = matchMap[num];
@@ -2533,22 +2588,35 @@ function initBracket() {
     return null;
   }
 
-  // Función para renderizar una celda de partido
-  function renderMatchCell(num, addRightLine) {
+  function findStructure(num) {
+    for (const round in BRACKET_STRUCTURE) {
+      const found = BRACKET_STRUCTURE[round].find(s => s[0] === num);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function getMatchDate(num) {
     const m = matchMap[num];
-    if (!m) return '<td></td>';
+    if (m && m.date) {
+      return formatMatchDateTime(m);
+    }
+    return '';
+  }
 
-    const t1 = translateTeamName(m.team1);
-    const t2 = translateTeamName(m.team2);
+  // Renderizar una celda de partido
+  function renderMatchCell(num, isFinal) {
+    const t1 = getTeamName(num, 1);
+    const t2 = getTeamName(num, 2);
     const winner = getWinner(num);
-    const played = m.score && m.score.ft && m.score.ft.length === 2;
-    const scoreStr = played ? `${m.score.ft[0]}-${m.score.ft[1]}` : '-';
-
-    const lineClass = addRightLine ? 'has-right-line' : '';
+    const m = matchMap[num];
+    const played = m && m.score && m.score.ft && m.score.ft.length === 2;
+    
+    const boxClass = isFinal ? 'match-box final-box' : 'match-box';
     
     return `
-      <td class="match-cell ${lineClass}">
-        <div class="match-box">
+      <td>
+        <div class="${boxClass}">
           <div class="team-row">
             <span class="team-name ${winner === t1 ? 'winner' : ''}">
               <span class="team-flag ${getTeamFlagClass(t1)}"></span>
@@ -2563,118 +2631,107 @@ function initBracket() {
             </span>
             <span class="score">${played ? m.score.ft[1] : ''}</span>
           </div>
-          ${m.date ? `<div class="date">${formatMatchDateTime(m)}</div>` : ''}
+          ${getMatchDate(num) ? `<div class="date">${getMatchDate(num)}</div>` : ''}
         </div>
       </td>
     `;
   }
 
+  // Renderizar celda de conexión
+  function renderConnector(type) {
+    const classes = ['connector-cell'];
+    if (type === 'down') classes.push('join-down');
+    else if (type === 'up') classes.push('join-up');
+    else if (type === 'both') classes.push('join-both');
+    return `<td class="${classes.join(' ')}"></td>`;
+  }
+
   // Construir tabla
-  // Estructura: cada "unidad" de bracket tiene 2 partidos en ronda N que alimentan 1 en ronda N+1
-  
-  // Definir las rondas con sus números de partido
-  const rounds = {
-    round32: [
-      [73, 74], [75, 76], [77, 78], [79, 80],
-      [81, 82], [83, 84], [85, 86], [87, 88]
-    ],
-    round16: [
-      [89, 90], [91, 92], [93, 94], [95, 96]
-    ],
-    quarterfinals: [
-      [97, 98], [99, 100]
-    ],
-    semifinals: [101, 102],
-    final: [104],
-    thirdPlace: [103]
-  };
+  let html = '<div class="bracket-wrapper"><table class="bracket-table"><thead><tr>';
+  html += '<th>Dieciseisavos</th><th></th>';
+  html += '<th>Octavos</th><th></th>';
+  html += '<th>Cuartos</th><th></th>';
+  html += '<th>Semifinales</th><th></th>';
+  html += '<th>Final / 3º</th>';
+  html += '</tr></thead><tbody>';
 
-  let html = '<div class="bracket-wrapper"><table class="bracket-table">';
+  // El bracket tiene 16 partidos en dieciseisavos
+  // Cada 2 dieciseisavos → 1 octavo
+  // Cada 2 octavos → 1 cuarto
+  // Cada 2 cuartos → 1 semi
+  // 2 semis → 1 final + 1 tercer puesto
 
-  // Headers
-  html += '<thead><tr>';
-  html += '<th>Dieciseisavos</th>';
-  html += '<th></th>'; // columna de conexión
-  html += '<th>Octavos</th>';
-  html += '<th></th>';
-  html += '<th>Cuartos</th>';
-  html += '<th></th>';
-  html += '<th>Semifinales</th>';
-  html += '<th></th>';
-  html += '<th>Final</th>';
-  html += '</tr></thead>';
+  // Estructura de filas:
+  // Fila 0:  dieciseisavos 0,1 → octavo 0
+  // Fila 1:  dieciseisavos 2,3 → octavo 1
+  // Fila 2:  dieciseisavos 4,5 → octavo 2
+  // Fila 3:  dieciseisavos 6,7 → octavo 3
+  // Fila 4:  dieciseisavos 8,9 → octavo 4
+  // Fila 5:  dieciseisavos 10,11 → octavo 5
+  // Fila 6:  dieciseisavos 12,13 → octavo 6
+  // Fila 7:  dieciseisavos 14,15 → octavo 7
+  // Cada 4 dieciseisavos → 1 cuarto
+  // Cada 8 dieciseisavos → 1 semi
 
-  html += '<tbody>';
+  const r32 = BRACKET_STRUCTURE.round32;
+  const r16 = BRACKET_STRUCTURE.round16;
+  const qf = BRACKET_STRUCTURE.quarterfinals;
+  const sf = BRACKET_STRUCTURE.semifinals;
 
-  // Para un bracket de 32 equipos, necesitamos 16 filas de partidos en dieciseisavos
-  // que se reducen a 8, 4, 2, 1
-  
-  // Vamos a construirlo fila por fila, usando rowspan para las conexiones
-  
-  // FILAS PARES: partidos de dieciseisavos (2 por fila de octavos)
-  // FILAS IMPARES: espaciadores
-  
-  const r32 = rounds.round32; // 8 pares
-  const r16 = rounds.round16; // 4 pares
-  const qf = rounds.quarterfinals; // 2 pares
-  
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 16; i += 2) {
     html += '<tr>';
     
-    // Dieciseisavos - par i
-    const r32Pair = r32[i];
-    html += renderMatchCell(r32Pair[0], true);
-    html += '<td class="connect-cell"></td>'; // conexión
+    // Dieciseisavos: 2 partidos por fila
+    html += renderMatchCell(r32[i][0]);
+    html += renderConnector(i % 4 === 0 ? 'down' : 'up');
+    html += renderMatchCell(r32[i + 1][0]);
+    html += renderConnector('both');
     
-    // Octavos - cada 2 pares de dieciseisavos = 1 octavo
+    // Octavos: 1 cada 2 filas
+    const r16Idx = Math.floor(i / 2);
     if (i % 2 === 0) {
-      const r16Pair = r16[Math.floor(i / 2)];
-      html += renderMatchCell(r16Pair[0], true);
-      html += '<td class="connect-cell"></td>';
+      html += renderMatchCell(r16[r16Idx][0]);
+      html += renderConnector(r16Idx % 2 === 0 ? 'down' : 'up');
     } else {
       html += '<td></td><td></td>';
     }
     
-    // Cuartos - cada 2 pares de octavos = 1 cuarto
+    // Cuartos: 1 cada 4 filas
+    const qfIdx = Math.floor(i / 4);
     if (i % 4 === 0) {
-      const qfPair = qf[Math.floor(i / 4)];
-      html += renderMatchCell(qfPair[0], true);
-      html += '<td class="connect-cell"></td>';
+      html += renderMatchCell(qf[qfIdx][0]);
+      html += renderConnector(qfIdx % 2 === 0 ? 'down' : 'up');
     } else {
       html += '<td></td><td></td>';
     }
     
-    // Semifinales - cada 2 pares de cuartos = 1 semi
+    // Semifinales: 1 cada 8 filas
+    const sfIdx = Math.floor(i / 8);
     if (i % 8 === 0) {
-      html += renderMatchCell(rounds.semifinals[0], true);
-      html += '<td class="connect-cell"></td>';
-    } else if (i % 8 === 4) {
-      html += renderMatchCell(rounds.semifinals[1], true);
-      html += '<td class="connect-cell"></td>';
+      html += renderMatchCell(sf[sfIdx][0]);
+      html += renderConnector(sfIdx === 0 ? 'down' : 'up');
     } else {
       html += '<td></td><td></td>';
     }
     
-    // Final (solo en la primera fila del primer semi)
+    // Final y 3er puesto
     if (i === 0) {
-      html += renderMatchCell(rounds.final[0], false);
-    } else if (i === 4) {
-      // Tercer puesto en la mitad
-      html += renderMatchCell(rounds.thirdPlace[0], false);
+      html += renderMatchCell(BRACKET_STRUCTURE.final[0], true);
+    } else if (i === 8) {
+      html += renderMatchCell(BRACKET_STRUCTURE.thirdPlace[0], true);
     } else {
       html += '<td></td>';
     }
     
     html += '</tr>';
     
-    // Fila de espaciado (excepto después del último)
-    if (i < 7) {
-      html += '<tr class="spacer-row"><td colspan="9" class="spacer-cell"></td></tr>';
+    // Fila de espaciado
+    if (i < 14) {
+      html += '<tr class="spacer-row"><td colspan="9"></td></tr>';
     }
   }
 
   html += '</tbody></table></div>';
-
   container.innerHTML = html;
 }
 

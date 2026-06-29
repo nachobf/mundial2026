@@ -1977,49 +1977,48 @@ body {
 /* ===== BRACKET ===== */
 .bracket-wrapper {
   overflow-x: auto;
-  padding: 2rem 1rem;
+  padding: 1rem;
   display: flex;
   justify-content: center;
+  min-height: 600px;
 }
 
 .bracket-table {
-  border-collapse: collapse;
-  border: none;
-  font-size: 0.85rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+  width: 100%;
+  max-width: 1200px;
 }
 
 .bracket-table th {
   text-align: center;
-  padding: 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #666;
+  color: #aaa;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  border-bottom: 2px solid #333;
 }
 
 .bracket-table td {
   vertical-align: middle;
-  padding: 0;
-  margin: 0;
-  min-width: 180px;
+  padding: 0.5rem 0.25rem;
+  position: relative;
 }
 
 /* Celda de partido */
-.match-cell {
-  position: relative;
-  padding: 0.5rem 0;
-}
-
 .match-box {
-  background: #fff;
-  border: 1px solid #ddd;
+  background: #1e1e2e;
+  border: 1px solid #333;
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  gap: 0.15rem;
+  min-width: 140px;
+  position: relative;
 }
 
 .match-box .team-row {
@@ -2034,116 +2033,106 @@ body {
   align-items: center;
   gap: 0.3rem;
   font-weight: 500;
+  color: #ccc;
+  font-size: 0.8rem;
 }
 
 .match-box .team-name.winner {
   font-weight: 700;
-  color: #1a1a2e;
+  color: #fff;
 }
 
 .match-box .score {
   font-weight: 700;
-  font-size: 0.9rem;
-  color: #333;
-  min-width: 2ch;
-  text-align: center;
+  font-size: 0.85rem;
+  color: #fff;
+  min-width: 1.5ch;
+  text-align: right;
 }
 
 .match-box .date {
   font-size: 0.65rem;
-  color: #888;
+  color: #666;
   text-align: center;
-  margin-top: 0.1rem;
+  margin-top: 0.2rem;
 }
 
-/* Líneas de conexión - usando bordes de tabla */
-.bracket-table td {
+/* Líneas de conexión entre rondas */
+.connector-cell {
+  width: 20px;
   position: relative;
 }
 
-/* Línea horizontal derecha desde partido */
-.bracket-table .has-right-line::after {
+/* Línea horizontal */
+.connector-cell::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: #444;
+}
+
+/* Línea vertical para unir dos partidos */
+.connector-cell.join-down::before {
   content: '';
   position: absolute;
   right: 0;
   top: 50%;
-  width: 1.5rem;
-  height: 2px;
-  background: #ccc;
-  transform: translateX(100%);
+  bottom: -50%;
+  width: 2px;
+  background: #444;
 }
 
-/* Línea vertical de conexión entre dos partidos */
-.bracket-table .connect-down::before {
+.connector-cell.join-up::before {
   content: '';
   position: absolute;
-  right: -1.5rem;
-  top: 0;
+  right: 0;
+  bottom: 50%;
+  top: -50%;
   width: 2px;
-  height: 100%;
-  background: #ccc;
+  background: #444;
 }
 
-.bracket-table .connect-up::before {
+.connector-cell.join-both::before {
   content: '';
   position: absolute;
-  right: -1.5rem;
-  bottom: 0;
+  right: 0;
+  top: -50%;
+  bottom: -50%;
   width: 2px;
-  height: 50%;
-  background: #ccc;
+  background: #444;
 }
 
-.bracket-table .connect-down-up::before {
-  content: '';
-  position: absolute;
-  right: -1.5rem;
-  top: 0;
-  width: 2px;
-  height: 100%;
-  background: #ccc;
+/* Espaciado entre filas de partidos */
+.spacer-row td {
+  height: 8px;
 }
 
-/* Espaciador para alinear */
-.spacer-cell {
-  height: 1.5rem;
+/* Final y 3er puesto destacados */
+.final-box {
+  background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3e 100%);
+  border: 1px solid #555;
 }
 
-/* Ronda final centrada */
-.final-row td {
-  text-align: center;
-  padding: 1rem;
-}
-
-.final-match-box {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
-  display: inline-flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.final-match-box .team-name.winner {
+.final-box .team-name.winner {
   color: #FFD700;
-}
-
-.final-match-box .score {
-  color: #fff;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .bracket-table {
-    font-size: 0.75rem;
-  }
-  .bracket-table td {
-    min-width: 140px;
+  .bracket-wrapper {
+    padding: 0.5rem;
   }
   .match-box {
+    min-width: 110px;
     padding: 0.3rem 0.4rem;
+  }
+  .match-box .team-name {
+    font-size: 0.7rem;
+  }
+  .connector-cell {
+    width: 12px;
   }
 }
