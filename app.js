@@ -2494,3 +2494,159 @@ if ('serviceWorker' in navigator) {
 
 window.initReloadButton = initReloadButton;
 window.loadRealResultsFromBackend = loadRealResultsFromBackend;
+
+
+/* ============================================================
+   CUADRO DE ELIMINATORIAS
+   ============================================================ */
+
+function initBracket() {
+  if (!window.__worldCupData) {
+    setTimeout(initBracket, 500);
+    return;
+  }
+
+  const container = document.getElementById('bracketContainerFull');
+  if (!container) return;
+
+  // Mapeo de números de partido a objetos del JSON
+  const matchMap = {};
+  const koMatches = window.__worldCupData.matches.filter(m =>
+    ['Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final'].includes(m.round)
+  );
+  koMatches.forEach(m => matchMap[m.num] = m);
+
+  // Función para obtener el ganador real (de REAL_RESULTS o del partido jugado)
+  function getWinner(num) {
+    // Primero, buscar en REAL_RESULTS si existe
+    if (window.REAL_RESULTS && window.REAL_RESULTS.knockout) {
+      const rounds = window.REAL_RESULTS.knockout.matches;
+      for (const round in rounds) {
+        const found = rounds[round].find(m => m.match === num);
+        if (found) return found.winner;  // puede ser null
+      }
+    }
+    // Si no, mirar si el partido en worldcup.json tiene score y decidir ganador
+    const m = matchMap[num];
+    if (m && m.score && m.score.ft && Array.isArray(m.score.ft)) {
+      if (m.score.ft[0] > m.score.ft[1]) return translateTeamName(m.team1);
+      if (m.score.ft[1] > m.score.ft[0]) return translateTeamName(m.team2);
+    }
+    return null;
+  }
+
+  // Renderiza un partido en HTML
+  function renderMatchDiv(num, roundName) {
+    const m = matchMap[num];
+    if (!m) return null;
+
+    const t1 = translateTeamName(m.team1);
+    const t2 = translateTeamName(m.team2);
+    const winner = getWinner(num);
+    const played = m.score && m.score.ft && m.score.ft.length === 2;
+    const scoreStr = played ? `${m.score.ft[0]}-${m.score.ft[1]}` : '';
+
+    const div = document.createElement('div');
+    div.className = 'bracket-match';
+    div.innerHTML = `
+      <div class="teams">
+        <div class="team ${winner === t1 ? 'winner' : ''}">
+          <span class="team-flag ${getTeamFlagClass(t1)}"></span>
+          ${displayTeamName(t1)}
+        </div>
+        <span class="score">${scoreStr}</span>
+        <div class="team ${winner === t2 ? 'winner' : ''}">
+          ${displayTeamName(t2)}
+          <span class="team-flag ${getTeamFlagClass(t2)}"></span>
+        </div>
+      </div>
+      ${m.date ? `<div class="date">${formatMatchDateTime(m)}</div>` : ''}
+    `;
+    return div;
+  }
+
+  // Construir una mitad del bracket
+  function buildHalf(round32Order, round16Order, quarterOrder, semiNum) {
+    const halfDiv = document.createElement('div');
+    halfDiv.className = 'bracket-half';
+
+    const rounds = [
+      { name: 'Dieciseisavos', matches: round32Order },
+      { name: 'Octavos', matches: round16Order },
+      { name: 'Cuartos', matches: quarterOrder },
+      { name: 'Semifinal', matches: [semiNum] }
+    ];
+
+    rounds.forEach(round => {
+      const roundCol = document.createElement('div');
+      roundCol.className = 'bracket-round';
+
+      round.matches.forEach(num => {
+        const matchEl = renderMatchDiv(num, round.name);
+        if (matchEl) roundCol.appendChild(matchEl);
+      });
+
+      halfDiv.appendChild(roundCol);
+    });
+
+    return halfDiv;
+  }
+
+  // Definir las dos mitades según el orden deseado
+  // Mitad superior (semifinal 101)
+  const topHalf = buildHalf(
+    [74, 77, 73, 75, 83, 84, 81, 82],   // round32
+    [90, 89, 93, 94],                    // round16
+    [97, 98],                            // quarter
+    101                                  // semi
+  );
+
+  // Mitad inferior (semifinal 102)
+  const bottomHalf = buildHalf(
+    [76, 78, 79, 80, 86, 88, 85, 87],
+    [91, 92, 95, 96],
+    [99, 100],
+    102
+  );
+
+  // Final y tercer puesto (centro)
+  const finalDiv = document.createElement('div');
+  finalDiv.className = 'bracket-final';
+  const finalMatch = renderMatchDiv(104, 'Final');
+  const tpMatch = renderMatchDiv(103, '3er Puesto');
+  if (finalMatch) finalDiv.appendChild(finalMatch);
+  if (tpMatch) finalDiv.appendChild(tpMatch);
+
+  // Montar todo
+  const wrapper = document.createElement('div');
+  wrapper.className = 'bracket-full-wrapper';
+  wrapper.appendChild(topHalf);
+  wrapper.appendChild(finalDiv);
+  wrapper.appendChild(bottomHalf);
+
+  container.innerHTML = '';
+  container.appendChild(wrapper);
+}
+
+// Activar la pestaña al hacer clic
+function showBracketTab() {
+  const tab = document.getElementById('tab-cuadro');
+  if (tab) {
+    tab.classList.add('active');
+    initBracket();
+  }
+}
+
+// Enganchar el evento de tab (agrega en initTabs o DOMContentLoaded)
+document.addEventListener('DOMContentLoaded', function() {
+  const bracketTab = document.querySelector('[data-tab="cuadro"]');
+  if (bracketTab) {
+    bracketTab.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      bracketTab.classList.add('active');
+      document.getElementById('tab-cuadro').classList.add('active');
+      initBracket();
+    });
+  }
+});
