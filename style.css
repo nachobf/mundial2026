@@ -1977,9 +1977,13 @@ body {
 /* ===== BRACKET ===== */
 .bracket-wrapper {
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   padding: 1rem 0.5rem;
   display: flex;
   justify-content: center;
+  min-width: 100%;
 }
 
 .bracket-table {
@@ -1987,6 +1991,7 @@ body {
   font-size: 0.8rem;
   width: auto;
 }
+
 
 .bracket-table th {
   text-align: center;
@@ -2126,21 +2131,58 @@ body {
   color: #FFD700;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .bracket-wrapper {
+    justify-content: flex-start;
     padding: 0.5rem;
   }
+  
+  .bracket-table {
+    min-width: 850px; /* Forzar scroll horizontal */
+  }
+  
   .match-box {
     min-width: 120px;
-    max-width: 150px;
+    max-width: 140px;
     padding: 0.3rem 0.4rem;
   }
+  
   .match-box .team-name {
     font-size: 0.7rem;
   }
+  
+  .match-box .score {
+    font-size: 0.75rem;
+  }
+  
   .bracket-table th {
     font-size: 0.6rem;
     padding: 0.4rem 0.2rem;
   }
+  
+  .bracket-table td.conn-down,
+  .bracket-table td.conn-up,
+  .bracket-table td.conn-both {
+    width: 12px;
+  }
+}
+
+.goal-tooltip {
+  position: absolute;
+  background: rgba(26, 26, 46, 0.95);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  display: none;
+  max-width: 220px;
+  text-align: left;
+}
+
+.goal-tooltip-content {
+  line-height: 1.4;
 }

@@ -2503,14 +2503,22 @@ window.loadRealResultsFromBackend = loadRealResultsFromBackend;
 // Estructura fija del bracket del Mundial 2026
 const BRACKET_STRUCTURE = {
   round32: [
-    {num: 73, label: '1A vs 2B'}, {num: 74, label: '1C vs 2D'},
-    {num: 75, label: '1E vs 2F'}, {num: 76, label: '1G vs 2H'},
-    {num: 77, label: '1I vs 2J'}, {num: 78, label: '1K vs 2L'},
-    {num: 79, label: '1B vs 2A'}, {num: 80, label: '1D vs 2C'},
-    {num: 81, label: '1F vs 2E'}, {num: 82, label: '1H vs 2G'},
-    {num: 83, label: '1J vs 2I'}, {num: 84, label: '1L vs 2K'},
-    {num: 85, label: '3D vs 3B vs 3F vs 3H'}, {num: 86, label: '3A vs 3C vs 3E vs 3G'},
-    {num: 87, label: '3I vs 3K vs 3J vs 3L'}, {num: 88, label: '3H vs 3F vs 3B vs 3D'}
+    {num: 74, label: '1E vs 2F'},   // Alemania - Paraguay
+    {num: 77, label: '1I vs 2J'},   // Francia - Suecia
+    {num: 73, label: '1A vs 2B'},   // Sudáfrica - Canadá
+    {num: 75, label: '1C vs 2D'},   // P. Bajos - Marruecos
+    {num: 83, label: '1J vs 2I'},   // Portugal - Croacia
+    {num: 84, label: '1L vs 2K'},   // España - Austria
+    {num: 81, label: '1F vs 2E'},   // EE.UU. - Bosnia
+    {num: 82, label: '1H vs 2G'},   // Bélgica - Senegal
+    {num: 76, label: '1G vs 2H'},   // Brasil - Japón
+    {num: 78, label: '1K vs 2L'},   // Costa de Marfil - Noruega
+    {num: 79, label: '1B vs 2A'},   // México - Ecuador
+    {num: 80, label: '1D vs 2C'},   // Inglaterra - RD Congo
+    {num: 86, label: '3A vs 3C vs 3E vs 3G'}, // Argentina - Cabo Verde
+    {num: 88, label: '3H vs 3F vs 3B vs 3D'}, // Australia - Egipto
+    {num: 85, label: '3D vs 3B vs 3F vs 3H'}, // Suiza - Argelia
+    {num: 87, label: '3I vs 3K vs 3J vs 3L'}  // Colombia - Ghana
   ],
   round16: [
     {num: 89, label: 'W73 vs W74'}, {num: 90, label: 'W75 vs W76'},
@@ -2528,6 +2536,34 @@ const BRACKET_STRUCTURE = {
   thirdPlace: {num: 103, label: 'L101 vs L102'},
   final: {num: 104, label: 'W101 vs W102'}
 };
+
+function buildGoalTooltip(num) {
+  const m = matchMap[num];
+  if (!m) return '';
+
+  const goals1 = m.goals1 || [];
+  const goals2 = m.goals2 || [];
+
+  if (goals1.length === 0 && goals2.length === 0) {
+    return '<em>Sin goles registrados</em>';
+  }
+
+  let html = '<div class="goal-tooltip-content">';
+  html += `<strong>${displayTeamName(translateTeamName(m.team1))} ${m.score ? m.score.ft[0] : ''}</strong><br>`;
+  goals1.forEach(g => {
+    html += `⚽ ${g.name} ${g.minute}'<br>`;
+  });
+  if (goals1.length === 0) html += '<span style="color:#aaa">—</span><br>';
+
+  html += `<strong>${displayTeamName(translateTeamName(m.team2))} ${m.score ? m.score.ft[1] : ''}</strong><br>`;
+  goals2.forEach(g => {
+    html += `⚽ ${g.name} ${g.minute}'<br>`;
+  });
+  if (goals2.length === 0) html += '<span style="color:#aaa">—</span><br>';
+
+  html += '</div>';
+  return html;
+}
 
 function initBracket() {
   const container = document.getElementById('bracketContainerFull');
@@ -2621,7 +2657,7 @@ function initBracket() {
     const boxClass = isFinal ? 'match-box final-box' : 'match-box';
     
     return `
-      <div class="${boxClass}">
+      <div class="${boxClass}" data-match="${num}">
         <div class="team-row">
           <span class="team-name ${winner === t1 ? 'winner' : ''}">
             <span class="team-flag ${getTeamFlagClass(t1)}"></span>
@@ -2639,6 +2675,8 @@ function initBracket() {
         ${getMatchDate(num) ? `<div class="date">${getMatchDate(num)}</div>` : ''}
       </div>
     `;
+
+    
   }
 
   // Construir tabla con rowspan
@@ -2727,6 +2765,39 @@ function initBracket() {
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
+
+  // Tooltip para goleadores
+  const tooltip = document.createElement('div');
+  tooltip.id = 'goalTooltip';
+  tooltip.className = 'goal-tooltip';
+  container.appendChild(tooltip);
+
+  container.addEventListener('click', function(e) {
+    const matchBox = e.target.closest('.match-box');
+    if (!matchBox) {
+      tooltip.style.display = 'none';
+      return;
+    }
+
+    const num = parseInt(matchBox.dataset.match);
+    if (!num) return;
+
+    const content = buildGoalTooltip(num);
+    tooltip.innerHTML = content;
+    tooltip.style.display = 'block';
+
+    // Posicionar cerca del click
+    const rect = matchBox.getBoundingClientRect();
+    tooltip.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+    tooltip.style.top = (rect.top + window.scrollY - 10) + 'px';
+  });
+
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.match-box')) {
+      tooltip.style.display = 'none';
+    }
+  });
 }
 
 // Activar la pestaña
