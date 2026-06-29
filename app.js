@@ -1,7 +1,7 @@
 /* ============================================================
  2026 FIFA World Cup Prediction Game - app.js
  ============================================================ */
-const LOCAL_STORAGE_VERSION = '110';
+const LOCAL_STORAGE_VERSION = '111';
 const DATA_SRC = 'https://raw.githubusercontent.com/openfootball/worldcup.json/refs/heads/master/2026';
 // URL de Google Apps Script (backend único para enviar y leer)
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6PENjI64W4rPUuk2AqeZ6oUbDokz_agTuxpmagEJe63hxUEduatI-UjYXRWLXTeqP/exec';
@@ -2132,8 +2132,9 @@ function showPlayerPrediction(entry){
 
       // Ganador predicho
       if (match.winner && match.winner !== '?') {
+        const flagClass = getTeamFlagClass(match.winner);
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
-        html += 'Ganador elegido: <strong>' + escapeHtml(displayTeamName(match.winner)) + '</strong>';
+        html += 'Ganador elegido: <span class="team-flag ' + flagClass + '" style="width:16px;height:12px;margin:0 4px;"></span><strong>' + escapeHtml(displayTeamName(match.winner)) + '</strong>';
         html += '</div>';
       }
 
@@ -2143,7 +2144,7 @@ function showPlayerPrediction(entry){
 
     // --- Sección 1A: Eliminatorias actuales (orden inverso) ---
     if (actualRounds.length > 0) {
-      const sectionActual = createCollapsibleSection('🏆 Eliminatorias actuales', 'section-ko-actual');
+      const sectionActual = createCollapsibleSection('🏆 Eliminatorias disputadas', 'section-ko-actual');
       const contentActual = sectionActual.content;
 
       // Ordenar de más reciente a más antigua (final → round32)
@@ -2168,7 +2169,7 @@ function showPlayerPrediction(entry){
 
     // --- Sección 1B: Eliminatorias pendientes (orden natural) ---
     if (pendingRounds.length > 0) {
-      const sectionPend = createCollapsibleSection('📅 Eliminatorias pendientes', 'section-ko-pend');
+      const sectionPend = createCollapsibleSection('📅 Eliminatorias futuras', 'section-ko-pend');
       const contentPend = sectionPend.content;
 
       pendingRounds.forEach(rd => {
@@ -2212,7 +2213,7 @@ function showPlayerPrediction(entry){
         html += '<span class="pos-badge">' + posName + '</span>';
         html += '<span class="team-flag ' + getTeamFlagClass(team) + '" style="width:20px;height:14px;"></span>';
         html += '<span class="team-name">' + escapeHtml(displayTeamName(String(team))) + '</span>';
-        if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓</span>';
+        if (isCorrect) html += '<span class="check-mark" style="color:#4caf50;font-weight:700;">✓ +5 pts</span>';
         html += '</div>';
       });
       html += '</div>';
