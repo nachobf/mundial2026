@@ -2263,8 +2263,16 @@ const CATEGORY_ORDER = ['exactResults', 'oneXTwo', 'groupPositions', 'bestThirds
  * Calcula los puntos por categoría para cada jugador
  */
 function daCalculateCategoryScores(players, finishedMatches) {
+  // Usar REAL_RESULTS del backend si ya está disponible (incluye TODOS los cruces KO)
+  let real;
+  if (window.REAL_RESULTS && window.REAL_RESULTS.groups && Object.keys(window.REAL_RESULTS.groups).length > 0) {
+    real = window.REAL_RESULTS;
+  } else {
+    // Fallback: construir con los partidos finalizados (solo fase de grupos y KO jugados)
+    real = daBuildPartialReal(finishedMatches);
+  }
+
   const TOTAL_GROUP_MATCHES = 72;
-  const real = daBuildPartialReal(finishedMatches);
   const groupMatchesCount = finishedMatches.filter(m => m.group && m.group.startsWith('Group ')).length;
   const faseGruposTerminada = groupMatchesCount >= TOTAL_GROUP_MATCHES;
 
