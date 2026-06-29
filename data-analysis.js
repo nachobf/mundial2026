@@ -209,6 +209,49 @@ function daPrecalcularBumpChart(players, finishedMatches) {
 /* -----------------------------------------------------------
    CÁLCULO MANUAL DE PUNTUACIÓN
    ----------------------------------------------------------- */
+function getTeamRoundFromData(team, data, faseGruposTerminada) {
+  if (!team || !data) return null;
+
+  const ko = data.knockout?.matches || {};
+  const rounds = ['final', 'thirdPlace', 'semifinals', 'quarterfinals', 'round16', 'round32'];
+  for (const round of rounds) {
+    const matches = ko[round] || [];
+    for (const m of matches) {
+      if (m.team1 === team || m.team2 === team) {
+        if (m.winner) {
+          if (m.winner === team) {
+            if (round === 'final') return 'champion';
+            if (round === 'thirdPlace') return 'thirdPlace';
+            const allRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
+            const idx = allRounds.indexOf(round);
+            return allRounds[idx + 1] || round;
+          } else {
+            if (round === 'final') return 'finalist';
+            if (round === 'thirdPlace') return 'fourthPlace';
+            return round;
+          }
+        } else {
+          return round;
+        }
+      }
+    }
+  }
+
+  if (faseGruposTerminada) {
+    const groups = data.groups || {};
+    for (const g of Object.keys(groups)) {
+      const order = groups[g] || [];
+      if (order[0] === team || order[1] === team) return 'round32';
+      if (order[2] === team) {
+        const top8 = (data.thirdPlace || []).slice(0, 8);
+        if (top8.includes(team)) return 'round32';
+      }
+    }
+  }
+
+  return null;
+}
+
 function daCalculateScore(player, real, faseGruposTerminada) {
   let score = 0;
 
@@ -264,132 +307,46 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
   };
 
-  const teamRoundReal = {};
-  const koRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
-  
-  koRounds.forEach(round => {
-    const matches = real.knockout?.matches?.[round] || [];
-    matches.forEach(m => {
-      if (m.winner) {
-        const loser = m.winner === m.team1 ? m.team2 : m.team1;
-        if (loser && !teamRoundReal[loser]) {
-          teamRoundReal[loser] = round;
-        }
-        if (round === 'final') {
-          teamRoundReal[m.winner] = 'champion';
-        } else if (round === 'thirdPlace') {
-          teamRoundReal[m.winner] = 'thirdPlace';
-        }
-      }
-    });
-  });
-
-  const sfMatches = real.knockout?.matches?.semifinals || [];
-  if (sfMatches.length === 2) {
-    const sf1 = sfMatches[0], sf2 = sfMatches[1];
-    if (sf1?.winner && sf2?.winner) {
-      const loser1 = sf1.winner === sf1.team1 ? sf1.team2 : sf1.team1;
-      const loser2 = sf2.winner === sf2.team1 ? sf2.team2 : sf2.team1;
-      const tpMatch = real.knockout?.matches?.thirdPlace?.[0];
-      if (tpMatch?.winner) {
-        teamRoundReal[tpMatch.winner] = 'thirdPlace';
-        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
-        if (fourth) teamRoundReal[fourth] = 'fourthPlace';
-      } else {
-        if (loser1 && !teamRoundReal[loser1]) teamRoundReal[loser1] = 'semifinals';
-        if (loser2 && !teamRoundReal[loser2]) teamRoundReal[loser2] = 'semifinals';
-      }
+  const basicRounds = ['round32', 'round16', 'quarterfinals', 'semifinals'];
+  function getRoundsFor(terminalRound) {
+    if (basicRounds.includes(terminalRound)) {
+      const idx = basicRounds.indexOf(terminalRound);
+      return basicRounds.slice(0, idx + 1);
     }
+    return basicRounds.concat(terminalRound);
   }
 
-  const qfMatches = real.knockout?.matches?.quarterfinals || [];
-  qfMatches.forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'quarterfinals';
-    }
+  // Determinar si la fase de grupos real está terminada
+  const realGroupMatches = Object.keys(real.groupMatchResults || {}).length;
+  const realFaseGruposTerminada = realGroupMatches >= 72;
+
+  const allTeams = new Set();
+  Object.keys(real.groups || {}).forEach(g => {
+    (real.groups[g] || []).forEach(t => allTeams.add(t));
   });
-
-  const r16Matches = real.knockout?.matches?.round16 || [];
-  r16Matches.forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'round16';
-    }
+  (real.thirdPlace || []).forEach(t => allTeams.add(t));
+  Object.keys(player.groups || {}).forEach(g => {
+    (player.groups[g] || []).forEach(t => allTeams.add(t));
   });
-
-  const r32Matches = real.knockout?.matches?.round32 || [];
-  r32Matches.forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundReal[loser]) teamRoundReal[loser] = 'round32';
-    }
-  });
-
-  const teamRoundPred = {};
-  const predKO = player.knockout?.matches || {};
-  
-  koRounds.forEach(round => {
-    const matches = predKO[round] || [];
-    matches.forEach(m => {
-      if (m?.winner) {
-        const loser = m.winner === m.team1 ? m.team2 : m.team1;
-        if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = round;
-        if (round === 'final') teamRoundPred[m.winner] = 'champion';
-        if (round === 'thirdPlace') teamRoundPred[m.winner] = 'thirdPlace';
-      }
-    });
-  });
-
-  const predSF = predKO.semifinals || [];
-  if (predSF.length === 2) {
-    const sf1 = predSF[0], sf2 = predSF[1];
-    if (sf1?.winner && sf2?.winner) {
-      const loser1 = sf1.winner === sf1.team1 ? sf1.team2 : sf1.team1;
-      const loser2 = sf2.winner === sf2.team1 ? sf2.team2 : sf2.team1;
-      const tpMatch = predKO.thirdPlace?.[0];
-      if (tpMatch?.winner) {
-        teamRoundPred[tpMatch.winner] = 'thirdPlace';
-        const fourth = tpMatch.winner === tpMatch.team1 ? tpMatch.team2 : tpMatch.team1;
-        if (fourth) teamRoundPred[fourth] = 'fourthPlace';
-      } else {
-        if (loser1 && !teamRoundPred[loser1]) teamRoundPred[loser1] = 'semifinals';
-        if (loser2 && !teamRoundPred[loser2]) teamRoundPred[loser2] = 'semifinals';
-      }
-    }
-  }
-
-  (predKO.quarterfinals || []).forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'quarterfinals';
-    }
-  });
-
-  (predKO.round16 || []).forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'round16';
-    }
-  });
-
-  (predKO.round32 || []).forEach(m => {
-    if (m?.winner) {
-      const loser = m.winner === m.team1 ? m.team2 : m.team1;
-      if (loser && !teamRoundPred[loser]) teamRoundPred[loser] = 'round32';
-    }
-  });
-
-  const allTeams = new Set([
-    ...Object.keys(teamRoundReal),
-    ...Object.keys(teamRoundPred)
-  ]);
+  (player.thirdPlace || []).forEach(t => allTeams.add(t));
 
   allTeams.forEach(team => {
-    const predRound = teamRoundPred[team];
-    const realRound = teamRoundReal[team];
-    if (predRound && realRound && predRound === realRound) {
-      const pts = roundPoints[predRound] || 0;
+    const predRound = getTeamRoundFromData(team, player, true);
+    const realRound = getTeamRoundFromData(team, real, realFaseGruposTerminada);
+
+    if (!predRound || !realRound) return;
+
+    const realRounds = getRoundsFor(realRound);
+    const predRounds = getRoundsFor(predRound);
+
+    let pts = 0;
+    realRounds.forEach(r => {
+      if (predRounds.includes(r)) {
+        pts += roundPoints[r] || 0;
+      }
+    });
+
+    if (pts > 0) {
       score += pts;
     }
   });
