@@ -1975,95 +1975,175 @@ body {
 }
 
 /* ===== BRACKET ===== */
-.bracket-full-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 0;
+.bracket-wrapper {
   overflow-x: auto;
   padding: 2rem 1rem;
-}
-
-.bracket-half {
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0;
+  justify-content: center;
 }
 
-.bracket-round {
+.bracket-table {
+  border-collapse: collapse;
+  border: none;
+  font-size: 0.85rem;
+}
+
+.bracket-table th {
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bracket-table td {
+  vertical-align: middle;
+  padding: 0;
+  margin: 0;
+  min-width: 180px;
+}
+
+/* Celda de partido */
+.match-cell {
+  position: relative;
+  padding: 0.5rem 0;
+}
+
+.match-box {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  margin: 0 1.5rem;
+  gap: 0.2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.bracket-match {
-  background: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  min-width: 180px;
-  text-align: center;
-  font-size: 0.9rem;
-  position: relative;
-}
-
-.bracket-match .teams {
+.match-box .team-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
 }
 
-.bracket-match .team {
+.match-box .team-name {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  font-weight: 500;
 }
 
-.bracket-match .winner {
+.match-box .team-name.winner {
   font-weight: 700;
+  color: #1a1a2e;
 }
 
-.bracket-match .score {
-  margin: 0 0.5rem;
+.match-box .score {
   font-weight: 700;
+  font-size: 0.9rem;
+  color: #333;
+  min-width: 2ch;
+  text-align: center;
 }
 
-.bracket-match .date {
-  font-size: 0.7rem;
+.match-box .date {
+  font-size: 0.65rem;
   color: #888;
-  margin-top: 0.25rem;
+  text-align: center;
+  margin-top: 0.1rem;
 }
 
-/* Conexiones visuales (líneas) */
-.bracket-round:not(:last-child) .bracket-match::after {
+/* Líneas de conexión - usando bordes de tabla */
+.bracket-table td {
+  position: relative;
+}
+
+/* Línea horizontal derecha desde partido */
+.bracket-table .has-right-line::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 1.5rem;
+  height: 2px;
+  background: #ccc;
+  transform: translateX(100%);
+}
+
+/* Línea vertical de conexión entre dos partidos */
+.bracket-table .connect-down::before {
   content: '';
   position: absolute;
   right: -1.5rem;
-  top: 50%;
-  width: 1.5rem;
-  border-top: 2px solid #aaa;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #ccc;
 }
 
-.bracket-half .bracket-round:first-child .bracket-match::before {
+.bracket-table .connect-up::before {
   content: '';
   position: absolute;
-  left: -1.5rem;
-  top: 50%;
-  width: 1.5rem;
-  border-top: 2px solid #aaa;
+  right: -1.5rem;
+  bottom: 0;
+  width: 2px;
+  height: 50%;
+  background: #ccc;
 }
 
-.bracket-final {
-  display: flex;
+.bracket-table .connect-down-up::before {
+  content: '';
+  position: absolute;
+  right: -1.5rem;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #ccc;
+}
+
+/* Espaciador para alinear */
+.spacer-cell {
+  height: 1.5rem;
+}
+
+/* Ronda final centrada */
+.final-row td {
+  text-align: center;
+  padding: 1rem;
+}
+
+.final-match-box {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  display: inline-flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 2rem;
-  margin: 0 2rem;
+  gap: 0.3rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.bracket-final .bracket-match {
-  min-width: 200px;
+.final-match-box .team-name.winner {
+  color: #FFD700;
+}
+
+.final-match-box .score {
+  color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .bracket-table {
+    font-size: 0.75rem;
+  }
+  .bracket-table td {
+    min-width: 140px;
+  }
+  .match-box {
+    padding: 0.3rem 0.4rem;
+  }
 }

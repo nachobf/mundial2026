@@ -2497,7 +2497,7 @@ window.loadRealResultsFromBackend = loadRealResultsFromBackend;
 
 
 /* ============================================================
-   CUADRO DE ELIMINATORIAS
+   CUADRO DE ELIMINATORIAS - V2 (Tabla con conexiones)
    ============================================================ */
 
 function initBracket() {
@@ -2509,24 +2509,22 @@ function initBracket() {
   const container = document.getElementById('bracketContainerFull');
   if (!container) return;
 
-  // Mapeo de números de partido a objetos del JSON
+  // Obtener datos de partidos
   const matchMap = {};
   const koMatches = window.__worldCupData.matches.filter(m =>
     ['Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final'].includes(m.round)
   );
   koMatches.forEach(m => matchMap[m.num] = m);
 
-  // Función para obtener el ganador real (de REAL_RESULTS o del partido jugado)
+  // Función para obtener ganador (de REAL_RESULTS o del JSON)
   function getWinner(num) {
-    // Primero, buscar en REAL_RESULTS si existe
     if (window.REAL_RESULTS && window.REAL_RESULTS.knockout) {
       const rounds = window.REAL_RESULTS.knockout.matches;
       for (const round in rounds) {
         const found = rounds[round].find(m => m.match === num);
-        if (found) return found.winner;  // puede ser null
+        if (found) return found.winner;
       }
     }
-    // Si no, mirar si el partido en worldcup.json tiene score y decidir ganador
     const m = matchMap[num];
     if (m && m.score && m.score.ft && Array.isArray(m.score.ft)) {
       if (m.score.ft[0] > m.score.ft[1]) return translateTeamName(m.team1);
@@ -2535,100 +2533,152 @@ function initBracket() {
     return null;
   }
 
-  // Renderiza un partido en HTML
-  function renderMatchDiv(num, roundName) {
+  // Función para renderizar una celda de partido
+  function renderMatchCell(num, addRightLine) {
     const m = matchMap[num];
-    if (!m) return null;
+    if (!m) return '<td></td>';
 
     const t1 = translateTeamName(m.team1);
     const t2 = translateTeamName(m.team2);
     const winner = getWinner(num);
     const played = m.score && m.score.ft && m.score.ft.length === 2;
-    const scoreStr = played ? `${m.score.ft[0]}-${m.score.ft[1]}` : '';
+    const scoreStr = played ? `${m.score.ft[0]}-${m.score.ft[1]}` : '-';
 
-    const div = document.createElement('div');
-    div.className = 'bracket-match';
-    div.innerHTML = `
-      <div class="teams">
-        <div class="team ${winner === t1 ? 'winner' : ''}">
-          <span class="team-flag ${getTeamFlagClass(t1)}"></span>
-          ${displayTeamName(t1)}
+    const lineClass = addRightLine ? 'has-right-line' : '';
+    
+    return `
+      <td class="match-cell ${lineClass}">
+        <div class="match-box">
+          <div class="team-row">
+            <span class="team-name ${winner === t1 ? 'winner' : ''}">
+              <span class="team-flag ${getTeamFlagClass(t1)}"></span>
+              ${displayTeamName(t1)}
+            </span>
+            <span class="score">${played ? m.score.ft[0] : ''}</span>
+          </div>
+          <div class="team-row">
+            <span class="team-name ${winner === t2 ? 'winner' : ''}">
+              <span class="team-flag ${getTeamFlagClass(t2)}"></span>
+              ${displayTeamName(t2)}
+            </span>
+            <span class="score">${played ? m.score.ft[1] : ''}</span>
+          </div>
+          ${m.date ? `<div class="date">${formatMatchDateTime(m)}</div>` : ''}
         </div>
-        <span class="score">${scoreStr}</span>
-        <div class="team ${winner === t2 ? 'winner' : ''}">
-          ${displayTeamName(t2)}
-          <span class="team-flag ${getTeamFlagClass(t2)}"></span>
-        </div>
-      </div>
-      ${m.date ? `<div class="date">${formatMatchDateTime(m)}</div>` : ''}
+      </td>
     `;
-    return div;
   }
 
-  // Construir una mitad del bracket
-  function buildHalf(round32Order, round16Order, quarterOrder, semiNum) {
-    const halfDiv = document.createElement('div');
-    halfDiv.className = 'bracket-half';
+  // Construir tabla
+  // Estructura: cada "unidad" de bracket tiene 2 partidos en ronda N que alimentan 1 en ronda N+1
+  
+  // Definir las rondas con sus números de partido
+  const rounds = {
+    round32: [
+      [73, 74], [75, 76], [77, 78], [79, 80],
+      [81, 82], [83, 84], [85, 86], [87, 88]
+    ],
+    round16: [
+      [89, 90], [91, 92], [93, 94], [95, 96]
+    ],
+    quarterfinals: [
+      [97, 98], [99, 100]
+    ],
+    semifinals: [101, 102],
+    final: [104],
+    thirdPlace: [103]
+  };
 
-    const rounds = [
-      { name: 'Dieciseisavos', matches: round32Order },
-      { name: 'Octavos', matches: round16Order },
-      { name: 'Cuartos', matches: quarterOrder },
-      { name: 'Semifinal', matches: [semiNum] }
-    ];
+  let html = '<div class="bracket-wrapper"><table class="bracket-table">';
 
-    rounds.forEach(round => {
-      const roundCol = document.createElement('div');
-      roundCol.className = 'bracket-round';
+  // Headers
+  html += '<thead><tr>';
+  html += '<th>Dieciseisavos</th>';
+  html += '<th></th>'; // columna de conexión
+  html += '<th>Octavos</th>';
+  html += '<th></th>';
+  html += '<th>Cuartos</th>';
+  html += '<th></th>';
+  html += '<th>Semifinales</th>';
+  html += '<th></th>';
+  html += '<th>Final</th>';
+  html += '</tr></thead>';
 
-      round.matches.forEach(num => {
-        const matchEl = renderMatchDiv(num, round.name);
-        if (matchEl) roundCol.appendChild(matchEl);
-      });
+  html += '<tbody>';
 
-      halfDiv.appendChild(roundCol);
-    });
-
-    return halfDiv;
+  // Para un bracket de 32 equipos, necesitamos 16 filas de partidos en dieciseisavos
+  // que se reducen a 8, 4, 2, 1
+  
+  // Vamos a construirlo fila por fila, usando rowspan para las conexiones
+  
+  // FILAS PARES: partidos de dieciseisavos (2 por fila de octavos)
+  // FILAS IMPARES: espaciadores
+  
+  const r32 = rounds.round32; // 8 pares
+  const r16 = rounds.round16; // 4 pares
+  const qf = rounds.quarterfinals; // 2 pares
+  
+  for (let i = 0; i < 8; i++) {
+    html += '<tr>';
+    
+    // Dieciseisavos - par i
+    const r32Pair = r32[i];
+    html += renderMatchCell(r32Pair[0], true);
+    html += '<td class="connect-cell"></td>'; // conexión
+    
+    // Octavos - cada 2 pares de dieciseisavos = 1 octavo
+    if (i % 2 === 0) {
+      const r16Pair = r16[Math.floor(i / 2)];
+      html += renderMatchCell(r16Pair[0], true);
+      html += '<td class="connect-cell"></td>';
+    } else {
+      html += '<td></td><td></td>';
+    }
+    
+    // Cuartos - cada 2 pares de octavos = 1 cuarto
+    if (i % 4 === 0) {
+      const qfPair = qf[Math.floor(i / 4)];
+      html += renderMatchCell(qfPair[0], true);
+      html += '<td class="connect-cell"></td>';
+    } else {
+      html += '<td></td><td></td>';
+    }
+    
+    // Semifinales - cada 2 pares de cuartos = 1 semi
+    if (i % 8 === 0) {
+      html += renderMatchCell(rounds.semifinals[0], true);
+      html += '<td class="connect-cell"></td>';
+    } else if (i % 8 === 4) {
+      html += renderMatchCell(rounds.semifinals[1], true);
+      html += '<td class="connect-cell"></td>';
+    } else {
+      html += '<td></td><td></td>';
+    }
+    
+    // Final (solo en la primera fila del primer semi)
+    if (i === 0) {
+      html += renderMatchCell(rounds.final[0], false);
+    } else if (i === 4) {
+      // Tercer puesto en la mitad
+      html += renderMatchCell(rounds.thirdPlace[0], false);
+    } else {
+      html += '<td></td>';
+    }
+    
+    html += '</tr>';
+    
+    // Fila de espaciado (excepto después del último)
+    if (i < 7) {
+      html += '<tr class="spacer-row"><td colspan="9" class="spacer-cell"></td></tr>';
+    }
   }
 
-  // Definir las dos mitades según el orden deseado
-  // Mitad superior (semifinal 101)
-  const topHalf = buildHalf(
-    [74, 77, 73, 75, 83, 84, 81, 82],   // round32
-    [90, 89, 93, 94],                    // round16
-    [97, 98],                            // quarter
-    101                                  // semi
-  );
+  html += '</tbody></table></div>';
 
-  // Mitad inferior (semifinal 102)
-  const bottomHalf = buildHalf(
-    [76, 78, 79, 80, 86, 88, 85, 87],
-    [91, 92, 95, 96],
-    [99, 100],
-    102
-  );
-
-  // Final y tercer puesto (centro)
-  const finalDiv = document.createElement('div');
-  finalDiv.className = 'bracket-final';
-  const finalMatch = renderMatchDiv(104, 'Final');
-  const tpMatch = renderMatchDiv(103, '3er Puesto');
-  if (finalMatch) finalDiv.appendChild(finalMatch);
-  if (tpMatch) finalDiv.appendChild(tpMatch);
-
-  // Montar todo
-  const wrapper = document.createElement('div');
-  wrapper.className = 'bracket-full-wrapper';
-  wrapper.appendChild(topHalf);
-  wrapper.appendChild(finalDiv);
-  wrapper.appendChild(bottomHalf);
-
-  container.innerHTML = '';
-  container.appendChild(wrapper);
+  container.innerHTML = html;
 }
 
-// Activar la pestaña al hacer clic
+// Activar la pestaña
 function showBracketTab() {
   const tab = document.getElementById('tab-cuadro');
   if (tab) {
@@ -2637,7 +2687,7 @@ function showBracketTab() {
   }
 }
 
-// Enganchar el evento de tab (agrega en initTabs o DOMContentLoaded)
+// Evento de tab
 document.addEventListener('DOMContentLoaded', function() {
   const bracketTab = document.querySelector('[data-tab="cuadro"]');
   if (bracketTab) {
