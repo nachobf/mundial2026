@@ -2194,7 +2194,7 @@ body {
 
 /* ===== CLASIFICACIÓN DE GRUPOS ===== */
 .group-standings-container {
-  margin-top: 2rem;
+  max-width: 100%;
   overflow-x: auto;
 }
 
@@ -2282,4 +2282,54 @@ body {
 
 .team-matches-tooltip .goals-detail.open {
   display: block;
+}
+
+.groups-grid-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  max-width: 100%;
+}
+
+.group-card-standings {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.group-card-title {
+  background: #e9ecef;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.8rem;
+}
+
+.mini-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.mini-standings-table th,
+.mini-standings-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.mini-standings-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+/* Banderas y nombres */
+.mini-standings-table .team-name {
+  cursor: pointer;
+  color: #1a73e8;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }

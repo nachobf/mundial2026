@@ -2863,27 +2863,28 @@ function initGroupStandings() {
                 .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
   }
 
-  // Construir tabla HTML
-  let html = '<table class="standings-table"><thead><tr>';
-  html += '<th>Pos</th><th>Selección</th><th>J</th><th>DG</th><th>Pts</th>';
-  html += '</tr></thead><tbody>';
-
+  // Construir tarjetas de grupo
+  let html = '<div class="groups-grid-wrapper">';
   const groupOrder = Object.keys(TEAMS_BY_GROUP).sort();
   groupOrder.forEach(g => {
-    html += `<tr class="group-header"><td colspan="5">GRUPO ${g}</td></tr>`;
+    html += `<div class="group-card-standings">`;
+    html += `<div class="group-card-title">GRUPO ${g}</div>`;
+    html += `<table class="mini-standings-table">`;
+    html += `<thead><tr><th>Pos</th><th>Selección</th><th>J</th><th>DG</th><th>Pts</th></tr></thead><tbody>`;
     const standings = getStandings(g);
     standings.forEach((s, idx) => {
+      const flagClass = getTeamFlagClass(s.team);
       html += '<tr>';
       html += `<td>${idx + 1}</td>`;
-      html += `<td><span class="team-name" data-team="${s.team}" data-group="${g}">${displayTeamName(s.team)}</span></td>`;
+      html += `<td><span class="team-name" data-team="${s.team}" data-group="${g}"><span class="team-flag ${flagClass}"></span> ${displayTeamName(s.team)}</span></td>`;
       html += `<td>${s.played}</td>`;
       html += `<td>${s.gd > 0 ? '+' + s.gd : s.gd}</td>`;
       html += `<td>${s.pts}</td>`;
       html += '</tr>';
     });
+    html += `</tbody></table></div>`;
   });
-
-  html += '</tbody></table>';
+  html += '</div>';
   container.innerHTML = html;
 
   // --- Tooltip de partidos del equipo ---
@@ -2938,18 +2939,18 @@ function initGroupStandings() {
       const scoreStr = `${m.score.ft[0]}-${m.score.ft[1]}`;
 
       tipHtml += `<div class="match-item">`;
-      tipHtml += `<div class="match-header" data-match="${m.num}">`;
+      tipHtml += `<div class="match-header">`;
       tipHtml += `<span>${displayTeamName(t1)} <span class="team-flag ${flag1}"></span></span>`;
       tipHtml += `<strong style="margin:0 0.5rem">${scoreStr}</strong>`;
       tipHtml += `<span><span class="team-flag ${flag2}"></span> ${displayTeamName(t2)}</span>`;
-      tipHtml += `<span style="margin-left:auto;font-size:0.8rem;opacity:0.7;">▼</span>`;
+      tipHtml += `<span class="toggle-icon">▼</span>`;
       tipHtml += `</div>`;
-      tipHtml += `<div class="goals-detail" id="goals-${m.num}">`;
-      // Goles equipo1
+      tipHtml += `<div class="goals-detail">`;
+      // Goles locales (balón a la izquierda)
       (m.goals1 || []).forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
       if ((m.goals1 || []).length === 0) tipHtml += '<div style="color:#aaa">—</div>';
-      // Goles equipo2
-      (m.goals2 || []).forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
+      // Goles visitantes (balón a la derecha)
+      (m.goals2 || []).forEach(g => tipHtml += `<div>${g.minute}' ${g.name} ⚽</div>`);
       if ((m.goals2 || []).length === 0) tipHtml += '<div style="color:#aaa">—</div>';
       tipHtml += `</div>`;
       tipHtml += `</div>`;
@@ -2974,12 +2975,12 @@ function initGroupStandings() {
     currentTooltip = tooltip;
 
     // Evento para expandir/colapsar goles
-    tooltip.addEventListener('click', function(ev) {
-      const header = ev.target.closest('.match-header');
-      if (!header) return;
-      const matchNum = header.dataset.match;
-      const detail = document.getElementById('goals-' + matchNum);
-      if (detail) detail.classList.toggle('open');
+    tooltip.querySelectorAll('.match-header').forEach(header => {
+      header.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        const detail = this.nextElementSibling;
+        if (detail) detail.classList.toggle('open');
+      });
     });
   });
 
