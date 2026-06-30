@@ -2960,11 +2960,9 @@ function initGroupStandings() {
       // Goles locales (orden descendente)
       const g1 = sortGoalsByMinute(m.goals1);
       g1.forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
-      if (g1.length === 0) tipHtml += '<div style="color:#aaa">—</div>';
       // Goles visitantes (orden descendente)
       const g2 = sortGoalsByMinute(m.goals2);
       g2.forEach(g => tipHtml += `<div>${g.minute}' ${g.name} ⚽</div>`);
-      if (g2.length === 0) tipHtml += '<div style="color:#aaa">—</div>';
       tipHtml += `</div>`;
       tipHtml += `</div>`;
     });
