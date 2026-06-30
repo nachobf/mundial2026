@@ -2949,6 +2949,20 @@ function initGroupStandings() {
       const flag2 = getTeamFlagClass(t2);
       const scoreStr = `${m.score.ft[0]}-${m.score.ft[1]}`;
 
+      const allGoals = [];
+      (m.goals1 || []).forEach(g => allGoals.push({ ...g, side: 'home' }));
+      (m.goals2 || []).forEach(g => allGoals.push({ ...g, side: 'away' }));
+
+      // Ordenar por minuto descendente (más reciente primero)
+      allGoals.sort((a, b) => {
+        const parseMin = (s) => {
+          const parts = String(s).match(/(\d+)(?:\+(\d+))?/);
+          if (!parts) return 0;
+          return parseInt(parts[1]) + (parts[2] ? parseInt(parts[2]) : 0);
+        };
+        return parseMin(b.minute) - parseMin(a.minute);
+      });
+
       tipHtml += `<div class="match-item">`;
       tipHtml += `<div class="match-header">`;
       tipHtml += `<span>${displayTeamName(t1)} <span class="team-flag ${flag1}"></span></span>`;
@@ -2957,12 +2971,15 @@ function initGroupStandings() {
       tipHtml += `<span class="toggle-icon">▼</span>`;
       tipHtml += `</div>`;
       tipHtml += `<div class="goals-detail">`;
-      // Goles locales (orden descendente)
-      const g1 = sortGoalsByMinute(m.goals1);
-      g1.forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
-      // Goles visitantes (orden descendente)
-      const g2 = sortGoalsByMinute(m.goals2);
-      g2.forEach(g => tipHtml += `<div>${g.minute}' ${g.name} ⚽</div>`);
+      
+      allGoals.forEach(g => {
+        if (g.side === 'home') {
+          tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`;
+        } else {
+          tipHtml += `<div>${g.minute}' ${g.name} ⚽</div>`;
+        }
+      });
+      if (allGoals.length === 0) tipHtml += '<div style="color:#aaa">—</div>';
       tipHtml += `</div>`;
       tipHtml += `</div>`;
     });
