@@ -647,6 +647,7 @@ function daToggleFitMode() {
    RENDERIZADO DEL BUMP CHART (CON FILTRO DE TIEMPO)
    ----------------------------------------------------------- */
 function daRenderBumpChart(dailyData, topN, timeFilter) {
+  daCleanupTooltips();
   const container = document.getElementById('bumpChartContainer');
   const wrapper = document.getElementById('bumpChartScrollWrapper');
   container.innerHTML = '';
@@ -1021,6 +1022,7 @@ function daToggleFitLineRanking() {
 }
 
 function daRenderLineRanking(dailyData, topN, timeFilter) {
+  daCleanupTooltips();
   const container = document.getElementById('lineRankingContainer');
   const wrapper = document.getElementById('lineRankingScrollWrapper');
   container.innerHTML = '';
@@ -1941,6 +1943,7 @@ function daRefreshDailyPoints() {
 }
 
 function daRenderDailyPoints(data, selectedPlayers, selectedDay, scale) {
+  daCleanupTooltips();
   const container = document.getElementById('dailyPointsContainer');
   const wrapper = document.getElementById('dailyPointsScrollWrapper');
   container.innerHTML = '';
@@ -2462,6 +2465,7 @@ function daToggleFitCategory() {
    RENDERIZADO DEL CATEGORY CHART (barras horizontales apiladas)
    ----------------------------------------------------------- */
 function daRenderCategoryChart(data, selectedPlayers, selectedCategories, scale) {
+  daCleanupTooltips();
   const container = document.getElementById('categoryChartContainer');
   const wrapper = document.getElementById('categoryChartScrollWrapper');
   container.innerHTML = '';
@@ -3176,6 +3180,7 @@ function daRefreshRadarChart() {
 }
 
 function daRenderRadarChart(data, selectedPlayers, scale) {
+  daCleanupTooltips();
   const container = document.getElementById('radarChartContainer');
   const wrapper = document.getElementById('radarChartScrollWrapper');
   container.innerHTML = '';
@@ -3691,6 +3696,7 @@ function daRefreshPodiumChart() {
 }
 
 function daRenderPodiumChart(data, scale, topN) {
+  daCleanupTooltips();
   const container = document.getElementById('podiumChartContainer');
   const wrapper = document.getElementById('podiumChartScrollWrapper');
   container.innerHTML = '';
@@ -4016,3 +4022,9 @@ window.addEventListener('resize', function() {
     }, 300);
   }
 });
+
+function daCleanupTooltips() {
+  // Elimina cualquier tooltip flotante de D3 que haya quedado
+  d3.selectAll('.bump-tooltip, .line-ranking-tooltip, .daily-tooltip, .category-tooltip, .radar-tooltip, .podium-tooltip')
+    .remove();
+}

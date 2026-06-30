@@ -2191,3 +2191,95 @@ body {
 .goal-tooltip-content {
   line-height: 1.4;
 }
+
+/* ===== CLASIFICACIÓN DE GRUPOS ===== */
+.group-standings-container {
+  margin-top: 2rem;
+  overflow-x: auto;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.standings-table th,
+.standings-table td {
+  padding: 0.5rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.standings-table th {
+  background: #f5f5f5;
+  font-weight: 700;
+  color: #1a1a2e;
+  position: sticky;
+  top: 0;
+}
+
+.standings-table .group-header {
+  background: #e9ecef;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.standings-table .team-name {
+  cursor: pointer;
+  color: #1a73e8;
+  font-weight: 500;
+}
+
+.standings-table .team-name:hover {
+  text-decoration: underline;
+}
+
+/* Tooltip de partidos del equipo */
+.team-matches-tooltip {
+  position: absolute;
+  background: rgba(26, 26, 46, 0.95);
+  color: #fff;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  min-width: 280px;
+  max-width: 90vw;
+  font-size: 0.85rem;
+}
+
+.team-matches-tooltip .match-item {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 0.4rem 0;
+}
+
+.team-matches-tooltip .match-item:last-child {
+  border-bottom: none;
+}
+
+.team-matches-tooltip .match-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.team-matches-tooltip .goals-detail {
+  display: none;
+  margin-top: 0.3rem;
+  padding-left: 1.2rem;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+
+.team-matches-tooltip .goals-detail.open {
+  display: block;
+}

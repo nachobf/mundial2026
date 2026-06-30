@@ -1611,6 +1611,7 @@ function toggleDataAnalysisSection(sectionId) {
     content.style.display = 'none';
     header.classList.remove('active');
   }
+  daCleanupTooltips();
 }
 
 // ---- SUBMIT / RESET ----
@@ -2739,31 +2740,42 @@ function initBracket() {
   container.innerHTML = html;
 
   function buildGoalTooltip(num) {
-    const m = matchMap[num];
-    if (!m) return '';
+  const m = matchMap[num];
+  if (!m) return '<em>Sin goles registrados</em>';
 
-    const goals1 = m.goals1 || [];
-    const goals2 = m.goals2 || [];
+  const goals1 = m.goals1 || [];
+  const goals2 = m.goals2 || [];
 
-    if (goals1.length === 0 && goals2.length === 0) {
-      return '<em>Sin goles registrados</em>';
-    }
+  if (goals1.length === 0 && goals2.length === 0) {
+    return '<em>Sin goles registrados</em>';
+  }
 
-    let html = '<div class="goal-tooltip-content">';
-    html += `<strong>${displayTeamName(translateTeamName(m.team1))} ${m.score ? m.score.ft[0] : ''}</strong><br>`;
-    goals1.forEach(g => {
-      html += `⚽ ${g.name} ${g.minute}'<br>`;
-    });
-    if (goals1.length === 0) html += '<span style="color:#aaa">—</span><br>';
+  // Obtener nombres internos y banderas
+  const team1Internal = translateTeamName(m.team1);
+  const team2Internal = translateTeamName(m.team2);
+  const flag1 = getTeamFlagClass(team1Internal);
+  const flag2 = getTeamFlagClass(team2Internal);
+  const display1 = displayTeamName(team1Internal);
+  const display2 = displayTeamName(team2Internal);
 
-    html += `<strong>${displayTeamName(translateTeamName(m.team2))} ${m.score ? m.score.ft[1] : ''}</strong><br>`;
-    goals2.forEach(g => {
-      html += `⚽ ${g.name} ${g.minute}'<br>`;
-    });
-    if (goals2.length === 0) html += '<span style="color:#aaa">—</span><br>';
+  let html = '<div class="goal-tooltip-content">';
+  
+  // Cabecera equipo 1 con bandera
+  html += `<strong><span class="team-flag ${flag1}"></span> ${display1} ${m.score ? m.score.ft[0] : ''}</strong><br>`;
+  goals1.forEach(g => {
+    html += `⚽ ${g.name} ${g.minute}'<br>`;
+  });
+  if (goals1.length === 0) html += '<span style="color:#aaa">—</span><br>';
 
-    html += '</div>';
-    return html;
+  // Cabecera equipo 2 con bandera
+  html += `<strong><span class="team-flag ${flag2}"></span> ${display2} ${m.score ? m.score.ft[1] : ''}</strong><br>`;
+  goals2.forEach(g => {
+    html += `⚽ ${g.name} ${g.minute}'<br>`;
+  });
+  if (goals2.length === 0) html += '<span style="color:#aaa">—</span><br>';
+
+  html += '</div>';
+  return html;
   }
 
   // Tooltip para goleadores
@@ -2800,6 +2812,185 @@ function initBracket() {
   });
 }
 
+function initGroupStandings() {
+  const container = document.getElementById('groupStandingsContainer');
+  if (!container || !window.__worldCupData) {
+    if (container) container.innerHTML = '<p class="note-text">Datos del torneo no disponibles.</p>';
+    return;
+  }
+
+  // Partidos de grupo con resultado final
+  const groupMatches = window.__worldCupData.matches.filter(m =>
+    m.group && m.group.startsWith('Group ') &&
+    m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2
+  );
+
+  // Agrupar por grupo
+  const byGroup = {};
+  groupMatches.forEach(m => {
+    const letter = m.group.replace('Group ', '');
+    if (!byGroup[letter]) byGroup[letter] = [];
+    byGroup[letter].push(m);
+  });
+
+  // Calcular clasificación real usando los mismos criterios que en otros puntos
+  function getStandings(groupLetter) {
+    const teams = TEAMS_BY_GROUP[groupLetter]?.map(t => t.name) || [];
+    const stats = {};
+    teams.forEach(t => { stats[t] = { pts: 0, gf: 0, ga: 0, gd: 0, played: 0, wins: 0, draws: 0, losses: 0 }; });
+
+    const matches = byGroup[groupLetter] || [];
+    matches.forEach(m => {
+      const t1 = translateTeamName(m.team1);
+      const t2 = translateTeamName(m.team2);
+      if (!stats[t1] || !stats[t2]) return;
+
+      const g1 = parseInt(m.score.ft[0]);
+      const g2 = parseInt(m.score.ft[1]);
+
+      stats[t1].played++; stats[t2].played++;
+      stats[t1].gf += g1; stats[t1].ga += g2;
+      stats[t2].gf += g2; stats[t2].ga += g1;
+
+      if (g1 > g2) { stats[t1].pts += 3; stats[t1].wins++; stats[t2].losses++; }
+      else if (g1 < g2) { stats[t2].pts += 3; stats[t2].wins++; stats[t1].losses++; }
+      else { stats[t1].pts++; stats[t2].pts++; stats[t1].draws++; stats[t2].draws++; }
+    });
+
+    teams.forEach(t => { stats[t].gd = stats[t].gf - stats[t].ga; });
+
+    return teams.map(t => ({ team: t, ...stats[t] }))
+                .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+  }
+
+  // Construir tabla HTML
+  let html = '<table class="standings-table"><thead><tr>';
+  html += '<th>Pos</th><th>Selección</th><th>J</th><th>DG</th><th>Pts</th>';
+  html += '</tr></thead><tbody>';
+
+  const groupOrder = Object.keys(TEAMS_BY_GROUP).sort();
+  groupOrder.forEach(g => {
+    html += `<tr class="group-header"><td colspan="5">GRUPO ${g}</td></tr>`;
+    const standings = getStandings(g);
+    standings.forEach((s, idx) => {
+      html += '<tr>';
+      html += `<td>${idx + 1}</td>`;
+      html += `<td><span class="team-name" data-team="${s.team}" data-group="${g}">${displayTeamName(s.team)}</span></td>`;
+      html += `<td>${s.played}</td>`;
+      html += `<td>${s.gd > 0 ? '+' + s.gd : s.gd}</td>`;
+      html += `<td>${s.pts}</td>`;
+      html += '</tr>';
+    });
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // --- Tooltip de partidos del equipo ---
+  let currentTooltip = null;
+
+  function closeTooltip() {
+    if (currentTooltip) {
+      currentTooltip.remove();
+      currentTooltip = null;
+    }
+  }
+
+  container.addEventListener('click', function(e) {
+    const teamEl = e.target.closest('.team-name');
+    if (!teamEl) {
+      closeTooltip();
+      return;
+    }
+
+    const team = teamEl.dataset.team;
+    const group = teamEl.dataset.group;
+    if (!team) return;
+
+    // Cerrar tooltip anterior si se pulsa el mismo
+    if (currentTooltip && currentTooltip.dataset.team === team) {
+      closeTooltip();
+      return;
+    }
+
+    closeTooltip();
+
+    // Buscar los partidos de grupo de este equipo
+    const allGroupMatches = window.__worldCupData.matches.filter(m =>
+      m.group && m.group.replace('Group ', '') === group &&
+      m.score && m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2
+    );
+
+    const teamMatches = allGroupMatches.filter(m => {
+      const t1 = translateTeamName(m.team1);
+      const t2 = translateTeamName(m.team2);
+      return t1 === team || t2 === team;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Construir contenido del tooltip
+    let tipHtml = `<div><strong>${displayTeamName(team)}</strong> – Grupo ${group}</div>`;
+
+    teamMatches.forEach(m => {
+      const t1 = translateTeamName(m.team1);
+      const t2 = translateTeamName(m.team2);
+      const flag1 = getTeamFlagClass(t1);
+      const flag2 = getTeamFlagClass(t2);
+      const scoreStr = `${m.score.ft[0]}-${m.score.ft[1]}`;
+
+      tipHtml += `<div class="match-item">`;
+      tipHtml += `<div class="match-header" data-match="${m.num}">`;
+      tipHtml += `<span>${displayTeamName(t1)} <span class="team-flag ${flag1}"></span></span>`;
+      tipHtml += `<strong style="margin:0 0.5rem">${scoreStr}</strong>`;
+      tipHtml += `<span><span class="team-flag ${flag2}"></span> ${displayTeamName(t2)}</span>`;
+      tipHtml += `<span style="margin-left:auto;font-size:0.8rem;opacity:0.7;">▼</span>`;
+      tipHtml += `</div>`;
+      tipHtml += `<div class="goals-detail" id="goals-${m.num}">`;
+      // Goles equipo1
+      (m.goals1 || []).forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
+      if ((m.goals1 || []).length === 0) tipHtml += '<div style="color:#aaa">—</div>';
+      // Goles equipo2
+      (m.goals2 || []).forEach(g => tipHtml += `<div>⚽ ${g.name} ${g.minute}'</div>`);
+      if ((m.goals2 || []).length === 0) tipHtml += '<div style="color:#aaa">—</div>';
+      tipHtml += `</div>`;
+      tipHtml += `</div>`;
+    });
+
+    if (teamMatches.length === 0) {
+      tipHtml += '<div style="color:#aaa;margin-top:0.5rem;">Sin partidos disputados aún.</div>';
+    }
+
+    // Crear tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'team-matches-tooltip';
+    tooltip.innerHTML = tipHtml;
+    tooltip.dataset.team = team;
+    document.body.appendChild(tooltip);
+
+    // Posicionar cerca del clic
+    const rect = teamEl.getBoundingClientRect();
+    tooltip.style.left = Math.min(rect.left + window.scrollX, window.innerWidth - 300) + 'px';
+    tooltip.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+
+    currentTooltip = tooltip;
+
+    // Evento para expandir/colapsar goles
+    tooltip.addEventListener('click', function(ev) {
+      const header = ev.target.closest('.match-header');
+      if (!header) return;
+      const matchNum = header.dataset.match;
+      const detail = document.getElementById('goals-' + matchNum);
+      if (detail) detail.classList.toggle('open');
+    });
+  });
+
+  // Cerrar tooltip al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.team-name') && !e.target.closest('.team-matches-tooltip')) {
+      closeTooltip();
+    }
+  });
+}
+
 // Activar la pestaña
 function showBracketTab() {
   const tab = document.getElementById('tab-cuadro');
@@ -2819,6 +3010,7 @@ document.addEventListener('DOMContentLoaded', function() {
       bracketTab.classList.add('active');
       document.getElementById('tab-cuadro').classList.add('active');
       initBracket();
+      initGroupStandings();
     });
   }
 });
