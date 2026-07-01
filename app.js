@@ -2528,7 +2528,7 @@ const BRACKET_STRUCTURE = {
     {num: 95, label: 'W86 vs W88'}, {num: 96, label: 'W85 vs W87'}
   ],
   quarterfinals: [
-    {num: 97, label: 'W89 vs W90'}, {num: 99, label: 'W93 vs W94'}, {num: 98, label: 'W91 vs W92'}, {num: 100, label: 'W95 vs W96'}
+    {num: 97, label: 'W89 vs W90'}, {num: 98, label: 'W93 vs W94'}, {num: 99, label: 'W91 vs W92'}, {num: 100, label: 'W95 vs W96'}
   ],
   semifinals: [
     {num: 101, label: 'W97 vs W98'}, {num: 102, label: 'W99 vs W100'}
