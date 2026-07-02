@@ -2543,6 +2543,37 @@ function initBracket() {
 
   // Obtener datos de partidos del JSON
   const matchMap = {};
+  // Función para obtener el marcador final según la prioridad: penaltis > prórroga > FT
+  function getFinalScore(match) {
+    if (!match || !match.score) return null;
+    const s = match.score;
+    if (s.p && Array.isArray(s.p) && s.p.length === 2) return s.p.map(Number);
+    if (s.et && Array.isArray(s.et) && s.et.length === 2) return s.et.map(Number);
+    if (s.ft && Array.isArray(s.ft) && s.ft.length === 2) return s.ft.map(Number);
+    return null;
+  }
+
+  function getWinner(num) {
+    // 1. Resultados reales del backend (prioridad)
+    if (realResults && realResults.knockout && realResults.knockout.matches) {
+      for (const round in realResults.knockout.matches) {
+        const found = realResults.knockout.matches[round].find(m => m.match === num);
+        if (found && found.winner) return found.winner;
+      }
+    }
+    // 2. JSON de partidos (usando el marcador definitivo)
+    const m = matchMap[num];
+    if (m) {
+      const finalScore = getFinalScore(m);
+      if (finalScore) {
+        if (finalScore[0] > finalScore[1]) return translateTeamName(m.team1);
+        if (finalScore[1] > finalScore[0]) return translateTeamName(m.team2);
+      }
+    }
+    return null;
+  }
+
+
   if (window.__worldCupData && window.__worldCupData.matches) {
     const koMatches = window.__worldCupData.matches.filter(m =>
       ['Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final'].includes(m.round)
@@ -2624,8 +2655,36 @@ function initBracket() {
     const t2 = getTeamName(num, 2);
     const winner = getWinner(num);
     const m = matchMap[num];
-    const played = m && m.score && m.score.ft && m.score.ft.length === 2;
-    
+
+    // Calcular puntuaciones visibles
+    let score1 = '', score2 = '';
+    if (m && m.score) {
+      const finalScore = getFinalScore(m);
+      if (finalScore) {
+        // Marcador antes de los penaltis (el que va en grande)
+        let mainScore = null;
+        if (m.score.et && Array.isArray(m.score.et) && m.score.et.length === 2) {
+          mainScore = m.score.et.map(Number);
+        } else if (m.score.ft && Array.isArray(m.score.ft) && m.score.ft.length === 2) {
+          mainScore = m.score.ft.map(Number);
+        }
+        const penScore = (m.score.p && Array.isArray(m.score.p) && m.score.p.length === 2) 
+                          ? m.score.p.map(Number) : null;
+
+        if (mainScore) {
+          score1 = mainScore[0];
+          score2 = mainScore[1];
+          if (penScore) {
+            score1 += ` (${penScore[0]})`;
+            score2 += ` (${penScore[1]})`;
+          }
+        } else if (penScore) {
+          score1 = penScore[0];
+          score2 = penScore[1];
+        }
+      }
+    }
+
     const boxClass = isFinal ? 'match-box final-box' : 'match-box';
     
     return `
@@ -2635,20 +2694,18 @@ function initBracket() {
             <span class="team-flag ${getTeamFlagClass(t1)}"></span>
             ${displayTeamName(t1)}
           </span>
-          <span class="score">${played ? m.score.ft[0] : ''}</span>
+          <span class="score">${score1}</span>
         </div>
         <div class="team-row">
           <span class="team-name ${winner === t2 ? 'winner' : ''}">
             <span class="team-flag ${getTeamFlagClass(t2)}"></span>
             ${displayTeamName(t2)}
           </span>
-          <span class="score">${played ? m.score.ft[1] : ''}</span>
+          <span class="score">${score2}</span>
         </div>
         ${getMatchDate(num) ? `<div class="date">${getMatchDate(num)}</div>` : ''}
       </div>
     `;
-
-    
   }
 
   // Construir tabla con rowspan
