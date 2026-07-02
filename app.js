@@ -2797,13 +2797,13 @@ function initBracket() {
 
   function buildGoalTooltip(num) {
   const m = matchMap[num];
-  if (!m) return '<em>Sin goles registrados</em>';
+  if (!m) return '<em>Partido no disputado</em>';
 
   const goals1 = m.goals1 || [];
   const goals2 = m.goals2 || [];
 
   if (goals1.length === 0 && goals2.length === 0) {
-    return '<em>Sin goles registrados</em>';
+    return '<em>Partido no disputado</em>';
   }
 
   // Obtener nombres internos y banderas
