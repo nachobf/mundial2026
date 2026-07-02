@@ -2522,9 +2522,9 @@ const BRACKET_STRUCTURE = {
     {num: 87, label: '3I vs 3K vs 3J vs 3L'}  // Colombia - Ghana
   ],
   round16: [
-    {num: 89, label: 'W73 vs W77'}, {num: 90, label: 'W75 vs W76'},
-    {num: 94, label: 'W83 vs W84'}, {num: 93, label: 'W81 vs W82'},
-    {num: 91, label: 'W77 vs W78'}, {num: 92, label: 'W79 vs W80'},
+    {num: 89, label: 'W74 vs W77'}, {num: 90, label: 'W73 vs W75'},
+    {num: 93, label: 'W81 vs W82'}, {num: 94, label: 'W83 vs W84'},
+    {num: 91, label: 'W76 vs W78'}, {num: 92, label: 'W79 vs W80'},
     {num: 95, label: 'W86 vs W88'}, {num: 96, label: 'W85 vs W87'}
   ],
   quarterfinals: [
