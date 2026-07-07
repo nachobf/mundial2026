@@ -2803,7 +2803,7 @@ function initBracket() {
   const goals2 = m.goals2 || [];
 
   if (goals1.length === 0 && goals2.length === 0) {
-    return '<em>Partido no disputado</em>';
+    return '<em>Partido sin goles</em>';
   }
 
   // Obtener nombres internos y banderas
