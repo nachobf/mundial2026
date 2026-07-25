@@ -137,7 +137,10 @@ function daPrecalcularBumpChart(players, finishedMatches) {
   // Ordenar las fechas CEST
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daGetTodayCEST();
+  let todayCEST = daGetTodayCEST();
+  if (todayCEST > TOURNAMENT_END) {
+    todayCEST = TOURNAMENT_END;
+  }
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -214,29 +217,41 @@ function getTeamRoundFromData(team, data, faseGruposTerminada) {
 
   const ko = data.knockout?.matches || {};
   const rounds = ['final', 'thirdPlace', 'semifinals', 'quarterfinals', 'round16', 'round32'];
+  
   for (const round of rounds) {
     const matches = ko[round] || [];
     for (const m of matches) {
       if (m.team1 === team || m.team2 === team) {
+        // Si el partido ya tiene ganador
         if (m.winner) {
           if (m.winner === team) {
+            // Ganador
             if (round === 'final') return 'champion';
             if (round === 'thirdPlace') return 'thirdPlace';
-            const allRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
-            const idx = allRounds.indexOf(round);
-            return allRounds[idx + 1] || round;
+            
+            // Mapeo correcto de progresión
+            const nextRoundMap = {
+              'round32': 'round16',
+              'round16': 'quarterfinals',
+              'quarterfinals': 'semifinals',
+              'semifinals': 'finalist'
+            };
+            return nextRoundMap[round] || round;
           } else {
+            // Perdedor
             if (round === 'final') return 'finalist';
             if (round === 'thirdPlace') return 'fourthPlace';
             return round;
           }
         } else {
+          // Partido programado pero aún sin jugar → el equipo ha alcanzado esta ronda
           return round;
         }
       }
     }
   }
 
+  // Si no aparece en eliminatorias pero la fase de grupos terminó, asignar ronda según clasificación
   if (faseGruposTerminada) {
     const groups = data.groups || {};
     for (const g of Object.keys(groups)) {
@@ -465,7 +480,16 @@ function daBuildPartialReal(matchesWithResults) {
     const g2 = parseInt(m.score.ft[1], 10);
     const t1 = (typeof translateTeamName === 'function') ? translateTeamName(t1Raw) : t1Raw;
     const t2 = (typeof translateTeamName === 'function') ? translateTeamName(t2Raw) : t2Raw;
-    const winner = g1 > g2 ? t1 : t2;
+    
+    // FIX: usar m.winner si existe (penaltis), si no fallback a goles
+    let winner = null;
+    if (m.winner) {
+      winner = (typeof translateTeamName === 'function') ? translateTeamName(m.winner) : m.winner;
+    } else if (g1 > g2) {
+      winner = t1;
+    } else if (g2 > g1) {
+      winner = t2;
+    }
 
     real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
   });
@@ -492,7 +516,10 @@ function daProcessAndRender(players, finishedMatches) {
 
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daGetTodayCEST();
+  let todayCEST = daGetTodayCEST();
+  if (todayCEST > TOURNAMENT_END) {
+    todayCEST = TOURNAMENT_END;
+  }
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -1349,7 +1376,10 @@ function daProcessAndRenderLineRanking(players, finishedMatches) {
 
   const uniqueDates = Object.keys(byCESTDate).sort();
   
-  const todayCEST = daGetTodayCEST();
+  let todayCEST = daGetTodayCEST();
+  if (todayCEST > TOURNAMENT_END) {
+    todayCEST = TOURNAMENT_END;
+  }
   
   const hasTodayMatches = uniqueDates.includes(todayCEST);
   
@@ -2364,6 +2394,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
     if (!team || !data) return null;
     const ko = data.knockout?.matches || {};
     const rounds = ['final', 'thirdPlace', 'semifinals', 'quarterfinals', 'round16', 'round32'];
+    
     for (const round of rounds) {
       const matches = ko[round] || [];
       for (const m of matches) {
@@ -2372,16 +2403,21 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
             if (m.winner === team) {
               if (round === 'final') return 'champion';
               if (round === 'thirdPlace') return 'thirdPlace';
-              const allRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
-              const idx = allRounds.indexOf(round);
-              return allRounds[idx + 1] || round;
+              
+              const nextRoundMap = {
+                'round32': 'round16',
+                'round16': 'quarterfinals',
+                'quarterfinals': 'semifinals',
+                'semifinals': 'finalist'
+              };
+              return nextRoundMap[round] || round;
             } else {
               if (round === 'final') return 'finalist';
               if (round === 'thirdPlace') return 'fourthPlace';
               return round;
             }
           } else {
-            return round; // partido programado sin jugar
+            return round;
           }
         }
       }
