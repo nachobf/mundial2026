@@ -470,20 +470,6 @@ function daBuildPartialReal(matchesWithResults) {
     real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
   });
 
-  // Fusionar knockout desde REAL_RESULTS si está disponible y es más completo
-  if (window.REAL_RESULTS && window.REAL_RESULTS.knockout && window.REAL_RESULTS.knockout.matches) {
-    const src = window.REAL_RESULTS.knockout.matches;
-    const dst = real.knockout.matches;
-    ['round32','round16','quarterfinals','semifinals','thirdPlace','final'].forEach(r => {
-      if (src[r] && Array.isArray(src[r]) && src[r].length > 0) {
-        // Solo sobrescribir si no tenemos datos o si los del backend son más
-        if (!dst[r] || dst[r].length === 0 || src[r].length > dst[r].length) {
-          dst[r] = src[r].map(m => ({...m}));
-        }
-      }
-    });
-  }
-
   return real;
 }
 
@@ -541,14 +527,7 @@ function daProcessAndRender(players, finishedMatches) {
       matchesSoFar.push(...dayMatches);
     }
     
-    let realPartial;
-    if (window.REAL_RESULTS && window.REAL_RESULTS.groupMatchResults &&
-        Object.keys(window.REAL_RESULTS.groupMatchResults).length >= 72) {
-      // Usar REAL_RESULTS del backend (tiene TODOS los datos, incluido KO)
-      realPartial = window.REAL_RESULTS;
-    } else {
-      realPartial = daBuildPartialReal(matchesSoFar);
-    }
+    const realPartial = daBuildPartialReal(matchesSoFar);
 
     const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
     const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
@@ -1406,13 +1385,7 @@ function daProcessAndRenderLineRanking(players, finishedMatches) {
       matchesSoFar.push(...dayMatches);
     }
     
-    let realPartial;
-    if (window.REAL_RESULTS && window.REAL_RESULTS.groupMatchResults &&
-        Object.keys(window.REAL_RESULTS.groupMatchResults).length >= 72) {
-      realPartial = window.REAL_RESULTS;
-    } else {
-      realPartial = daBuildPartialReal(matchesSoFar);
-    }
+    const realPartial = daBuildPartialReal(matchesSoFar);
     const groupMatchesSoFar = matchesSoFar.filter(m => m.group && m.group.startsWith('Group ')).length;
     const faseGruposTerminada = groupMatchesSoFar >= TOTAL_GROUP_MATCHES;
 
@@ -2408,26 +2381,11 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
               return round;
             }
           } else {
-            return round;
+            return round; // partido programado sin jugar
           }
         }
       }
     }
-
-    // FALLBACK: si la fase de grupos está terminada, los 1º, 2º y 3º-top8
-    // clasifican a round32 (igual que getTeamRoundFromData)
-    if (faseGruposTerminada) {
-      const groups = data.groups || {};
-      for (const g of Object.keys(groups)) {
-        const order = groups[g] || [];
-        if (order[0] === team || order[1] === team) return 'round32';
-        if (order[2] === team) {
-          const top8 = (data.thirdPlace || []).slice(0, 8);
-          if (top8.includes(team)) return 'round32';
-        }
-      }
-    }
-
     return null;
   }
 
