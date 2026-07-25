@@ -388,6 +388,7 @@ function daBuildPartialReal(matchesWithResults) {
   const groupStats = {};
   const groupMatchesProcessed = {};
 
+  // --- FASE DE GRUPOS ---
   matchesWithResults.forEach(m => {
     if (!m.group || !m.group.startsWith('Group ')) return;
     const group = m.group.replace('Group ', '');
@@ -401,6 +402,7 @@ function daBuildPartialReal(matchesWithResults) {
     if (!groupMatchesProcessed[group]) groupMatchesProcessed[group] = [];
     groupMatchesProcessed[group].push(m);
 
+    // Usamos el marcador del ft (goles en tiempo reglamentario) para la clasificación del grupo
     const g1 = parseInt(m.score.ft[0], 10);
     const g2 = parseInt(m.score.ft[1], 10);
     const t1 = (typeof translateTeamName === 'function') ? translateTeamName(m.team1) : m.team1;
@@ -422,6 +424,7 @@ function daBuildPartialReal(matchesWithResults) {
     }
   });
 
+  // Ordenar grupos
   Object.keys(groupStats).forEach(group => {
     const teams = Object.keys(groupStats[group]);
     teams.forEach(t => { groupStats[group][t].gd = groupStats[group][t].gf - groupStats[group][t].ga; });
@@ -443,6 +446,7 @@ function daBuildPartialReal(matchesWithResults) {
     });
   });
 
+  // Mejores terceros
   const candidates = [];
   gNames.forEach(group => {
     if (!real.groups[group] || real.groups[group].length < 3) return;
@@ -463,6 +467,7 @@ function daBuildPartialReal(matchesWithResults) {
   real.thirdPlace = candidates.map(c => c.team);
   real.thirdPlaceConfirmed = candidates.length >= 8;
 
+  // --- ELIMINATORIAS (CORRECCIÓN) ---
   const roundMap = {
     'Round of 32': 'round32', 'Round of 16': 'round16',
     'Quarter-final': 'quarterfinals', 'Semi-final': 'semifinals',
@@ -476,22 +481,31 @@ function daBuildPartialReal(matchesWithResults) {
     const isPlaceholder = /^[WL]\d+$/.test(t1Raw) || /^[WL]\d+$/.test(t2Raw) || /^\d+[A-Z]$/.test(t1Raw) || /^\d+[A-Z]$/.test(t2Raw);
     if (isPlaceholder) return;
 
-    const g1 = parseInt(m.score.ft[0], 10);
-    const g2 = parseInt(m.score.ft[1], 10);
     const t1 = (typeof translateTeamName === 'function') ? translateTeamName(t1Raw) : t1Raw;
     const t2 = (typeof translateTeamName === 'function') ? translateTeamName(t2Raw) : t2Raw;
-    
-    // FIX: usar m.winner si existe (penaltis), si no fallback a goles
+
+    // 🔧 CORRECCIÓN: usar la primera clave del score para decidir el ganador
+    const scoreKeys = Object.keys(m.score);
+    const decisiveKey = scoreKeys[0];  // "p", "et" o "ft"
+    const decisiveScore = m.score[decisiveKey];
+
     let winner = null;
     if (m.winner) {
+      // Si el JSON ya incluye un campo 'winner', se usa directamente
       winner = (typeof translateTeamName === 'function') ? translateTeamName(m.winner) : m.winner;
-    } else if (g1 > g2) {
-      winner = t1;
-    } else if (g2 > g1) {
-      winner = t2;
+    } else if (decisiveScore && decisiveScore.length === 2) {
+      const g1 = parseInt(decisiveScore[0], 10);
+      const g2 = parseInt(decisiveScore[1], 10);
+      if (g1 > g2) winner = t1;
+      else if (g2 > g1) winner = t2;
     }
 
-    real.knockout.matches[roundName].push({ match: m.num, team1: t1, team2: t2, winner: winner });
+    real.knockout.matches[roundName].push({
+      match: m.num,
+      team1: t1,
+      team2: t2,
+      winner: winner
+    });
   });
 
   return real;
