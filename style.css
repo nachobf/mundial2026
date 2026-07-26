@@ -683,7 +683,24 @@ body {
   margin-bottom: 6px;
 }
 .scoring-row:nth-child(even) { background: #f0f2f5; }
-.scoring-desc { font-size: 14px; color: #333; }
+.scoring-row.bonus-row {
+  background: #e3f2fd;
+  border-left: 3px solid #2196F3;
+}
+.scoring-row.exact-row {
+  background: #fff8e1;
+  border-left: 3px solid #FFB300;
+}
+
+.bonus-row .scoring-desc {
+  font-weight: 600;
+  color: #1565C0;
+}
+.exact-row .scoring-desc {
+  font-weight: 600;
+  color: #E65100;
+}
+.scoring-desc {font-weight: 500; font-size: 14px; color: #333; }
 .scoring-points {
   font-weight: 700;
   font-size: 15px;

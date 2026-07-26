@@ -55,7 +55,7 @@ function updateCountdowns() {
   if (kickEl && textkick) {
     const diff = KICKOFF.getTime() - now;
     const diffEnd = END_WC.getTime() - now;
-    kickEl.textContent = diff > 0 ? formatCountdown(diff) : formatCountdown(diffEnd);
+    kickEl.textContent = diff > 0 ? formatCountdown(diff) : diffEnd > 0 ? formatCountdown(diffEnd) : 'Finalizado';
     textkick.textContent = diff > 0 ? 'Inicio del mundial' : 'Final del mundial';
     kickEl.classList.toggle('countdown-finished', diff <= 0);
   }

@@ -485,19 +485,28 @@
               <div class="scoring-row"><span class="scoring-desc">Cada mejor tercero (top 8) acertado</span><span class="scoring-points">1 pt</span></div>
             </div>
             <p class="scoring-note">Todas las posiciones del grupo puntúan igual (5 pts). La posición en grupo se calcula automáticamente desde los resultados exactos.</p>
-
             <h3>🥊 Eliminatorias</h3>
             <div class="scoring-table">
+              <!-- Rondas progresivas (acumulativas) -->
               <div class="scoring-row"><span class="scoring-desc">Equipo en dieciseisavos de final</span><span class="scoring-points">3 pts</span></div>
               <div class="scoring-row"><span class="scoring-desc">Equipo en octavos de final</span><span class="scoring-points">5 pts</span></div>
               <div class="scoring-row"><span class="scoring-desc">Equipo en cuartos de final</span><span class="scoring-points">10 pts</span></div>
               <div class="scoring-row"><span class="scoring-desc">Equipo en semifinales</span><span class="scoring-points">20 pts</span></div>
-              <div class="scoring-row"><span class="scoring-desc">Cuarto puesto</span><span class="scoring-points">20 pts</span></div>
-              <div class="scoring-row"><span class="scoring-desc">Tercer puesto</span><span class="scoring-points">20 pts</span></div>
-              <div class="scoring-row"><span class="scoring-desc">Finalista</span><span class="scoring-points">30 pts</span></div>
-              <div class="scoring-row"><span class="scoring-desc">Campeón</span><span class="scoring-points">50 pts</span></div>
+              
+              <!-- Bonus por llegar a la fase final (sin acertar orden) -->
+              <div class="scoring-row bonus-row"><span class="scoring-desc">Equipo en 3º / 4º puesto</span><span class="scoring-points">25 pts</span></div>
+              <div class="scoring-row bonus-row"><span class="scoring-desc">Equipo en la Final</span><span class="scoring-points">30 pts</span></div>
+              
+              <!-- Bonus por posición exacta -->
+              <div class="scoring-row exact-row"><span class="scoring-desc">Cuarto puesto (exacto)</span><span class="scoring-points">5 pts</span></div>
+              <div class="scoring-row exact-row"><span class="scoring-desc">Tercer puesto (exacto)</span><span class="scoring-points">10 pts</span></div>
+              <div class="scoring-row exact-row"><span class="scoring-desc">Subcampeón (exacto)</span><span class="scoring-points">15 pts</span></div>
+              <div class="scoring-row exact-row"><span class="scoring-desc">Campeón (exacto)</span><span class="scoring-points">20 pts</span></div>
             </div>
-            <p class="scoring-note">La puntuación de eliminatorias suma todas las decisiones acertadas. Si aciertas que un equipo llega a semifinales, sumas los puntos de dieciseisavos + octavos + cuartos + semifinales.</p>
+            <p class="scoring-note">
+              La puntuación de eliminatorias suma todas las rondas acertadas. 
+              Si aciertas que un equipo pierde la final de consolación, sumas 3 + 5 + 10 + 20 + 25 + 5 = <strong>68 pts</strong>.
+            </p>
           </div>
         </section>
       </div>
