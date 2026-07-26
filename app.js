@@ -1908,8 +1908,8 @@ function renderLeaderboard() {
     container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
     return;
   }
-
-  const hasRealResults = data.hasRealResults || false;
+  
+  const data = window.__leaderboardData || { players: [] };
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
