@@ -317,9 +317,17 @@ function daCalculateScore(player, real, faseGruposTerminada) {
     });
   }
 
-  const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    const roundPoints = {
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20
+  };
+
+  const finalExactBonus = {
+    champion: 20, finalist: 10, thirdPlace: 10, fourthPlace: 5
+  };
+
+  const proximityBonus = {
+    final: 30,      // champion or finalist
+    thirdFourth: 25 // thirdPlace or fourthPlace
   };
 
   const basicRounds = ['round32', 'round16', 'quarterfinals', 'semifinals'];
@@ -328,7 +336,7 @@ function daCalculateScore(player, real, faseGruposTerminada) {
       const idx = basicRounds.indexOf(terminalRound);
       return basicRounds.slice(0, idx + 1);
     }
-    return basicRounds.concat(terminalRound);
+    return basicRounds;
   }
 
   // Determinar si la fase de grupos real está terminada
@@ -360,6 +368,24 @@ function daCalculateScore(player, real, faseGruposTerminada) {
         pts += roundPoints[r] || 0;
       }
     });
+
+    // Bonus por llegar a la fase final (sin acertar orden exacto)
+    const predInFinal = ['champion', 'finalist'].includes(predRound);
+    const realInFinal = ['champion', 'finalist'].includes(realRound);
+    const predInThird = ['thirdPlace', 'fourthPlace'].includes(predRound);
+    const realInThird = ['thirdPlace', 'fourthPlace'].includes(realRound);
+
+    if (predInFinal && realInFinal) {
+      pts += proximityBonus.final;
+    }
+    if (predInThird && realInThird) {
+      pts += proximityBonus.thirdFourth;
+    }
+
+    // Bonus por posición exacta
+    if (predRound === realRound && finalExactBonus[realRound]) {
+      pts += finalExactBonus[realRound];
+    }
 
     if (pts > 0) {
       score += pts;
@@ -1540,24 +1566,24 @@ function daCalculateMaxDeltaForDay(newMatches, faseGruposTerminada, prevFaseGrup
   const groupMatches = newMatches.filter(m => m.group && m.group.startsWith('Group '));
   maxDelta += groupMatches.length * 6;
 
-  // 2. Si la fase de grupos se completó este día: posiciones (12×4×5) + mejores terceros (8×1)
+  // 2. Si la fase de grupos se completó este día
   if (faseGruposTerminada && !prevFaseGruposTerminada) {
     maxDelta += (12 * 4 * 5) + (8 * 1); // 240 + 8 = 248
   }
 
-  // 3. Eliminatorias: cada partido resuelto otorga los puntos de la ronda alcanzada
-  const roundPoints = {
+  // 3. Eliminatorias: bonus máximo nuevo por partido resuelto
+  const roundMaxBonus = {
     'Round of 32': 3,
     'Round of 16': 5,
     'Quarter-final': 10,
     'Semi-final': 20,
-    'Match for third place': 20,
-    'Final': 50
+    'Match for third place': 65, // max new bonus: 35 + 30
+    'Final': 90                  // max new bonus: 50 + 40
   };
 
   newMatches.forEach(m => {
-    if (m.round && roundPoints[m.round]) {
-      maxDelta += roundPoints[m.round];
+    if (m.round && roundMaxBonus[m.round]) {
+      maxDelta += roundMaxBonus[m.round];
     }
   });
 
@@ -2300,8 +2326,8 @@ const CATEGORY_CONFIG = {
   oneXTwo: { label: '1X2', max: 72, color: '#2196F3' },
   groupPositions: { label: 'Posiciones grupos', max: 240, color: '#FF9800' },
   bestThirds: { label: 'Mejores terceros', max: 8, color: '#9C27B0' },
-  knockoutRounds: { label: 'Fase final (hasta semis)', max: 356, color: '#F44336' },
-  finalPositions: { label: 'Campeón, finalista, 3º, 4º', max: 150, color: '#FFD700' }
+  knockoutRounds: { label: 'Fase final (hasta semis)', max: 336, color: '#F44336' },
+  finalPositions: { label: 'Campeón, finalista, 3º, 4º', max: 155, color: '#FFD700' }
 };
 
 const CATEGORY_ORDER = ['exactResults', 'oneXTwo', 'groupPositions', 'bestThirds', 'knockoutRounds', 'finalPositions'];
@@ -2395,20 +2421,26 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
     });
   }
 
-  // 4. Eliminatorias (CÁLCULO INCREMENTAL, idéntico al usado en el backend y en app.js)
+    // 4. Eliminatorias
   const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20
+  };
+
+  const finalExactBonus = {
+    champion: 20, finalist: 10, thirdPlace: 10, fourthPlace: 5
+  };
+
+  const proximityBonus = {
+    final: 30,
+    thirdFourth: 25
   };
 
   const basicRounds = ['round32', 'round16', 'quarterfinals', 'semifinals'];
 
-  // Helper para obtener la ronda terminal de un equipo en un objeto de datos
   function getRound(team, data) {
     if (!team || !data) return null;
     const ko = data.knockout?.matches || {};
     const rounds = ['final', 'thirdPlace', 'semifinals', 'quarterfinals', 'round16', 'round32'];
-    
     for (const round of rounds) {
       const matches = ko[round] || [];
       for (const m of matches) {
@@ -2417,14 +2449,9 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
             if (m.winner === team) {
               if (round === 'final') return 'champion';
               if (round === 'thirdPlace') return 'thirdPlace';
-              
-              const nextRoundMap = {
-                'round32': 'round16',
-                'round16': 'quarterfinals',
-                'quarterfinals': 'semifinals',
-                'semifinals': 'finalist'
-              };
-              return nextRoundMap[round] || round;
+              const allRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
+              const idx = allRounds.indexOf(round);
+              return allRounds[idx + 1] || round;
             } else {
               if (round === 'final') return 'finalist';
               if (round === 'thirdPlace') return 'fourthPlace';
@@ -2439,16 +2466,14 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
     return null;
   }
 
-  // Helper para desglosar la ronda terminal en las rondas que la componen
   function roundsFor(terminal) {
     if (basicRounds.includes(terminal)) {
       const idx = basicRounds.indexOf(terminal);
       return basicRounds.slice(0, idx + 1);
     }
-    return basicRounds.concat(terminal);
+    return basicRounds;
   }
 
-  // Reunir todos los equipos de ambos lados (predicción y realidad)
   const allTeams = new Set();
   const groups = player.groups || {};
   Object.keys(groups).forEach(g => {
@@ -2467,14 +2492,29 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
     realRounds.forEach(r => {
       if (predRounds.includes(r)) {
         const pts = roundPoints[r] || 0;
-        // Distribuir en categorías: round32 a semifinals → knockoutRounds; el resto → finalPositions
         if (['round32', 'round16', 'quarterfinals', 'semifinals'].includes(r)) {
           cats.knockoutRounds += pts;
-        } else {
-          cats.finalPositions += pts;
         }
       }
     });
+
+    // Bonus por llegar a la fase final
+    const predInFinal = ['champion', 'finalist'].includes(predTerminal);
+    const realInFinal = ['champion', 'finalist'].includes(realTerminal);
+    const predInThird = ['thirdPlace', 'fourthPlace'].includes(predTerminal);
+    const realInThird = ['thirdPlace', 'fourthPlace'].includes(realTerminal);
+
+    if (predInFinal && realInFinal) {
+      cats.finalPositions += proximityBonus.final;
+    }
+    if (predInThird && realInThird) {
+      cats.finalPositions += proximityBonus.thirdFourth;
+    }
+
+    // Bonus por posición exacta
+    if (predTerminal === realTerminal && finalExactBonus[realTerminal]) {
+      cats.finalPositions += finalExactBonus[realTerminal];
+    }
   });
 
   return cats;

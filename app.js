@@ -25,7 +25,8 @@ const puntuaciones = {
   },
   eliminatorias: {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    finalist: 10, champion: 20, thirdPlace: 10, fourthPlace: 5,
+    final: 30, thirdFourth: 25
   }
 };
 
@@ -606,10 +607,18 @@ function calculatePlayerScore(player, real) {
     });
   }
 
-// 4. Eliminatorias (cálculo incremental)
+ // 4. Eliminatorias (nuevo sistema de puntuación)
   const roundPoints = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20
+  };
+
+  const finalExactBonus = {
+    champion: 20, finalist: 10, thirdPlace: 10, fourthPlace: 5
+  };
+
+  const proximityBonus = {
+    final: 30,      // champion or finalist
+    thirdFourth: 25 // thirdPlace or fourthPlace
   };
 
   const basicRounds = ['round32', 'round16', 'quarterfinals', 'semifinals'];
@@ -618,7 +627,7 @@ function calculatePlayerScore(player, real) {
       const idx = basicRounds.indexOf(terminalRound);
       return basicRounds.slice(0, idx + 1);
     }
-    return basicRounds.concat(terminalRound);
+    return basicRounds;
   }
 
   // Determinar si la fase de grupos real está terminada
@@ -630,7 +639,7 @@ function calculatePlayerScore(player, real) {
   (playerThirdPlace || []).forEach(t => allTeams.add(t));
 
   allTeams.forEach(team => {
-    const predRound = getTeamRoundFromPlayer(team, player, true); // predicción siempre tiene grupos completos
+    const predRound = getTeamRoundFromPlayer(team, player, true);
     const realRound = getTeamRoundFromPlayer(team, real, realFaseGruposTerminada);
 
     if (!predRound || !realRound) return;
@@ -644,6 +653,24 @@ function calculatePlayerScore(player, real) {
         pts += roundPoints[r] || 0;
       }
     });
+
+    // Bonus por llegar a la fase final (sin acertar orden exacto)
+    const predInFinal = ['champion', 'finalist'].includes(predRound);
+    const realInFinal = ['champion', 'finalist'].includes(realRound);
+    const predInThird = ['thirdPlace', 'fourthPlace'].includes(predRound);
+    const realInThird = ['thirdPlace', 'fourthPlace'].includes(realRound);
+
+    if (predInFinal && realInFinal) {
+      pts += proximityBonus.final;
+    }
+    if (predInThird && realInThird) {
+      pts += proximityBonus.thirdFourth;
+    }
+
+    // Bonus por posición exacta
+    if (predRound === realRound && finalExactBonus[realRound]) {
+      pts += finalExactBonus[realRound];
+    }
 
     if (pts > 0) {
       score += pts;
