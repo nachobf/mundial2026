@@ -2100,7 +2100,7 @@ function showPlayerPrediction(entry){
         pendingRounds.push(rd);
       }
     }
-
+      
   function renderMatch(match, roundKey) {
       const t1 = match.team1 || '?';
       const t2 = match.team2 || '?';
@@ -2118,6 +2118,11 @@ function showPlayerPrediction(entry){
           }
         }
       }
+
+      // 2. Calcular puntos con el objeto real ya corregido
+      const matchDiv = document.createElement('div');
+      matchDiv.className = 'prediction-ko-match';
+      matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
 
       // 2. Calcular puntos según el tipo de ronda
       let pts1 = 0, pts2 = 0;
