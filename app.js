@@ -2100,6 +2100,22 @@ function showPlayerPrediction(entry){
     function renderMatch(match, roundKey) {
       const t1 = match.team1 || '?';
       const t2 = match.team2 || '?';
+
+      // 1. Determinar el ganador real usando la primera clave del score
+      let realWinner = null;
+      let decisiveScore = null;
+      if (match.score) {
+        const keys = Object.keys(match.score);
+        if (keys.length > 0) {
+          decisiveScore = match.score[keys[0]]; // p, et o ft
+          if (decisiveScore && decisiveScore.length === 2) {
+            if (decisiveScore[0] > decisiveScore[1]) realWinner = t1;
+            else if (decisiveScore[1] > decisiveScore[0]) realWinner = t2;
+          }
+        }
+      }
+
+      // 2. Calcular puntos con el objeto real ya corregido
       const pts1 = computeTeamRoundPoints(t1, roundKey, prediction, real, realFaseGrupos);
       const pts2 = computeTeamRoundPoints(t2, roundKey, prediction, real, realFaseGrupos);
 
@@ -2107,22 +2123,29 @@ function showPlayerPrediction(entry){
       matchDiv.className = 'prediction-ko-match';
       matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
 
+      // 3. Mostrar el marcador decisivo (opcional pero aclara el resultado)
+      let scoreHTML = '';
+      if (decisiveScore) {
+        scoreHTML = `<span style="color:#666;font-weight:600;">${decisiveScore[0]} - ${decisiveScore[1]}</span>`;
+      }
+
       let html = '<div class="ko-teams" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
 
       // Equipo 1
       html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">';
       html += '<span class="team-flag ' + getTeamFlagClass(t1) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
-      html += '<span style="' + (match.winner === t1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t1)) + '</span>';
+      // Resaltar si es el ganador real
+      html += '<span style="' + (realWinner === t1 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t1)) + '</span>';
       if (pts1 > 0) {
         html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:1px 6px;border-radius:8px;font-size:12px;">+' + pts1 + ' pts</span>';
       }
       html += '</div>';
 
-      html += '<span style="color:#888;font-weight:700;">vs</span>';
+      html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">' + scoreHTML + '</div>';
 
       // Equipo 2
       html += '<div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;justify-content:flex-end;">';
-      html += '<span style="' + (match.winner === t2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t2)) + '</span>';
+      html += '<span style="' + (realWinner === t2 ? 'font-weight:700;color:#1a237e;' : '') + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(displayTeamName(t2)) + '</span>';
       html += '<span class="team-flag ' + getTeamFlagClass(t2) + '" style="width:20px;height:14px;flex-shrink:0;"></span>';
       if (pts2 > 0) {
         html += ' <span style="color:#2e7d32;font-weight:700;background:#e8f5e9;padding:1px 6px;border-radius:8px;font-size:12px;">+' + pts2 + ' pts</span>';
@@ -2131,11 +2154,18 @@ function showPlayerPrediction(entry){
 
       html += '</div>';
 
-      // Ganador predicho
+      // 4. Mostrar ganador predicho (opcional)
       if (match.winner && match.winner !== '?') {
         const flagClass = getTeamFlagClass(match.winner);
         html += '<div class="ko-winner" style="margin-top:6px;padding-top:6px;border-top:1px dashed #ddd;font-size:13px;text-align:center">';
         html += 'Ganador elegido: <span class="team-flag ' + flagClass + '" style="width:16px;height:12px;margin:0 4px;"></span><strong>' + escapeHtml(displayTeamName(match.winner)) + '</strong>';
+        html += '</div>';
+      }
+
+      // 5. Indicar si el ganador real coincide o no (opcional)
+      if (realWinner) {
+        html += '<div style="text-align:center;font-size:12px;color:' + (match.winner === realWinner ? '#2e7d32' : '#c62828') + ';">';
+        html += (match.winner === realWinner ? '✅ Acierto' : '❌ Fallo');
         html += '</div>';
       }
 
