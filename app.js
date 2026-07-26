@@ -1546,8 +1546,11 @@ function calculateLeaderboard() {
   const real = typeof REAL_RESULTS !== 'undefined' ? REAL_RESULTS : {};
   if (!players.length) return [];
 
-  const hasRealResults = real.groups && Object.keys(real.groups).length > 0 && 
-                         real.groupMatchResults && Object.keys(real.groupMatchResults).length > 0;
+  // Detectar resultados reales: basta con grupos o knockout
+  const hasRealResults = real && (
+    (real.groups && Object.keys(real.groups).length > 0) ||
+    (real.knockout?.matches && Object.values(real.knockout.matches).some(arr => arr.length > 0))
+  );
 
   return players.map(player => {
     if (hasRealResults) {
@@ -1564,10 +1567,15 @@ function parseLeaderboardData() {
   if (!data.players || !data.players.length) return [];
   return data.players.map(p => {
     let parsed = {};
-    if (p.json) {
+    // El backend envía la predicción en 'prediction' (objeto), no en 'json'
+    if (p.prediction && typeof p.prediction === 'object') {
+      parsed = p.prediction;
+    } else if (p.json && typeof p.json === 'string') {
       try { parsed = JSON.parse(p.json); } catch (e) {}
+    } else if (p.json && typeof p.json === 'object') {
+      parsed = p.json;
     }
-    return { name: p.name || 'Anonimo', raw: p, ...parsed };
+    return { name: p.name || parsed.name || 'Anónimo', raw: p, ...parsed };
   });
 }
 
@@ -1900,15 +1908,27 @@ function renderLeaderboard() {
   const container = document.getElementById('leaderboardContent');
   if (!container) return;
 
-  const data = window.__leaderboardData || { players: [] };
-  const players = data.players || [];
+  // Recalcular puntuaciones en frontend para aplicar cambios de normativa
+  let players = calculateLeaderboard();
+  const hasRealResults = players.length > 0 && players[0].hasDetails;
+
+  // Fallback de seguridad: si el recálculo falla (todos a 0), usar scores del backend
+  const backendData = window.__leaderboardData || { players: [] };
+  if (hasRealResults && players.length > 0 && players.every(p => p.score === 0)) {
+    console.warn('Recálculo devolvió 0 para todos; usando scores del backend');
+    const backendScores = new Map();
+    backendData.players.forEach(p => backendScores.set(p.name, p.score));
+    players = players.map(p => ({
+      ...p,
+      score: backendScores.get(p.name) || 0
+    })).sort((a, b) => b.score - a.score);
+  }
 
   if (!players.length) {
     container.innerHTML = '<p class="note-text">No hay predicciones enviadas todavía.</p>';
     return;
   }
 
-  const hasRealResults = data.hasRealResults || false;
   const table = document.createElement('div');
   table.className = 'leaderboard-table';
 
@@ -1923,7 +1943,6 @@ function renderLeaderboard() {
       const yesterday = allDates[allDates.length - 2];
       const yesterdayData = bumpData.filter(d => d.date === yesterday);
       
-      // Usar sharedRank (rank compartido) para comparar con el leaderboard
       yesterdayData.forEach(d => {
         if (d.sharedRank) {
           previousDaySharedRanks[d.player] = d.sharedRank;
@@ -1970,7 +1989,6 @@ function renderLeaderboard() {
       let trendHtml = '';
       const yesterdaySharedRank = previousDaySharedRanks[name];
       
-      // Comparar rank compartido de ayer vs rank compartido de hoy
       if (yesterdaySharedRank && yesterdaySharedRank !== rank) {
         if (rank < yesterdaySharedRank) {
           trendHtml = '<span class="trend-arrow trend-up" title="Subió desde #' + yesterdaySharedRank + '">▲</span>';
@@ -2064,7 +2082,8 @@ function showPlayerPrediction(entry){
   const real = window.REAL_RESULTS || {};
   const ROUND_POINTS = {
     round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 30, champion: 50, thirdPlace: 20, fourthPlace: 20
+    finalist: 10, champion: 20, thirdPlace: 10, fourthPlace: 5,
+    final: 30, thirdFourth: 25
   };
   const BASIC_ROUNDS = ['round32', 'round16', 'quarterfinals', 'semifinals'];
 
@@ -2154,26 +2173,49 @@ function showPlayerPrediction(entry){
       // 2. Calcular puntos según el tipo de ronda
       let pts1 = 0, pts2 = 0;
       if (roundKey === 'final') {
-        // Campeón y finalista
+        const predRound1 = getTeamRoundFromPlayer(t1, prediction, true);
+        const predRound2 = getTeamRoundFromPlayer(t2, prediction, true);
         const realRound1 = getTeamRoundFromPlayer(t1, real, realFaseGrupos);
         const realRound2 = getTeamRoundFromPlayer(t2, real, realFaseGrupos);
-        if (realRound1 === 'champion') pts1 = ROUND_POINTS.champion;
-        else if (realRound1 === 'finalist') pts1 = ROUND_POINTS.finalist;
-        if (realRound2 === 'champion') pts2 = ROUND_POINTS.champion;
-        else if (realRound2 === 'finalist') pts2 = ROUND_POINTS.finalist;
 
-        // Solo se otorgan si la predicción coincide (la función original no valida eso aquí, solo suma puntos, pero se podría añadir)
-        // Sin embargo, mantener el mismo criterio que en el ranking: si el equipo real alcanzó esa ronda y la predicción también, se suma.
-        // Pero como estamos en la vista de un partido concreto, vamos a comprobar solo que la predicción y realidad coincidan en la ronda.
-        // Para simplificar, usamos computeTeamRoundPoints pero ajustamos.
-        // Mejor: calcular los puntos como la suma de puntos de las rondas que ambos tienen en común para esa ronda terminal.
+        // Bonus por llegar a la final
+        if (['champion','finalist'].includes(predRound1) && ['champion','finalist'].includes(realRound1)) {
+          pts1 = ROUND_POINTS.final;
+        }
+        if (['champion','finalist'].includes(predRound2) && ['champion','finalist'].includes(realRound2)) {
+          pts2 = ROUND_POINTS.final;
+        }
+        // Bonus exacto
+        if (predRound1 === realRound1) {
+          if (realRound1 === 'champion') pts1 += ROUND_POINTS.champion;
+          else if (realRound1 === 'finalist') pts1 += ROUND_POINTS.finalist;
+        }
+        if (predRound2 === realRound2) {
+          if (realRound2 === 'champion') pts2 += ROUND_POINTS.champion;
+          else if (realRound2 === 'finalist') pts2 += ROUND_POINTS.finalist;
+        }
       } else if (roundKey === 'thirdPlace') {
+        const predRound1 = getTeamRoundFromPlayer(t1, prediction, true);
+        const predRound2 = getTeamRoundFromPlayer(t2, prediction, true);
         const realRound1 = getTeamRoundFromPlayer(t1, real, realFaseGrupos);
         const realRound2 = getTeamRoundFromPlayer(t2, real, realFaseGrupos);
-        if (realRound1 === 'thirdPlace') pts1 = ROUND_POINTS.thirdPlace;
-        else if (realRound1 === 'fourthPlace') pts1 = ROUND_POINTS.fourthPlace;
-        if (realRound2 === 'thirdPlace') pts2 = ROUND_POINTS.thirdPlace;
-        else if (realRound2 === 'fourthPlace') pts2 = ROUND_POINTS.fourthPlace;
+
+        // Bonus por llegar al partido
+        if (['thirdPlace','fourthPlace'].includes(predRound1) && ['thirdPlace','fourthPlace'].includes(realRound1)) {
+          pts1 = ROUND_POINTS.thirdFourth;
+        }
+        if (['thirdPlace','fourthPlace'].includes(predRound2) && ['thirdPlace','fourthPlace'].includes(realRound2)) {
+          pts2 = ROUND_POINTS.thirdFourth;
+        }
+        // Bonus exacto
+        if (predRound1 === realRound1) {
+          if (realRound1 === 'thirdPlace') pts1 += ROUND_POINTS.thirdPlace;
+          else if (realRound1 === 'fourthPlace') pts1 += ROUND_POINTS.fourthPlace;
+        }
+        if (predRound2 === realRound2) {
+          if (realRound2 === 'thirdPlace') pts2 += ROUND_POINTS.thirdPlace;
+          else if (realRound2 === 'fourthPlace') pts2 += ROUND_POINTS.fourthPlace;
+        }
       } else {
         // Para el resto de rondas, la lógica original funciona bien
         pts1 = computeTeamRoundPoints(t1, roundKey, prediction, real, realFaseGrupos);
