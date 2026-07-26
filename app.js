@@ -2080,11 +2080,7 @@ function showPlayerPrediction(entry){
   const score = (entry.score != null && !isNaN(entry.score)) ? Number(entry.score) : 0;
   const prediction = entry.prediction || entry;
   const real = window.REAL_RESULTS || {};
-  const ROUND_POINTS = {
-    round32: 3, round16: 5, quarterfinals: 10, semifinals: 20,
-    finalist: 10, champion: 20, thirdPlace: 10, fourthPlace: 5,
-    final: 30, thirdFourth: 25
-  };
+  const ROUND_POINTS = {round32: 3, round16: 5, quarterfinals: 10, semifinals: 20, thirdFourth: 25, final: 30, fourthPlace: 5, thirdPlace: 10, finalist: 15, champion: 20};
   const BASIC_ROUNDS = ['round32', 'round16', 'quarterfinals', 'semifinals'];
 
   function getRoundsForTerminal(terminal) {
@@ -2785,6 +2781,40 @@ function initBracket() {
     const winner = getWinner(num);
     const m = matchMap[num];
 
+    // Detectar tipo de partido especial
+    const isFinalMatch = num === 104;
+    const isThirdPlaceMatch = num === 103;
+
+    // Calcular clases según resultado
+    let t1Class = '';
+    let t2Class = '';
+    if (winner) {
+      if (isFinalMatch) {
+        // Final: ganador → winner, perdedor → second
+        if (winner === t1) {
+          t1Class = 'winner';
+          t2Class = 'second';
+        } else {
+          t2Class = 'winner';
+          t1Class = 'second';
+        }
+      } else if (isThirdPlaceMatch) {
+        // 3º/4º puesto: ganador → third (no winner)
+        if (winner === t1) {
+          t1Class = 'third';
+        } else {
+          t2Class = 'third';
+        }
+      } else {
+        // Resto de partidos: solo el ganador → winner
+        if (winner === t1) {
+          t1Class = 'winner';
+        } else {
+          t2Class = 'winner';
+        }
+      }
+    }
+
     // Calcular puntuaciones visibles
     let score1 = '', score2 = '';
     if (m && m.score) {
@@ -2819,14 +2849,14 @@ function initBracket() {
     return `
       <div class="${boxClass}" data-match="${num}">
         <div class="team-row">
-          <span class="team-name ${winner === t1 ? 'winner' : ''}">
+          <span class="team-name ${t1Class}">
             <span class="team-flag ${getTeamFlagClass(t1)}"></span>
             ${displayTeamName(t1)}
           </span>
           <span class="score">${score1}</span>
         </div>
         <div class="team-row">
-          <span class="team-name ${winner === t2 ? 'winner' : ''}">
+          <span class="team-name ${t2Class}">
             <span class="team-flag ${getTeamFlagClass(t2)}"></span>
             ${displayTeamName(t2)}
           </span>

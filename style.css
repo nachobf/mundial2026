@@ -698,7 +698,7 @@ body {
 }
 .exact-row .scoring-desc {
   font-weight: 600;
-  color: #E65100;
+  color: #FFB300;
 }
 .scoring-desc {font-weight: 500; font-size: 14px; color: #333; }
 .scoring-points {
@@ -2147,6 +2147,14 @@ body {
 
 .final-box .team-name.winner {
   color: #FFD700;
+}
+
+.final-box .team-name.second {
+  color: #C0C0C0;
+}
+
+.final-box .team-name.third {
+  color: #CD7F32;
 }
 
 @media (max-width: 768px) {
