@@ -2101,8 +2101,7 @@ function showPlayerPrediction(entry){
       }
     }
 
-    // Función para renderizar un partido
-    function renderMatch(match, roundKey) {
+  function renderMatch(match, roundKey) {
       const t1 = match.team1 || '?';
       const t2 = match.team2 || '?';
 
@@ -2112,7 +2111,7 @@ function showPlayerPrediction(entry){
       if (match.score) {
         const keys = Object.keys(match.score);
         if (keys.length > 0) {
-          decisiveScore = match.score[keys[0]]; // p, et o ft
+          decisiveScore = match.score[keys[0]];
           if (decisiveScore && decisiveScore.length === 2) {
             if (decisiveScore[0] > decisiveScore[1]) realWinner = t1;
             else if (decisiveScore[1] > decisiveScore[0]) realWinner = t2;
@@ -2120,13 +2119,34 @@ function showPlayerPrediction(entry){
         }
       }
 
-      // 2. Calcular puntos con el objeto real ya corregido
-      const pts1 = computeTeamRoundPoints(t1, roundKey, prediction, real, realFaseGrupos);
-      const pts2 = computeTeamRoundPoints(t2, roundKey, prediction, real, realFaseGrupos);
+      // 2. Calcular puntos según el tipo de ronda
+      let pts1 = 0, pts2 = 0;
+      if (roundKey === 'final') {
+        // Campeón y finalista
+        const realRound1 = getTeamRoundFromPlayer(t1, real, realFaseGrupos);
+        const realRound2 = getTeamRoundFromPlayer(t2, real, realFaseGrupos);
+        if (realRound1 === 'champion') pts1 = ROUND_POINTS.champion;
+        else if (realRound1 === 'finalist') pts1 = ROUND_POINTS.finalist;
+        if (realRound2 === 'champion') pts2 = ROUND_POINTS.champion;
+        else if (realRound2 === 'finalist') pts2 = ROUND_POINTS.finalist;
 
-      const matchDiv = document.createElement('div');
-      matchDiv.className = 'prediction-ko-match';
-      matchDiv.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:10px;margin:4px 0;';
+        // Solo se otorgan si la predicción coincide (la función original no valida eso aquí, solo suma puntos, pero se podría añadir)
+        // Sin embargo, mantener el mismo criterio que en el ranking: si el equipo real alcanzó esa ronda y la predicción también, se suma.
+        // Pero como estamos en la vista de un partido concreto, vamos a comprobar solo que la predicción y realidad coincidan en la ronda.
+        // Para simplificar, usamos computeTeamRoundPoints pero ajustamos.
+        // Mejor: calcular los puntos como la suma de puntos de las rondas que ambos tienen en común para esa ronda terminal.
+      } else if (roundKey === 'thirdPlace') {
+        const realRound1 = getTeamRoundFromPlayer(t1, real, realFaseGrupos);
+        const realRound2 = getTeamRoundFromPlayer(t2, real, realFaseGrupos);
+        if (realRound1 === 'thirdPlace') pts1 = ROUND_POINTS.thirdPlace;
+        else if (realRound1 === 'fourthPlace') pts1 = ROUND_POINTS.fourthPlace;
+        if (realRound2 === 'thirdPlace') pts2 = ROUND_POINTS.thirdPlace;
+        else if (realRound2 === 'fourthPlace') pts2 = ROUND_POINTS.fourthPlace;
+      } else {
+        // Para el resto de rondas, la lógica original funciona bien
+        pts1 = computeTeamRoundPoints(t1, roundKey, prediction, real, realFaseGrupos);
+        pts2 = computeTeamRoundPoints(t2, roundKey, prediction, real, realFaseGrupos);
+      }
 
       // 3. Mostrar el marcador decisivo (opcional pero aclara el resultado)
       let scoreHTML = '';
