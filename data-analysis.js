@@ -322,7 +322,7 @@ function daCalculateScore(player, real, faseGruposTerminada) {
   };
 
   const finalExactBonus = {
-    champion: 20, finalist: 10, thirdPlace: 10, fourthPlace: 5
+    champion: 20, finalist: 15, thirdPlace: 10, fourthPlace: 5
   };
 
   const proximityBonus = {
@@ -2427,7 +2427,7 @@ function daCalculateScoreByCategory(player, real, faseGruposTerminada) {
   };
 
   const finalExactBonus = {
-    champion: 20, finalist: 10, thirdPlace: 10, fourthPlace: 5
+    champion: 20, finalist: 15, thirdPlace: 10, fourthPlace: 5
   };
 
   const proximityBonus = {
