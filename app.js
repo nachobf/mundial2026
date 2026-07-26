@@ -668,9 +668,14 @@ function getTeamRoundFromPlayer(team, data, faseGruposTerminada) {
           if (m.winner === team) {
             if (round === 'final') return 'champion';
             if (round === 'thirdPlace') return 'thirdPlace';
-            const allRounds = ['round32', 'round16', 'quarterfinals', 'semifinals', 'thirdPlace', 'final'];
-            const idx = allRounds.indexOf(round);
-            return allRounds[idx + 1] || round;
+            // Mapeo correcto de progresión
+            const nextRoundMap = {
+              'round32': 'round16',
+              'round16': 'quarterfinals',
+              'quarterfinals': 'semifinals',
+              'semifinals': 'finalist'
+            };
+            return nextRoundMap[round] || round;
           } else {
             if (round === 'final') return 'finalist';
             if (round === 'thirdPlace') return 'fourthPlace';
